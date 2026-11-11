@@ -856,6 +856,8 @@ fn key_pass(ctx: &egui::Context, app: &mut SoundApp, events: Vec<egui::Event>) {
 fn app_for_keys() -> (egui::Context, SoundApp) {
     let ctx = egui::Context::default();
     let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    // The Classic layout's keys: in NEW, R records instead of zooming out.
+    app.ui.layout = crate::new_layout::LayoutPreset::Classic;
     for _ in 0..4 {
         key_pass(&ctx, &mut app, Vec::new());
     }

@@ -32,7 +32,7 @@ pub mod spot;
 #[derive(Debug, Clone)]
 pub enum Dialog {
     NewTracks(new_tracks::NewTracks),
-    NewSession { name: String, sample_rate: u32, demo: bool },
+    NewSession { name: String, sample_rate: u32, template: &'static str },
     Bounce { path: String, format: FileFormat, bit_depth: String, normalize: bool, dither: bool },
     RenameTrack { id: TrackId, name: String },
     RenameClip { id: ClipId, name: String },
@@ -171,7 +171,7 @@ impl Dialogs {
                 return self.open_clear(e, ed.selected_clips.clone(), ed.selected_sources.clone());
             }
             "track.new" => Dialog::NewTracks(new_tracks::NewTracks::default()),
-            "session.new" => Dialog::NewSession { name: "Untitled".into(), sample_rate: 48_000, demo: false },
+            "session.new" => Dialog::NewSession { name: "Untitled".into(), sample_rate: 48_000, template: "drums" },
             "file.bounce_mix" => {
                 let dir = e
                     .path
@@ -467,7 +467,7 @@ pub fn show(app: &mut SoundApp, ctx: &egui::Context) {
                         action = Some(("track.new".into(), params));
                     }
                 }
-                Dialog::NewSession { name, sample_rate, demo } => {
+                Dialog::NewSession { name, sample_rate, template } => {
                     ui.horizontal(|ui| {
                         ui.label("Name");
                         crate::widgets::named_text_field(ui.text_edit_singleline(name), "Name");
@@ -477,12 +477,15 @@ pub fn show(app: &mut SoundApp, ctx: &egui::Context) {
                             ui.selectable_value(sample_rate, r, format!("{r} Hz"));
                         }
                     });
-                    crate::widgets::checkbox(ui, demo, "Start from the demo session");
+                    const TEMPLATES: [(&str, &str); 3] = [("drums", "Drums track"), ("empty", "Empty, no tracks"), ("demo", "Demo session")];
+                    let current = TEMPLATES.iter().find(|(id, _)| id == template).map_or("Drums track", |(_, label)| label);
+                    craft_ui::ComboBox::from_label("Template").selected_text(current).show_ui(ui, |ui| {
+                        for (id, label) in TEMPLATES {
+                            ui.selectable_value(template, id, label);
+                        }
+                    });
                     if buttons(ui, "Create", enter) {
-                        action = Some((
-                            "session.new".into(),
-                            json!({"name": name, "sample_rate": sample_rate, "template": if *demo { "demo" } else { "blank" }}),
-                        ));
+                        action = Some(("session.new".into(), json!({"name": name, "sample_rate": sample_rate, "template": template})));
                     }
                 }
                 Dialog::Bounce { path, format, bit_depth, normalize, dither } => {

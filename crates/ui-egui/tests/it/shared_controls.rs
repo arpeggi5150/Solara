@@ -104,7 +104,7 @@ fn tool_and_record_buttons_handle_keyboard_disabled_state_and_cancelled_clicks()
 
 #[test]
 fn toolbar_keyboard_activation_changes_tools_without_transport_or_marker_actions() {
-    let app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     let mut h = Harness::builder().with_size(vec2(1600.0, 1000.0)).build_ui_state(
         |ui, app: &mut SoundApp| {
             app.logic(&ui.ctx().clone());
@@ -136,7 +136,7 @@ fn toolbar_keyboard_activation_changes_tools_without_transport_or_marker_actions
 /// transport or recording.
 #[test]
 fn track_record_button_arms_the_track_without_starting_transport() {
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     app.run("track.new", serde_json::json!({"name": "Voice"})).unwrap();
     let mut h = Harness::builder().with_size(vec2(1600.0, 1000.0)).build_ui_state(
         |ui, app: &mut SoundApp| {
@@ -166,7 +166,7 @@ fn shared_controls_visuals() {
     let Some(directory) = std::env::var_os("CRAFT_UI_SUITE_SHOTS").map(std::path::PathBuf::from) else { return };
     std::fs::create_dir_all(&directory).unwrap();
     for scale in [1.0, 2.0] {
-        let app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+        let app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
         let mut h = Harness::builder().with_size(vec2(1600.0, 1000.0)).with_pixels_per_point(scale).wgpu().build_ui_state(
             |ui, app: &mut SoundApp| {
                 app.logic(&ui.ctx().clone());

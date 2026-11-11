@@ -59,6 +59,7 @@ fn repeated_track_controls_are_named_and_valued_per_track() {
 
     // The Mix window repeats the same controls per strip; those names must be track-qualified
     // too, and the automation selector must publish its value rather than only a tooltip.
+    h.state_mut().ui.layout = crate::new_layout::LayoutPreset::Classic;
     h.state_mut().ui.window = crate::MainWindow::Mix;
     h.run_steps(5);
     for name in ["Kick", "Snare"] {

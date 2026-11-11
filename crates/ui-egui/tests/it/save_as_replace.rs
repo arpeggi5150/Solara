@@ -12,7 +12,7 @@ fn saving_over_another_session_takes_the_replace_button() {
     let path = dir.join("Song.scraft");
     soundcraft_engine::Engine::default().execute("session.save_as", &json!({"path": path})).unwrap();
     let other = std::fs::read(&path).unwrap();
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.dialogs.open = Some(Dialog::PathPrompt {
         cmd: "session.save_as".into(),
         title: "Save Session As".into(),

@@ -25,7 +25,7 @@ fn track_preset_captures_live_plugin_state_before_serializing() {
     let stale: Vec<u8> = [0.25_f64, 0.0].into_iter().flat_map(f64::to_le_bytes).collect();
     assert_ne!(live, stale);
     engine.session_mut().track_mut(track).unwrap().mixer.inserts[0].as_mut().unwrap().set_state_bytes(&stale);
-    let mut app = SoundApp::new(engine, Some(player), Services::default());
+    let mut app = SoundApp::new_classic(engine, Some(player), Services::default());
     assert_eq!(app.engine.session().track(track).unwrap().mixer.inserts[0].as_ref().unwrap().state_bytes(), Some(stale));
 
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("track-preset-state-{}.json", std::process::id()));

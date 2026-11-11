@@ -30,7 +30,7 @@ use automation::automation_id;
 pub use clips::strip_silence_stroke;
 #[cfg(test)]
 use clips::{clip_name_height, fade_curve_points};
-use drag::drive_drag;
+pub(crate) use drag::drive_drag;
 #[cfg(test)]
 use drag::fade_drag_range;
 #[cfg(test)]

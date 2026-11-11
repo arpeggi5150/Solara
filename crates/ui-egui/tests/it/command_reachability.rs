@@ -118,7 +118,7 @@ fn remove_sync_point_follows_identify_and_is_greyed_out_without_a_point() {
     let id = menus::command_for_path(path, &menus::ui_aliases());
     assert_eq!(id.as_deref(), Some("clip.remove_sync_point"));
 
-    let mut app = soundcraft_ui_egui::SoundApp::new(soundcraft_engine::demo::demo_engine(), None, soundcraft_ui_egui::Services::default());
+    let mut app = soundcraft_ui_egui::SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, soundcraft_ui_egui::Services::default());
     app.engine.execute("edit.select", &serde_json::json!({"tracks": ["Kick"], "start": {"seconds": 12.0}})).unwrap();
     assert!(!menus::item_state(&app, path, id.as_deref()).0, "the selected Kick clip has no sync point yet");
     app.engine.execute("clip.identify_sync_point", &serde_json::json!({})).unwrap();

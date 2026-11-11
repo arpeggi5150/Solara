@@ -26,7 +26,7 @@ fn press(ctx: &egui::Context, app: &mut SoundApp, key: Key, modifiers: Modifiers
 fn rig(os: OperatingSystem) -> (egui::Context, SoundApp) {
     let ctx = egui::Context::default();
     ctx.set_os(os);
-    (ctx, SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default()))
+    (ctx, SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default()))
 }
 
 fn start(app: &SoundApp) -> i64 {
@@ -198,7 +198,7 @@ fn window_keys_open_their_windows() {
 /// Modified arrow keys stay with the global shortcuts, while an unmodified arrow still moves the selected note.
 #[test]
 fn the_piano_roll_leaves_modified_arrows_to_the_shortcuts() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.ui.show_midi_editor = true;
     app.run("edit.select", json!({"tracks": ["Keys"]})).unwrap();
     let ctx = egui::Context::default();
@@ -237,7 +237,7 @@ fn the_piano_roll_leaves_modified_arrows_to_the_shortcuts() {
 /// Shift+Up moves the selection to the same note an octave above, past intervening notes in the chord.
 #[test]
 fn the_piano_roll_selection_follows_notes_the_arrows_move_past_others() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.ui.show_midi_editor = true;
     app.run("edit.select", json!({"tracks": ["Keys"]})).unwrap();
     let ctx = egui::Context::default();

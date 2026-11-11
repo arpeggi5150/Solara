@@ -92,6 +92,9 @@ pub fn handle(app: &mut SoundApp, ctx: &egui::Context) {
             }
             continue;
         }
+        if app.ui.layout == crate::new_layout::LayoutPreset::New && crate::new_layout::keys(app, key, mods) {
+            continue;
+        }
         if fixed(app, key, mods, mac) {
             continue;
         }

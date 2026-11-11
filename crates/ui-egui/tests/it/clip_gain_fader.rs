@@ -18,7 +18,7 @@ fn button(pos: Pos2, pressed: bool) -> Event {
 
 #[test]
 fn the_clip_gain_icon_drags_with_the_pointer_in_one_undo_step() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.engine.execute("view.clip_gain_info", &json!({"value": true})).unwrap();
     let ctx = egui::Context::default();
     frame(&ctx, &mut app, vec![]);

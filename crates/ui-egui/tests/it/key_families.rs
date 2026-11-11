@@ -19,7 +19,7 @@ fn press(ctx: &egui::Context, app: &mut SoundApp, key: Key, modifiers: Modifiers
 fn rig(os: OperatingSystem) -> (egui::Context, SoundApp) {
     let ctx = egui::Context::default();
     ctx.set_os(os);
-    (ctx, SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default()))
+    (ctx, SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default()))
 }
 
 #[test]

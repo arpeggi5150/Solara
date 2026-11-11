@@ -26,7 +26,7 @@ fn near(a: [i32; 3], b: Color32) -> bool {
 /// Numeric Grid lines retain their stacking order over clips in both themes.
 #[test]
 fn grid_lines_are_drawn_over_clips_while_shown() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let ctx = egui::Context::default();
     for theme in ["dark", "light"] {
         for shown in [true, false] {
@@ -74,7 +74,7 @@ fn grid_lines_are_drawn_over_clips_while_shown() {
 /// Clips/Markers grid lines reach the timeline at memory-location boundaries.
 #[test]
 fn clips_markers_grid_draws_a_line_at_a_memory_location() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let ctx = egui::Context::default();
     let kick = app.engine.session().track_by_name("Kick").unwrap();
     let clip = &kick.clips()[0];
@@ -131,7 +131,7 @@ fn clips_markers_lines_refresh_across_lanes_and_hidden_open_folders() {
     s.add_marker("Boundary", soundcraft_model::MarkerKind::Marker, 9_000, 9_000);
     s.edit.grid_clips_markers = true;
     s.edit.grid_lines = true;
-    let mut app = SoundApp::new(engine, None, Services::default());
+    let mut app = SoundApp::new_classic(engine, None, Services::default());
     let ctx = egui::Context::default();
 
     for (start, marker, scroll, zoom) in [(1_200, 9_000, 0, 20.0), (3_000, 11_000, 0, 20.0), (3_000, 11_000, 1_000, 40.0)] {

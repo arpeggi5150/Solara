@@ -91,6 +91,15 @@ a portal answer it uses Dark. Manual Light and Dark stay fixed when the OS appea
 An offscreen render without `--system-theme` supplies no OS appearance and therefore resolves
 System to Dark, or on Linux to the desktop's portal setting when one is available.
 
+Layouts: the app opens in the NEW layout. `ui.layout {"preset":"new"|"classic"}` switches
+between NEW and Classic (the Edit and Mix windows) without touching the session; with no
+`preset` it returns the current one. `flStyle`, `reaper` and `abletonStyle` are named but
+refused until they are built. In NEW, `ui.mixer {"value"?: bool}` expands or collapses the
+bottom Mixer (M) and `ui.editor {"view": "auto"|"steps"|"piano"}` picks what the bottom
+Editor shows (B and P). New projects come from `session.new {"template": "drums"}` (one
+Drums track, as a fresh launch and File > New start) or `{"template": "empty"}` (no tracks); both start with loop
+playback on.
+
 `view.scroll_into_view {"track":"Bass"}` (a track id or name; without it, the first selected
 track) brings the track to the top of the Edit window and the left of the Mix window, the same as
 Scroll Into View in the track name menu. A window not on screen catches up when it is next shown.

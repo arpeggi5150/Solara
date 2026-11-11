@@ -15,7 +15,7 @@ impl Rig {
     fn new() -> Rig {
         let mut engine = soundcraft_engine::Engine::default();
         engine.execute("track.new", &json!({})).unwrap();
-        let mut r = Rig { ctx: egui::Context::default(), app: SoundApp::new(engine, None, Services::default()), shapes: Vec::new() };
+        let mut r = Rig { ctx: egui::Context::default(), app: SoundApp::new_classic(engine, None, Services::default()), shapes: Vec::new() };
         r.frames(4);
         r
     }
