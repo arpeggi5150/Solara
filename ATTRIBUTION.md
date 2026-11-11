@@ -11,7 +11,7 @@ Assets must be original, public domain (CC0) or permissively licensed. See `AGEN
 All UI icons (tools, transport, track buttons) are drawn procedurally in
 `crates/ui-egui/src/icons.rs` by the SoundCraft contributors (MIT OR Apache-2.0). No UI icon image
 files are used. The Solara app icon, wordmark and splash (`assets/app-icon/`, `assets/brand/`,
-`assets/splash/`) belong to Zee / Zz Creations LLC and are not open source; they are listed under
+`assets/splash/`) belong to Zee Creations LLC and are not open source; they are listed under
 Files below.
 
 ## Audio
@@ -40,12 +40,12 @@ here. The subset uses default_fonts; the parent face uses monochrome_emoji_fonts
 
 | Path | Author | Source | License |
 |---|---|---|---|
-| `assets/app-icon/solara.svg` | Zee / Zz Creations LLC | Solara final assets (2026-11-10), vector master | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
-| `assets/app-icon/solara-icon-1024x1024.png` | Zee / Zz Creations LLC | Solara final assets (2026-11-10) | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
-| `assets/app-icon/solara.ico` | Zee / Zz Creations LLC | Solara final assets (2026-11-10), 6 sizes 16–256 px | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
-| `assets/app-icon/solara.icns` | Zee / Zz Creations LLC | Solara final assets (2026-11-10) | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
-| `assets/app-icon/hicolor/` | Zee / Zz Creations LLC | Solara final assets (2026-11-10): the 16–512 px icon PNGs and `solara.svg`, renamed to the app id | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
-| `assets/brand/` | Zee / Zz Creations LLC | Solara final assets (2026-11-10): SOLARA wordmark (SVG, horizontal and stacked PNG) | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
-| `assets/splash/` | Zee / Zz Creations LLC | Solara final assets (2026-11-10): start-up splash, 1280 × 720 | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara.svg` | Zee Creations LLC | Solara final assets (2026-11-10), vector master | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara-icon-1024x1024.png` | Zee Creations LLC | Solara final assets (2026-11-10) | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara.ico` | Zee Creations LLC | Solara final assets (2026-11-10), 6 sizes 16–256 px | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara.icns` | Zee Creations LLC | Solara final assets (2026-11-10) | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/hicolor/` | Zee Creations LLC | Solara final assets (2026-11-10): the 16–512 px icon PNGs and `solara.svg`, renamed to the app id | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/brand/` | Zee Creations LLC | Solara final assets (2026-11-10): SOLARA wordmark (SVG, horizontal and stacked PNG) | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/splash/` | Zee Creations LLC | Solara final assets (2026-11-10): start-up splash, 1280 × 720 | Proprietary: © Zee Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
 | `packaging/macos/dmg/` (all files) | @XusBadia | original (macOS DMG window background and layout, from the app icon; see `packaging/macos/dmg/README.md`) | MIT OR Apache-2.0 |
 | `crates/audio-io/tests/fixtures/` | SoundCraft contributors | original test tones and silence generated with ffmpeg (sine) or by hand; commands in `crates/audio-io/tests/fixtures/README.md` | MIT OR Apache-2.0 |

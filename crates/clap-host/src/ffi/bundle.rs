@@ -168,7 +168,7 @@ impl Bundle {
             clap_version: CLAP_VERSION,
             host_data: Arc::as_ptr(&state).cast_mut().cast::<c_void>(),
             name: c"Solara".as_ptr(),
-            vendor: c"Zz Creations LLC".as_ptr(),
+            vendor: c"Zee Creations LLC".as_ptr(),
             url: c"https://github.com/arpeggi5150/Solara".as_ptr(),
             version: c"0.1.0".as_ptr(),
             get_extension: Some(host_get_extension),

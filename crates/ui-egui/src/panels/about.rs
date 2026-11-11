@@ -26,7 +26,7 @@ pub(super) fn about(app: &mut SoundApp, ctx: &egui::Context) {
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
                 ui.label("A DAW for creators.");
                 ui.label("Source code MIT OR Apache-2.0 (see NOTICE). Made with Rust and egui.");
-                ui.label("The Solara name, icon and artwork © Zz Creations LLC. All rights reserved.");
+                ui.label("The Solara name, icon and artwork © Zee Creations LLC. All rights reserved.");
                 ui.hyperlink_to("github.com/arpeggi5150/Solara", "https://github.com/arpeggi5150/Solara");
             }
         }

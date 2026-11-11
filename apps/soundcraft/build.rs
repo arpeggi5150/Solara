@@ -16,8 +16,8 @@ fn main() {
     res.set_icon("../../assets/app-icon/solara.ico")
         .set("ProductName", "Solara")
         .set("FileDescription", "Solara digital audio workstation")
-        .set("CompanyName", "Zz Creations LLC")
-        .set("LegalCopyright", "Solara (c) Zz Creations LLC. Source code MIT OR Apache-2.0, see NOTICE.")
+        .set("CompanyName", "Zee Creations LLC")
+        .set("LegalCopyright", "Solara (c) Zee Creations LLC. Source code MIT OR Apache-2.0, see NOTICE.")
         .set("OriginalFilename", "soundcraft.exe")
         .set("InternalName", "soundcraft");
     if let Err(e) = res.compile() {
