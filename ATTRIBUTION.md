@@ -1,6 +1,6 @@
 # Attribution
 
-Every asset bundled with or committed to SoundCraft is listed here with its author, source and
+Every asset bundled with or committed to Solara (based on SoundCraft) is listed here with its author, source and
 license. `cargo xtask assets` fails CI when a tracked asset file has no row.
 
 **Rule:** no Avid, Pro Tools, Adobe or other proprietary icons, images, sounds or presets — ever.
@@ -10,8 +10,9 @@ Assets must be original, public domain (CC0) or permissively licensed. See `AGEN
 
 All UI icons (tools, transport, track buttons) are drawn procedurally in
 `crates/ui-egui/src/icons.rs` by the SoundCraft contributors (MIT OR Apache-2.0). No UI icon image
-files are used. The app icon (`assets/app-icon/`, a singing nightingale drawn as original SVG by
-the SoundCraft contributors) is listed under Files below.
+files are used. The Solara app icon, wordmark and splash (`assets/app-icon/`, `assets/brand/`,
+`assets/splash/`) belong to Zee / Zz Creations LLC and are not open source; they are listed under
+Files below.
 
 ## Audio
 
@@ -39,20 +40,12 @@ here. The subset uses default_fonts; the parent face uses monochrome_emoji_fonts
 
 | Path | Author | Source | License |
 |---|---|---|---|
-| `docs/brand/artcraft-logo.svg` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms (`docs/brand/LICENSE-brand.txt`) |
-| `docs/brand/artcraft-logo.png` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `docs/brand/artcraft-logo-white.svg` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `docs/brand/artcraft-logo-white.png` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `docs/brand/artcraft-mark.svg` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `docs/brand/artcraft-mark.png` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `docs/brand/artcraft-mark-black.svg` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `docs/brand/artcraft-mark-black.png` | ArtCraft Team | ArtCraft brand assets | ArtCraft brand terms |
-| `assets/app-icon/icon.svg` | SoundCraft contributors | original (hand-placed SVG paths; placeholder app icon) | MIT OR Apache-2.0 |
+| `assets/app-icon/solara.svg` | Zee / Zz Creations LLC | Solara final assets (2026-11-10), vector master | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara-icon-1024x1024.png` | Zee / Zz Creations LLC | Solara final assets (2026-11-10) | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara.ico` | Zee / Zz Creations LLC | Solara final assets (2026-11-10), 6 sizes 16–256 px | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/solara.icns` | Zee / Zz Creations LLC | Solara final assets (2026-11-10) | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/app-icon/hicolor/` | Zee / Zz Creations LLC | Solara final assets (2026-11-10): the 16–512 px icon PNGs and `solara.svg`, renamed to the app id | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/brand/` | Zee / Zz Creations LLC | Solara final assets (2026-11-10): SOLARA wordmark (SVG, horizontal and stacked PNG) | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
+| `assets/splash/` | Zee / Zz Creations LLC | Solara final assets (2026-11-10): start-up splash, 1280 × 720 | Proprietary: © Zz Creations LLC, all rights reserved; not covered by the MIT / Apache-2.0 code licence (see NOTICE) |
 | `packaging/macos/dmg/` (all files) | @XusBadia | original (macOS DMG window background and layout, from the app icon; see `packaging/macos/dmg/README.md`) | MIT OR Apache-2.0 |
-| `assets/app-icon/soundcraft-1024.png` | SoundCraft contributors | original, rendered from `icon.svg` | MIT OR Apache-2.0 |
-| `assets/app-icon/soundcraft-macos-512.png` | SoundCraft contributors | original, rendered from `icon.svg` | MIT OR Apache-2.0 |
-| `assets/app-icon/soundcraft.icns` | SoundCraft contributors | original, rendered from `icon.svg` | MIT OR Apache-2.0 |
-| `assets/app-icon/soundcraft.ico` | SoundCraft contributors | original, rendered from `icon.svg` | MIT OR Apache-2.0 |
-| `assets/app-icon/hicolor/` | SoundCraft contributors | original, rendered from `icon.svg` (16–512 px PNGs and the scalable SVG) | MIT OR Apache-2.0 |
-| `docs/images/` | SoundCraft contributors | screenshots of SoundCraft rendered from the synthesised demo session | MIT OR Apache-2.0 |
 | `crates/audio-io/tests/fixtures/` | SoundCraft contributors | original test tones and silence generated with ffmpeg (sine) or by hand; commands in `crates/audio-io/tests/fixtures/README.md` | MIT OR Apache-2.0 |

@@ -98,7 +98,7 @@ $Msi = Join-Path $Dist "soundcraft-$Version-windows-$Arch.msi"
 Invoke-Native 'WiX UI extension' { wix extension add -g WixToolset.UI.wixext/5.0.2 }
 Invoke-Native 'wix build' {
   wix build (Join-Path $PSScriptRoot 'soundcraft.wxs') -arch $Arch -ext WixToolset.UI.wixext `
-    -d "Version=$MsiVersion" -d "BinDir=$Stage" -d "IconPath=$(Join-Path $Root 'assets\app-icon\soundcraft.ico')" `
+    -d "Version=$MsiVersion" -d "BinDir=$Stage" -d "IconPath=$(Join-Path $Root 'assets\app-icon\solara.ico')" `
     -o $Msi
 }
 # Check the compiled scope, path and registration contract before signing.

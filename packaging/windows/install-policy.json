@@ -5,7 +5,7 @@
   "sources": [
     "soundcraft.wxs"
   ],
-  "icon": "assets/app-icon/soundcraft.ico",
+  "icon": "assets/app-icon/solara.ico",
   "localization": [],
   "extensions": [
     "UI"

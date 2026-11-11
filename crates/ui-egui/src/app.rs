@@ -3,7 +3,7 @@ use super::state::MainWindow;
 use super::{
     ControlRequest, Engine, Gesture, HashMap, MeterDisplay, OutputTrouble, Player, Range, Receiver, Samples, SoundApp, TrackId, TransportRequest,
     Trouble, UiState, Value, VecDeque, bounce, dialogs, edit_window, extra_windows, fonts, import, json, menus, midi_editor, mix_window, ops_windows,
-    palette, panels, preferences, recovery, sampler_window, score_editor, shortcuts, theme, updates_ui, video_track, video_window, windows,
+    palette, panels, preferences, recovery, sampler_window, score_editor, shortcuts, splash, theme, updates_ui, video_track, video_window, windows,
 };
 
 mod audio;
@@ -24,6 +24,12 @@ impl SoundApp {
     /// Takes effect only before the first frame installs the fonts.
     pub fn set_system_fonts(&mut self, on: bool) {
         self.system_fonts = on;
+    }
+
+    /// Whether the Solara splash shows for a moment at start-up (off by default, so tests and
+    /// offscreen renders never see it). Set before the first frame.
+    pub fn set_splash(&mut self, on: bool) {
+        self.splash.set(on);
     }
 
     /// Build an app around an engine and optional player, initialising UI, recording, autosave, control and
@@ -54,6 +60,7 @@ impl SoundApp {
             last_autosave: None,
             dialogs: dialogs::Dialogs::default(),
             updates_rt: updates_ui::Runtime::default(),
+            splash: splash::Splash::default(),
             meters: HashMap::new(),
             main_meter: MeterDisplay::default(),
             meter_snapshot: soundcraft_playback::MeterSnapshot::default(),
@@ -345,6 +352,7 @@ impl SoundApp {
         palette::show(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
+        splash::show(&mut self.splash, self.uptime, &ctx);
         // The sampler's drop rects are current now, so route any captured drop in this pass.
         self.route_dropped_files();
         // The pass that actually received the injected events has already dispatched their widget

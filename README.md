@@ -1,14 +1,5 @@
 <p align="center">
-  <a href="https://getartcraft.com/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
-      <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
-    </picture>
-  </a>
-</p>
-
-<p align="center">
-  <img src="assets/app-icon/hicolor/256x256/apps/ai.storyteller.soundcraft.png" width="128" height="128" alt="SoundCraft icon: a singing bird on a blue tile">
+  <img src="assets/app-icon/hicolor/256x256/apps/ai.storyteller.soundcraft.png" width="128" height="128" alt="Solara icon: a gold winged sun on a teal tile">
 </p>
 
 <h1 align="center">SoundCraft</h1>
@@ -44,12 +35,6 @@
   <a href="https://getartcraft.com/apps">All Crafting Apps</a>
 </p>
 
-<p align="center">
-  <img alt="SoundCraft's Edit window with a nine-track session: drums, bass, pad, keys and lead, a reverb aux and a master fader" src="docs/images/edit.png" width="100%">
-  <br>
-  <sub>The Edit window: tracks, waveforms, MIDI, rulers, markers and the transport, playing the built-in demo song (every sound in it is synthesised by SoundCraft itself).</sub>
-</p>
-
 > [!NOTE]
 > **ArtCraft is a community of artists from all walks of life.** Painters, photographers,
 > filmmakers, illustrators, designers, animators, hobbyists, and people who picked up a pencil
@@ -75,32 +60,16 @@ where things are.
 
 <table>
   <tr>
-    <td width="50%"><img alt="The Mix window with channel strips, inserts, sends, I/O, pan knobs, faders and meters, and an EQ plugin window" src="docs/images/mix.png"></td>
-    <td width="50%"><img alt="The MIDI editor showing a lead melody as a piano roll with a velocity lane" src="docs/images/midi.png"></td>
-  </tr>
-  <tr>
     <td><b>Mix window.</b> Ten inserts and ten sends per track, busses and aux inputs, master faders, VCAs, routing folders, solo-in-place with implicit solo, and meters with peak hold.</td>
     <td><b>MIDI editor.</b> Instrument tracks with built-in synths, a piano roll with a velocity lane, step input, quantize, transpose, and Standard MIDI File import and export.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="Volume automation drawn on the Pad track, with the Memory Locations and Big Counter windows open" src="docs/images/automation.png"></td>
-    <td width="50%"><img alt="The SoundCraft app icon: a singing nightingale on a teal field" src="assets/app-icon/soundcraft-1024.png" width="70%"></td>
   </tr>
   <tr>
     <td><b>Automation and markers.</b> Breakpoint automation for volume, pan, mute, sends and every plugin parameter, written live in Write, Touch and Latch, plus memory locations and a big counter.</td>
     <td><b>Everywhere.</b> Signed builds for macOS (universal), Windows (x64, x86, Arm), Linux (AppImage, deb, rpm, Flatpak), FreeBSD, and a WebAssembly build that runs in the browser.</td>
   </tr>
   <tr>
-    <td width="50%"><img alt="The Video window showing a colour-bar test movie with a timecode burn-in, above a Video track with thumbnails in the Edit window" src="docs/images/video.png"></td>
-    <td width="50%"><img alt="The Renderer window showing a 7.1.4 speaker layout with two object tracks, beside the Mix window with surround panners and Object/Bed buttons" src="docs/images/surround.png"></td>
-  </tr>
-  <tr>
     <td><b>Video.</b> A picture track with thumbnails and a Video window that follows the playhead, decoding H.264, ProRes and Motion JPEG in pure Rust, with timecode burn-in and sync offset.</td>
     <td><b>Surround and immersive.</b> Main and bus formats from stereo to 9.1.6 and Ambisonics, a surround panner with divergence and height, object/bed routing and a Renderer window with live speaker levels.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="The Score Editor showing the lead melody in standard notation on a treble and bass staff" src="docs/images/score.png"></td>
-    <td></td>
   </tr>
   <tr>
     <td><b>Notation.</b> A Score Editor for MIDI tracks, MusicXML export for Sibelius and other notation programs, and printable engraved scores.</td>
@@ -393,18 +362,8 @@ Copyright (c) 2026 ArtCraft Team and the SoundCraft contributors. Required notic
 Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
 with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).
 
-Every icon in the interface is drawn in code, the app icon is original, and the demo song and the
-screenshots' audio are synthesised by SoundCraft itself, so there are no samples or artwork from
-anyone else in this repository.
-
-The ArtCraft name, wordmark and logos in [`docs/brand/`](docs/brand/) are trademarks of the
-ArtCraft Team and are not covered by this license. They may be used only unmodified, and only as
-part of this repository and SoundCraft, under [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt).
-Forks and modified versions must remove them.
-
-<p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
-  <sub>Made by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
-</p>
+Every icon in the interface is drawn in code and the demo song is synthesised in code. The Solara
+name, icon, wordmark and splash (`assets/app-icon/`, `assets/brand/`, `assets/splash/`) are owned by
+Zee / Zz Creations LLC and are not covered by the code licence; see [NOTICE](NOTICE).
 
 Tracks and Groups, Clips, MIDI Editor, Memory Locations, and Undo History use movable panels. Edit and Mix retain separate arrangements; Clips and MIDI Editor belong to Edit. Transport, plug-in, and specialist utility windows retain their existing hosts. Drag a panel header to a target edge or another header. Its context menu offers Float Panel, Move Panel to Group, and Close Panel; the tab group's menu adds Float Tab Group and Close Tab Group. Existing panel toggles reopen panels at their saved location; Reset Panel Layout restores the app layout. Floating panels remain inside the current app window.

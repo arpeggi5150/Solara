@@ -174,11 +174,11 @@ fn services() -> Services {
     }
 }
 
-/// The window, Dock, taskbar and Alt-Tab icon. macOS gets Apple's icon grid (transparent margin);
-/// elsewhere the full tile. Regenerate with `packaging/icons.sh`.
+/// The window, Dock, taskbar and Alt-Tab icon: the Solara icon from `assets/app-icon/` (512 px on
+/// macOS, 256 px elsewhere).
 fn app_icon() -> Option<egui::IconData> {
     #[cfg(target_os = "macos")]
-    let png: &[u8] = include_bytes!("../../../assets/app-icon/soundcraft-macos-512.png");
+    let png: &[u8] = include_bytes!("../../../assets/app-icon/hicolor/512x512/apps/ai.storyteller.soundcraft.png");
     #[cfg(not(target_os = "macos"))]
     let png: &[u8] = include_bytes!("../../../assets/app-icon/hicolor/256x256/apps/ai.storyteller.soundcraft.png");
     eframe::icon_data::from_png_bytes(png).map_err(|e| log::warn!("app icon: {e}")).ok()
@@ -254,7 +254,8 @@ fn main() -> eframe::Result {
             let player =
                 if no_audio { None } else { Some(soundcraft_playback::Player::with_config(Arc::new(engine.session().clone()), &prefs.audio)) };
             let mut app = SoundApp::new(engine, player, services());
-            app.set_startup_update_check(true);
+            app.set_startup_update_check(soundcraft_ui_egui::updates_ui::UPDATE_CHECKS_ENABLED);
+            app.set_splash(true);
             app.set_system_fonts(env.system_fonts());
             app.autosave_dir = env.config_dir.as_ref().map(|d| d.join("Autosave"));
             app.leftovers = app.autosave_dir.as_deref().map(soundcraft_engine::autosave::leftovers).unwrap_or_default();
