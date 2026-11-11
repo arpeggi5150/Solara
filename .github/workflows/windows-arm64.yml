@@ -31,5 +31,5 @@ jobs:
     with:
       app-name: soundcraft
       app-dir: Solara
-      install-relative-path: Programs/ArtCraft/Solara
+      install-relative-path: Programs/Zee Creations/Solara
       install-scope: perUser
