@@ -317,6 +317,14 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                             }
                             if root.path == "Window" {
                                 ui.separator();
+                                // The layout switcher's way back from Classic, which has no top bar.
+                                for preset in [crate::new_layout::LayoutPreset::New, crate::new_layout::LayoutPreset::Classic] {
+                                    if ui.radio(app.ui.layout == preset, format!("{} Layout", preset.label())).clicked() {
+                                        let _ = run_ui_command(app, "ui.layout", &json!({"preset": preset.id()}));
+                                        ui.close();
+                                    }
+                                }
+                                ui.separator();
                                 let mut separate = app.ui.mix_separate;
                                 if ui
                                     .checkbox(&mut separate, "Mix in Separate Window")

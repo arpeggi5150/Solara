@@ -167,14 +167,23 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     crate::edit_window::drive_drag(app, ui.ctx());
     egui::Panel::top("new_top_bar").exact_size(TOP_BAR_H).frame(egui::Frame::NONE.fill(t.toolbar_bg)).show(ui, |ui| top_bar(app, ui));
     // Expanded, the Mixer takes up to half the window and the timeline keeps the rest.
-    let mixer_h = if app.ui.new_mixer_open { (ui.max_rect().height() * 0.5).max(MIXER_EXPANDED_H) } else { MIXER_COLLAPSED_H };
+    // Expanded, the Mixer takes up to 60% of the window, the Editor folds to its title row and
+    // the timeline keeps the rest.
+    let mixer_h = if app.ui.new_mixer_open { (ui.max_rect().height() * 0.6).max(MIXER_EXPANDED_H) } else { MIXER_COLLAPSED_H };
     egui::Panel::bottom("new_mixer").exact_size(mixer_h).frame(egui::Frame::NONE.fill(t.panel_bg)).show(ui, |ui| mixer(app, ui));
-    egui::Panel::bottom("new_editor")
-        .resizable(true)
-        .default_size(EDITOR_H)
-        .size_range(120.0..=640.0)
-        .frame(egui::Frame::NONE.fill(t.panel_bg))
-        .show(ui, |ui| editor(app, ui));
+    if app.ui.new_mixer_open {
+        egui::Panel::bottom("new_editor_folded")
+            .exact_size(EDITOR_TITLE_H)
+            .frame(egui::Frame::NONE.fill(t.panel_bg))
+            .show(ui, |ui| editor_title(app, ui, ui.max_rect()));
+    } else {
+        egui::Panel::bottom("new_editor")
+            .resizable(true)
+            .default_size(EDITOR_H)
+            .size_range(120.0..=640.0)
+            .frame(egui::Frame::NONE.fill(t.panel_bg))
+            .show(ui, |ui| editor(app, ui));
+    }
     egui::Panel::left("new_browser")
         .resizable(true)
         .default_size(BROWSER_W)
@@ -228,10 +237,10 @@ fn add_strip(app: &mut SoundApp, ui: &mut Ui, strip: Rect) {
 }
 
 /// A small caps section title.
-fn heading(ui: &mut Ui, text: &str) {
+fn heading(ui: &mut Ui, text: &str) -> egui::Response {
     let t = Tokens::current();
     ui.add_space(6.0);
-    ui.label(egui::RichText::new(text).font(bold(11.0)).color(t.text_dim));
+    ui.label(egui::RichText::new(text).font(bold(11.0)).color(t.text_dim))
 }
 
 fn top_bar(app: &mut SoundApp, ui: &mut Ui) {
@@ -348,15 +357,15 @@ fn browser(app: &mut SoundApp, ui: &mut Ui) {
     let needle = app.browser_search.trim().to_lowercase();
     let plugins = soundcraft_dsp::plugins();
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        heading(ui, "SOUNDS");
+        let _ = heading(ui, "SOUNDS");
         ui.label(egui::RichText::new("Drop audio files on the timeline.").font(regular(11.0)).color(t.text_dim));
-        heading(ui, "LOOPS");
+        let _ = heading(ui, "LOOPS");
         ui.label(egui::RichText::new("Drop audio files on the timeline.").font(regular(11.0)).color(t.text_dim));
-        heading(ui, "INSTRUMENTS");
+        let _ = heading(ui, "INSTRUMENTS");
         for info in plugins.iter().filter(|p| p.category == soundcraft_dsp::Category::Instrument) {
             browser_row(ui, &needle, info.name, BrowserItem::Instrument(info.id));
         }
-        heading(ui, "EFFECTS");
+        let _ = heading(ui, "EFFECTS");
         for info in plugins.iter().filter(|p| p.category != soundcraft_dsp::Category::Instrument) {
             browser_row(ui, &needle, info.name, BrowserItem::Effect(info.id));
         }
@@ -441,9 +450,11 @@ fn inspector(app: &mut SoundApp, ui: &mut Ui) {
     let Some(track) = app.engine.session().track(id).cloned() else { return };
     ui.add_space(4.0);
     ui.label(egui::RichText::new(&track.name).font(bold(14.0)).color(t.text));
-    ui.add_space(6.0);
+    // Labels sit above their sliders, which fill the column with room for the value box.
+    ui.spacing_mut().slider_width = (ui.available_width() - 72.0).max(60.0);
+    let label = heading(ui, "VOLUME");
     let mut db = track.mixer.volume_db;
-    let resp = ui.add(egui::Slider::new(&mut db, -60.0..=12.0).suffix(" dB").fixed_decimals(1).text("Volume"));
+    let resp = ui.add(egui::Slider::new(&mut db, -60.0..=12.0).suffix(" dB").fixed_decimals(1)).labelled_by(label.id);
     if resp.changed() {
         let _ = app.engine.execute_merged("mix.volume", &json!({"tracks": [id], "db": db}), "inspector_volume");
     }
@@ -454,12 +465,13 @@ fn inspector(app: &mut SoundApp, ui: &mut Ui) {
         // A stereo track pans each side: left and right.
         let sides = track.mixer.pan.len().min(2);
         for (index, mut pan) in track.mixer.pan.iter().copied().take(sides).enumerate() {
-            let label = match (sides, index) {
-                (1, _) => "Pan",
-                (_, 0) => "Pan L",
-                _ => "Pan R",
+            let text = match (sides, index) {
+                (1, _) => "PAN",
+                (_, 0) => "PAN LEFT",
+                _ => "PAN RIGHT",
             };
-            let resp = ui.add(egui::Slider::new(&mut pan, -1.0..=1.0).fixed_decimals(2).text(label));
+            let label = heading(ui, text);
+            let resp = ui.add(egui::Slider::new(&mut pan, -1.0..=1.0).fixed_decimals(2)).labelled_by(label.id);
             if resp.changed() {
                 let _ = app.engine.execute_merged("mix.pan", &json!({"tracks": [id], "pan": pan, "index": index}), "inspector_pan");
             }
@@ -468,7 +480,7 @@ fn inspector(app: &mut SoundApp, ui: &mut Ui) {
             }
         }
     }
-    heading(ui, "INSERTS");
+    let _ = heading(ui, "INSERTS");
     let plugins = soundcraft_dsp::plugins();
     let inserts: Vec<String> = track
         .mixer
@@ -478,7 +490,7 @@ fn inspector(app: &mut SoundApp, ui: &mut Ui) {
         .map(|i| plugins.iter().find(|p| p.id == i.plugin).map_or_else(|| i.plugin.clone(), |p| p.name.to_string()))
         .collect();
     slot_list(ui, &inserts, "Drag an effect from the Browser onto the track");
-    heading(ui, "SENDS");
+    let _ = heading(ui, "SENDS");
     let s = app.engine.session();
     let sends: Vec<String> = track
         .mixer
@@ -499,7 +511,7 @@ fn inspector(app: &mut SoundApp, ui: &mut Ui) {
 fn slot_list(ui: &mut Ui, items: &[String], empty: &str) {
     let t = Tokens::current();
     if items.is_empty() {
-        ui.label(egui::RichText::new(empty).font(regular(11.0)).color(t.text_dim));
+        ui.add(egui::Label::new(egui::RichText::new(empty).font(regular(11.0)).color(t.text_dim)).wrap());
     }
     for item in items {
         let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 20.0), Sense::hover());
@@ -510,25 +522,40 @@ fn slot_list(ui: &mut Ui, items: &[String], empty: &str) {
 
 /// The Editor follows the selection: MIDI and instrument tracks get the piano roll; B asks for the
 /// step sequencer, which arrives with the pattern layer.
-fn editor(app: &mut SoundApp, ui: &mut Ui) {
-    let t = Tokens::current();
-    let r = ui.max_rect();
-    ui.painter().line_segment([pos2(r.min.x, r.min.y + 0.5), pos2(r.max.x, r.min.y + 0.5)], Stroke::new(1.0, t.border));
-    let title = Rect::from_min_size(r.min, vec2(r.width(), 22.0));
+/// Height of the Editor's title row, all that shows while the Mixer is expanded.
+pub const EDITOR_TITLE_H: f32 = 22.0;
+
+/// What the Editor shows now: `Auto` resolves by the focused track's kind.
+fn editor_view(app: &SoundApp) -> EditorView {
     let kind = focus_track(app).and_then(|id| app.engine.session().track(id).map(|t| t.kind));
-    let view = match app.ui.new_editor {
+    match app.ui.new_editor {
         EditorView::Auto => match kind {
             Some(TrackKind::Midi | TrackKind::Instrument) => EditorView::PianoRoll,
             _ => EditorView::Auto,
         },
         v => v,
-    };
-    let label = match view {
+    }
+}
+
+/// The Editor's title row, with its top border.
+fn editor_title(app: &SoundApp, ui: &Ui, r: Rect) {
+    let t = Tokens::current();
+    ui.painter().line_segment([pos2(r.min.x, r.min.y + 0.5), pos2(r.max.x, r.min.y + 0.5)], Stroke::new(1.0, t.border));
+    let title = Rect::from_min_size(r.min, vec2(r.width(), EDITOR_TITLE_H));
+    let label = match editor_view(app) {
         EditorView::StepSequencer => "EDITOR · STEP SEQUENCER",
         EditorView::PianoRoll => "EDITOR · PIANO ROLL",
         EditorView::Auto => "EDITOR",
     };
     ui.painter().text(pos2(title.min.x + 10.0, title.center().y), Align2::LEFT_CENTER, label, bold(11.0), t.text_dim);
+}
+
+fn editor(app: &mut SoundApp, ui: &mut Ui) {
+    let t = Tokens::current();
+    let r = ui.max_rect();
+    editor_title(app, ui, r);
+    let view = editor_view(app);
+    let title = Rect::from_min_size(r.min, vec2(r.width(), EDITOR_TITLE_H));
     let body = Rect::from_min_max(pos2(r.min.x, title.max.y), r.max);
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(body));
     match view {
