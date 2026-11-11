@@ -14,10 +14,10 @@ fn main() {
     }
     let mut res = winresource::WindowsResource::new();
     res.set_icon("../../assets/app-icon/solara.ico")
-        .set("ProductName", "SoundCraft")
-        .set("FileDescription", "SoundCraft digital audio workstation")
-        .set("CompanyName", "Learning Machines LLC")
-        .set("LegalCopyright", "Copyright (c) the SoundCraft authors. MIT OR Apache-2.0.")
+        .set("ProductName", "Solara")
+        .set("FileDescription", "Solara digital audio workstation")
+        .set("CompanyName", "Zee Creations LLC")
+        .set("LegalCopyright", "Solara (c) Zee Creations LLC. Source code MIT OR Apache-2.0, see NOTICE.")
         .set("OriginalFilename", "soundcraft.exe")
         .set("InternalName", "soundcraft");
     if let Err(e) = res.compile() {

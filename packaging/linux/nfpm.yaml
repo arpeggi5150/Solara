@@ -13,8 +13,8 @@ release: 1
 section: sound
 priority: optional
 maintainer: ${SOUNDCRAFT_MAINTAINER}
-vendor: Learning Machines LLC
-homepage: https://getartcraft.com/apps/soundcraft
+vendor: Zee Creations LLC
+homepage: https://github.com/arpeggi5150/Solara
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native digital audio workstation. Record, edit and mix

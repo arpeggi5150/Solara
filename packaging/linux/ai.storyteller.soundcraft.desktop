@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=SoundCraft
+Name=Solara
 GenericName=Digital Audio Workstation
 Comment=Record, edit and mix audio and MIDI
 Exec=soundcraft %F

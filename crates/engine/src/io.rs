@@ -75,7 +75,7 @@ fn utf8(path: &Path, bytes: Vec<u8>) -> Result<String> {
     String::from_utf8(bytes).map_err(|err| EngineError::Io(format!("{}: {err}", path.display())))
 }
 
-/// The largest session (`.scraft`) SoundCraft opens or saves. A session is read whole and parsed
+/// The largest session (`.scraft`) Solara opens or saves. A session is read whole and parsed
 /// in one go, so a larger one is refused by its size before it is read, and never written (it
 /// could not be opened again); real sessions are far smaller.
 pub const MAX_SESSION_BYTES: u64 = 256 << 20;
@@ -124,7 +124,7 @@ pub(crate) fn session_size(name: impl std::fmt::Display, len: u64, saving: bool)
     }
     let most = if limit >= 1 << 20 { format!("{} MiB", limit >> 20) } else { format!("{limit} bytes") };
     Err(EngineError::Io(if saving {
-        format!("{name} is too large to save: over {most}, more than SoundCraft opens")
+        format!("{name} is too large to save: over {most}, more than Solara opens")
     } else {
         format!("{name} is too large to open (over {most})")
     }))
@@ -140,7 +140,7 @@ pub(crate) fn read_session_text(path: impl AsRef<Path>) -> Result<String> {
 /// [`session_limit`].
 pub(crate) fn session_bytes_text(name: &str, bytes: &[u8]) -> Result<String> {
     session_size(name, bytes.len() as u64, false)?;
-    String::from_utf8(bytes.to_vec()).map_err(|_| EngineError::Io(format!("{name}: not a SoundCraft session")))
+    String::from_utf8(bytes.to_vec()).map_err(|_| EngineError::Io(format!("{name}: not a Solara session")))
 }
 
 /// How many bytes [`Session::to_json`] makes of `s`, counted without keeping them.

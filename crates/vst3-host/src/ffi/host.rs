@@ -45,7 +45,7 @@ impl IHostApplicationTrait for HostContext {
         // SAFETY: the plugin passes a pointer to a writable String128 (or null, handled).
         match unsafe { name.as_mut() } {
             Some(n) => {
-                write_c16("SoundCraft", n);
+                write_c16("Solara", n);
                 sb::kResultOk
             }
             None => sb::kInvalidArgument,

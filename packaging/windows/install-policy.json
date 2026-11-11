@@ -1,7 +1,7 @@
 {
   "id": "soundcraft",
-  "name": "SoundCraft",
-  "upgradeCode": "EE53D3E5-D0AE-40F9-808D-9417FDEBF61A",
+  "name": "Solara",
+  "upgradeCode": "9A433B22-0986-44D8-AB8A-3AD549F94686",
   "sources": [
     "soundcraft.wxs"
   ],
@@ -18,63 +18,63 @@
   "registry": [
     [
       "-1",
-      "Software\\Classes\\SoundCraft.Audio\\shell\\open\\command",
+      "Software\\Classes\\Solara.Audio\\shell\\open\\command",
       "",
       "\"[#SoundcraftExe]\" \"%1\""
     ],
     [
       "-1",
-      "Software\\Classes\\SoundCraft.Midi\\shell\\open\\command",
+      "Software\\Classes\\Solara.Midi\\shell\\open\\command",
       "",
       "\"[#SoundcraftExe]\" \"%1\""
     ],
     [
       "-1",
       "Software\\Classes\\.wav\\OpenWithProgids",
-      "SoundCraft.Audio",
+      "Solara.Audio",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\.aif\\OpenWithProgids",
-      "SoundCraft.Audio",
+      "Solara.Audio",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\.aiff\\OpenWithProgids",
-      "SoundCraft.Audio",
+      "Solara.Audio",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\.flac\\OpenWithProgids",
-      "SoundCraft.Audio",
+      "Solara.Audio",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\.mp3\\OpenWithProgids",
-      "SoundCraft.Audio",
+      "Solara.Audio",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\.mid\\OpenWithProgids",
-      "SoundCraft.Midi",
+      "Solara.Midi",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\.midi\\OpenWithProgids",
-      "SoundCraft.Midi",
+      "Solara.Midi",
       ""
     ],
     [
       "-1",
       "Software\\Classes\\Applications\\soundcraft.exe",
       "FriendlyAppName",
-      "SoundCraft"
+      "Solara"
     ],
     [
       "-1",

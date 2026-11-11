@@ -1,10 +1,10 @@
-//! SoundCraft's egui user interface.
+//! Solara's egui user interface.
 //!
 //! The UI is a thin shell over [`soundcraft_engine::Engine`]: it draws engine state and acts by
 //! executing commands. It can be replaced without touching anything below it.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
-/// SoundCraft as craft-update knows it, with its 128 px icon and accent colour: the update
+/// Solara as craft-update knows it, with its 128 px icon and accent colour: the update
 /// prompt shows both, and an AppImage's menu entry gets the icon.
 #[cfg(not(target_arch = "wasm32"))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {

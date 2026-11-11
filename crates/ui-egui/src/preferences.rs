@@ -1,4 +1,4 @@
-//! SoundCraft / Setup › Preferences: the complete settings surface, including placeholders for features whose
+//! Solara / Setup › Preferences: the complete settings surface, including placeholders for features whose
 //! underlying behaviour does not exist yet. A placeholder is never interactive: enabling a row
 //! requires a real command and persistence policy first.
 
@@ -728,7 +728,7 @@ pub fn show(app: &mut SoundApp, ctx: &egui::Context) {
         ui.allocate_exact_size(screen.size(), egui::Sense::click_and_drag());
     });
 
-    let mut window = egui::Window::new("SoundCraft Preferences")
+    let mut window = egui::Window::new("Solara Preferences")
         .id(egui::Id::unique("preferences_window"))
         .open(&mut open)
         .order(egui::Order::Foreground)
@@ -1338,7 +1338,7 @@ mod tests {
             app,
         );
         harness.run_steps(4);
-        harness.get_by_label("SoundCraft").click();
+        harness.get_by_label("Solara").click();
         harness.run_steps(2);
         harness.get_by_label("Preferences...").click();
         harness.run_steps(2);
@@ -1358,7 +1358,7 @@ mod tests {
             app,
         );
         harness.run_steps(4);
-        harness.get_by_label("SoundCraft").click();
+        harness.get_by_label("Solara").click();
         harness.run_steps(2);
         assert!(harness.get_by_label("Preferences...").accesskit_node().is_disabled());
     }

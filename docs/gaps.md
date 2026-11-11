@@ -1,10 +1,10 @@
-# Where SoundCraft falls short of Pro Tools
+# Where Solara falls short of Pro Tools
 
 > **Last reviewed:** 2026-10-25 · **Last updated:** 2026-10-25 · **Change:** trivial (G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Every known shortfall, one entry each, ranked by how much it stops a Pro Tools user from doing
-real work in SoundCraft. This is the work list: pick from the top. Rows marked **alpha blocker**
-fail the core-workflow gate in [`roadmap.md`](roadmap.md#alpha-gate) and keep SoundCraft pre-alpha. Numbers and weights live in
+real work in Solara. This is the work list: pick from the top. Rows marked **alpha blocker**
+fail the core-workflow gate in [`roadmap.md`](roadmap.md#alpha-gate) and keep Solara pre-alpha. Numbers and weights live in
 [`target-app-parity.md`](target-app-parity.md); the plan that orders these into milestones is
 [`roadmap.md`](roadmap.md). Hours are Opus 5.5 agent-hours (calibration in target-app-parity.md).
 Estimates marked "≈" are judgements; issue numbers are `storytold/soundcraft` GitHub issues.

@@ -133,7 +133,7 @@ mod save_tests {
 
     #[test]
     fn a_session_too_large_to_open_is_not_saved_and_leaves_nothing_behind() {
-        // #892: what SoundCraft saves, it opens again. A refused save writes no audio and no
+        // #892: what Solara saves, it opens again. A refused save writes no audio and no
         // session; the limit is lowered for this test so a small session reaches it.
         let dir = Scratch::new("refused-save");
         let path = |p: &str| dir.0.join(p).to_string_lossy().into_owned();
@@ -144,7 +144,7 @@ mod save_tests {
             let _limit = crate::io::SessionLimit::set(saved - 1);
             let mut e = with_take(0.5);
             let err = save_session(&mut e, &path("B/Song.scraft")).unwrap_err().to_string();
-            assert_eq!(err, format!("{} is too large to save: over {} bytes, more than SoundCraft opens", path("B/Song.scraft"), saved - 1));
+            assert_eq!(err, format!("{} is too large to save: over {} bytes, more than Solara opens", path("B/Song.scraft"), saved - 1));
             assert!(e.is_dirty() && e.path.is_none());
             let err = e.execute("session.save_copy", &json!({"path": path("C/Song.scraft")})).unwrap_err().to_string();
             assert!(err.contains("too large to save"), "{err}");

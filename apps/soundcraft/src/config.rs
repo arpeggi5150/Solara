@@ -8,7 +8,7 @@ use soundcraft_ui_egui::docking;
 /// Portable mode (#268): this file beside the executable keeps settings, autosaves, presets and
 /// logs in [`PORTABLE_DATA_DIR`] next to it instead of the user profile.
 const PORTABLE_MARKER: &str = "portable.txt";
-const PORTABLE_DATA_DIR: &str = "SoundCraftData";
+const PORTABLE_DATA_DIR: &str = "SolaraData";
 
 #[derive(Clone, Copy)]
 enum Platform {
@@ -17,11 +17,11 @@ enum Platform {
     Other,
 }
 
-/// SoundCraft's settings folder, resolved from the variable lookup `get` (see `Env::from_lookup`).
+/// Solara's settings folder, resolved from the variable lookup `get` (see `Env::from_lookup`).
 /// A nonempty `$SOUNDCRAFT_CONFIG_DIR` overrides the platform default and is the complete
 /// directory; no application-name suffix is appended. An explicitly empty value means no settings
 /// folder instead of a fallback to a personal profile (the documented exception to RFC-0012 rule
-/// 1.7). Otherwise `portable.txt` beside the executable selects `<exe dir>/SoundCraftData`, when
+/// 1.7). Otherwise `portable.txt` beside the executable selects `<exe dir>/SolaraData`, when
 /// that folder can be written (a read-only medium falls back to the platform default).
 pub fn resolve_config_dir(get: impl Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
     let platform = if cfg!(target_os = "macos") {
@@ -47,8 +47,8 @@ fn config_dir_with(platform: Platform, env: impl Fn(&str) -> Option<OsString>, e
         }
     }
     match platform {
-        Platform::Mac => env("HOME").map(|h| PathBuf::from(h).join("Library/Application Support/SoundCraft")),
-        Platform::Windows => env("APPDATA").map(|a| PathBuf::from(a).join("SoundCraft")),
+        Platform::Mac => env("HOME").map(|h| PathBuf::from(h).join("Library/Application Support/Solara")),
+        Platform::Windows => env("APPDATA").map(|a| PathBuf::from(a).join("Solara")),
         Platform::Other => {
             env("XDG_CONFIG_HOME").map(PathBuf::from).or_else(|| env("HOME").map(|h| PathBuf::from(h).join(".config"))).map(|c| c.join("soundcraft"))
         }
@@ -289,8 +289,8 @@ mod config_tests {
     #[test]
     fn config_unset_override_keeps_platform_defaults() {
         let vars = [("HOME", "/user"), ("APPDATA", "/roaming"), ("XDG_CONFIG_HOME", "/xdg")];
-        assert_eq!(resolve(Platform::Mac, &vars), Some(PathBuf::from("/user/Library/Application Support/SoundCraft")));
-        assert_eq!(resolve(Platform::Windows, &vars), Some(PathBuf::from("/roaming/SoundCraft")));
+        assert_eq!(resolve(Platform::Mac, &vars), Some(PathBuf::from("/user/Library/Application Support/Solara")));
+        assert_eq!(resolve(Platform::Windows, &vars), Some(PathBuf::from("/roaming/Solara")));
         assert_eq!(resolve(Platform::Other, &vars), Some(PathBuf::from("/xdg/soundcraft")));
         assert_eq!(resolve(Platform::Other, &[("HOME", "/user")]), Some(PathBuf::from("/user/.config/soundcraft")));
         for platform in [Platform::Mac, Platform::Windows, Platform::Other] {
@@ -304,16 +304,16 @@ mod config_tests {
         let _ = std::fs::remove_dir_all(&exe);
         std::fs::create_dir_all(&exe).unwrap();
         let vars = [("APPDATA", "/roaming")];
-        assert_eq!(resolve_with_exe(&vars, &exe), Some(PathBuf::from("/roaming/SoundCraft")), "no marker: the profile");
+        assert_eq!(resolve_with_exe(&vars, &exe), Some(PathBuf::from("/roaming/Solara")), "no marker: the profile");
         std::fs::write(exe.join("portable.txt"), b"").unwrap();
-        assert_eq!(resolve_with_exe(&vars, &exe), Some(exe.join("SoundCraftData")));
-        assert!(exe.join("SoundCraftData").is_dir());
+        assert_eq!(resolve_with_exe(&vars, &exe), Some(exe.join("SolaraData")));
+        assert!(exe.join("SolaraData").is_dir());
         // The explicit override still wins.
         assert_eq!(resolve_with_exe(&[("SOUNDCRAFT_CONFIG_DIR", "/custom")], &exe), Some(PathBuf::from("/custom")));
         // A data folder that can't be made (a file is in the way) falls back to the profile.
-        std::fs::remove_dir_all(exe.join("SoundCraftData")).unwrap();
-        std::fs::write(exe.join("SoundCraftData"), b"").unwrap();
-        assert_eq!(resolve_with_exe(&vars, &exe), Some(PathBuf::from("/roaming/SoundCraft")));
+        std::fs::remove_dir_all(exe.join("SolaraData")).unwrap();
+        std::fs::write(exe.join("SolaraData"), b"").unwrap();
+        assert_eq!(resolve_with_exe(&vars, &exe), Some(PathBuf::from("/roaming/Solara")));
         std::fs::remove_dir_all(exe).unwrap();
     }
 

@@ -1,6 +1,6 @@
 # Contributors in the About window
 
-**About ▸ Contributors** credits everyone who contributed to SoundCraft, and **About ▸ Models** credits
+**About ▸ Contributors** credits everyone who contributed to Solara, and **About ▸ Models** credits
 the AI models named in `Co-Authored-By` trailers.
 
 ## Decision
@@ -20,9 +20,9 @@ the AI models named in `Co-Authored-By` trailers.
   first or last commit date. The name toggle cycles **Username → Display name → Real name**; a
   missing name falls back to `@username`. Alphabetical sorting is case-insensitive and ignores the `@`.
 
-## In SoundCraft
+## In Solara
 
-- The About window is `about()` in `crates/ui-egui/src/panels/about.rs` (menu "About SoundCraft", command `window.about`).
+- The About window is `about()` in `crates/ui-egui/src/panels/about.rs` (menu "About Solara", command `window.about`).
 
 ## Credit yourself
 

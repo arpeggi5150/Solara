@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and package SoundCraft for Linux (<arch> is x86_64 or aarch64, or riscv64 when cross-compiling):
+# Build and package Solara for Linux (<arch> is x86_64 or aarch64, or riscv64 when cross-compiling):
 #
 #   $DIST/soundcraft-<version>-linux-<arch>.AppImage  any distro with glibc >= the build host's
 #   $DIST/soundcraft-<version>-linux-<arch>.AppImage.zsync  delta updates (needs zsyncmake)
@@ -42,10 +42,10 @@ case "$ARCH" in
   riscv64) DEB_ARCH=riscv64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-export SOUNDCRAFT_MAINTAINER="${SOUNDCRAFT_MAINTAINER:-SoundCraft maintainers <soundcraft@storyteller.ai>}"
+export SOUNDCRAFT_MAINTAINER="${SOUNDCRAFT_MAINTAINER:-Solara maintainers <soundcraft@storyteller.ai>}"
 BASENAME="soundcraft-$VERSION-linux-$ARCH"
 
-echo "==> SoundCraft $VERSION for Linux $ARCH ($FORMATS)"
+echo "==> Solara $VERSION for Linux $ARCH ($FORMATS)"
 
 # The man-and-completions example is built with the binaries: it writes soundcraft-cli's man pages
 # and shell completions below.
@@ -154,7 +154,7 @@ if has appimage; then
     echo "no pinned AppImage runtime for $ARCH; build the AppImage on x86_64 or aarch64" >&2
     exit 2
   fi
-  APPDIR="$WORK/SoundCraft.AppDir"
+  APPDIR="$WORK/Solara.AppDir"
   cp -R "$STAGE" "$APPDIR"
   ln -s usr/bin/soundcraft "$APPDIR/AppRun"
   cp "$HERE/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
@@ -203,7 +203,7 @@ if has appimage; then
   # fetch only the blocks that changed in a newer release, through the .zsync published next to
   # each AppImage on GitHub Releases. `latest` is the newest published release that is not a
   # pre-release. A fork's builds point at its own releases through GITHUB_REPOSITORY.
-  REPO="${GITHUB_REPOSITORY:-storytold/soundcraft}"
+  REPO="${GITHUB_REPOSITORY:-arpeggi5150/Solara}"
   UPDATE_INFO="gh-releases-zsync|${REPO%%/*}|${REPO#*/}|latest|soundcraft-*-linux-$ARCH.AppImage.zsync"
   # Extract-and-run: works without FUSE (containers, CI). The output embeds the static runtime,
   # so users don't need libfuse2 either. With zsyncmake on the host (CI installs the zsync

@@ -1,27 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Name="SoundCraft" Manufacturer="Learning Machines LLC" Version="$(var.Version)" UpgradeCode="EE53D3E5-D0AE-40F9-808D-9417FDEBF61A" Scope="perUserOrMachine" Compressed="yes" Language="1033">
-    <SummaryInformation Description="SoundCraft digital audio workstation" Manufacturer="Learning Machines LLC" />
+  <Package Name="Solara" Manufacturer="Zee Creations LLC" Version="$(var.Version)" UpgradeCode="9A433B22-0986-44D8-AB8A-3AD549F94686" Scope="perUserOrMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="Solara digital audio workstation" Manufacturer="Zee Creations LLC" />
     <?include $(sys.SOURCEFILEDIR)install-policy.wxi?>
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of SoundCraft is already installed." />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Solara is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="SoundcraftIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="SoundcraftIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://getartcraft.com/apps/soundcraft" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://getartcraft.com/apps/soundcraft" />
-    <Property Id="ARPHELPLINK" Value="https://discord.gg/artcraft" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/arpeggi5150/Solara" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/arpeggi5150/Solara/releases" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="CraftSuiteFolder" Name="ArtCraft">
-        <Directory Id="INSTALLFOLDER" Name="SoundCraft" />
+      <Directory Id="CraftSuiteFolder" Name="Zee Creations">
+        <Directory Id="INSTALLFOLDER" Name="Solara" />
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder" />
 
-    <Feature Id="Main" Title="SoundCraft" Level="1">
+    <Feature Id="Main" Title="Solara" Level="1">
       <ComponentGroupRef Id="SoundcraftFiles" />
     </Feature>
   <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
@@ -36,33 +35,33 @@
       <Component Id="SoundcraftNotice">
         <File Id="SoundcraftNoticeFile" Source="$(var.BinDir)\NOTICE" KeyPath="yes" />
       </Component>
-      <Component Id="SoundcraftApp" Guid="091136D7-205E-41A8-9D27-5E231F7CBBD4">
+      <Component Id="SoundcraftApp" Guid="8AFE8671-9BE6-40F4-9E8A-C8E10A74E61D">
         <File Id="SoundcraftExe" Source="$(var.BinDir)\soundcraft.exe" KeyPath="yes">
-          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="SoundCraft" Description="SoundCraft digital audio workstation" WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SoundcraftIcon.ico" IconIndex="0" />
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Solara" Description="Solara digital audio workstation" WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SoundcraftIcon.ico" IconIndex="0" />
         </File>
 
-        <!-- .scraft: SoundCraft's own session format; SoundCraft is its default app. -->
-        <ProgId Id="SoundCraft.Session" Description="SoundCraft Session" Icon="SoundcraftExe" IconIndex="0">
+        <!-- .scraft: Solara's own session format; Solara is its default app. -->
+        <ProgId Id="Solara.Session" Description="Solara Session" Icon="SoundcraftExe" IconIndex="0">
           <Extension Id="scraft" ContentType="application/x-soundcraft-session">
             <Verb Id="open" Command="Open" TargetFile="SoundcraftExe" Argument="&quot;%1&quot;" />
           </Extension>
         </ProgId>
         <!-- Audio and MIDI files: offered under "Open with" (imported into a session), never forced
              as the default. -->
-        <ProgId Id="SoundCraft.Audio" Description="Audio File" Icon="SoundcraftExe" IconIndex="0" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\SoundCraft.Audio\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
-        <ProgId Id="SoundCraft.Midi" Description="MIDI File" Icon="SoundcraftExe" IconIndex="0" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\SoundCraft.Midi\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.wav\OpenWithProgids" Name="SoundCraft.Audio" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.aif\OpenWithProgids" Name="SoundCraft.Audio" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.aiff\OpenWithProgids" Name="SoundCraft.Audio" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.flac\OpenWithProgids" Name="SoundCraft.Audio" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.mp3\OpenWithProgids" Name="SoundCraft.Audio" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.mid\OpenWithProgids" Name="SoundCraft.Midi" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\.midi\OpenWithProgids" Name="SoundCraft.Midi" Value="" Type="string" />
+        <ProgId Id="Solara.Audio" Description="Audio File" Icon="SoundcraftExe" IconIndex="0" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Solara.Audio\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
+        <ProgId Id="Solara.Midi" Description="MIDI File" Icon="SoundcraftExe" IconIndex="0" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Solara.Midi\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.wav\OpenWithProgids" Name="Solara.Audio" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.aif\OpenWithProgids" Name="Solara.Audio" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.aiff\OpenWithProgids" Name="Solara.Audio" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.flac\OpenWithProgids" Name="Solara.Audio" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.mp3\OpenWithProgids" Name="Solara.Audio" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.mid\OpenWithProgids" Name="Solara.Midi" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\.midi\OpenWithProgids" Name="Solara.Midi" Value="" Type="string" />
 
         <!-- "Open with" app list and the Run dialog (Win+R "soundcraft"). -->
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe" Name="FriendlyAppName" Value="SoundCraft" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe" Name="FriendlyAppName" Value="Solara" Type="string" />
         <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
         <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".scraft" Value="" Type="string" />
         <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".wav" Value="" Type="string" />
@@ -73,10 +72,10 @@
         <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".mid" Value="" Type="string" />
         <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".midi" Value="" Type="string" />
         <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\soundcraft.exe" Value="[#SoundcraftExe]" Type="string" />
-      <RegistryValue Root="HKMU" Key="Software\SoundCraft" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
+      <RegistryValue Root="HKMU" Key="Software\Solara" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
       </Component>
 
-      <Component Id="SoundcraftCli" Guid="4552049A-C2F0-4AB0-BAE6-A62C3348F4B4">
+      <Component Id="SoundcraftCli" Guid="55B03A61-2019-4A1B-B0BD-2C5D1D44EA78">
         <File Id="SoundcraftCliExe" Source="$(var.BinDir)\soundcraft-cli.exe" KeyPath="yes" />
       </Component>
     </ComponentGroup>

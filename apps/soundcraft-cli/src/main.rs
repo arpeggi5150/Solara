@@ -1,4 +1,4 @@
-//! `soundcraft-cli`: SoundCraft without a window. See the library crate for the commands.
+//! `soundcraft-cli`: Solara without a window. See the library crate for the commands.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 

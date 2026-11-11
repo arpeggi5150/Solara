@@ -119,7 +119,7 @@ mod tests {
         assert_eq!(lookup(&[(CONFIG_DIR, ""), ("HOME", "/h"), ("XDG_CONFIG_HOME", "/x")]).config_dir, None);
         assert_eq!(lookup(&[(CONFIG_DIR, "/c"), ("HOME", "/h")]).config_dir, Some(PathBuf::from("/c")));
         let unset = lookup(&[("HOME", "/h"), ("APPDATA", "/h"), ("XDG_CONFIG_HOME", "/x")]).config_dir;
-        assert!(unset.is_some_and(|d| d.ends_with("SoundCraft") || d.ends_with("soundcraft") || d.ends_with("SoundCraftData")));
+        assert!(unset.is_some_and(|d| d.ends_with("Solara") || d.ends_with("soundcraft") || d.ends_with("SolaraData")));
         // Disabling preferences doesn't depend on the folder.
         let env = lookup(&[(CONFIG_DIR, "/c"), (NO_PREFS, "1")]);
         assert!(env.config_dir.is_some() && !env.prefs_enabled());

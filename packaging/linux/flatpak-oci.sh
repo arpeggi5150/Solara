@@ -6,7 +6,7 @@
 #   packaging/linux/flatpak-oci.sh [--push] [TARBALL]
 #
 # Environment variables:
-#   REGISTRY       Target registry image (default: ghcr.io/storytold/soundcraft)
+#   REGISTRY       Target registry image (default: ghcr.io/arpeggi5150/solara)
 #   TAG            Target image tag (default: $VERSION-$ARCH, also tags stable-$ARCH)
 #   GITHUB_TOKEN   Token for GHCR authentication when --push is used
 set -euo pipefail
@@ -40,7 +40,7 @@ echo "==> Building Flatpak OCI layout for $BASENAME"
 
 [[ -d "$OUT_OCI" ]] || { echo "error: $OUT_OCI layout not generated" >&2; exit 1; }
 
-REGISTRY="${REGISTRY:-ghcr.io/storytold/soundcraft}"
+REGISTRY="${REGISTRY:-ghcr.io/arpeggi5150/solara}"
 TAG="${TAG:-$VERSION-$ARCH}"
 
 echo "==> OCI layout ready at $OUT_OCI (Target: $REGISTRY:$TAG)"
