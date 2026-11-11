@@ -55,7 +55,7 @@ try {
     if ($properties['UpgradeCode'].Trim('{}') -ne $policy.upgradeCode) { throw 'Launcher upgrade identity changed.' }
     $dirs = @{}
     foreach ($row in (Read-Rows $database 'SELECT `Directory`, `Directory_Parent`, `DefaultDir` FROM `Directory`' 3)) { $dirs[$row[0]] = @($row[1],$row[2]) }
-    if ($dirs['INSTALLFOLDER'][0] -ne 'CraftSuiteFolder' -or $dirs['CraftSuiteFolder'][1] -ne 'Zz Creations' -or
+    if ($dirs['INSTALLFOLDER'][0] -ne 'CraftSuiteFolder' -or ($dirs['CraftSuiteFolder'][1] -split '\|')[-1] -ne 'Zz Creations' -or
         $dirs['CraftSuiteFolder'][0] -ne 'LocalProgramsFolder' -or $dirs['LocalProgramsFolder'][0] -ne 'LocalAppDataFolder') {
       throw 'Launcher new-install folder must be under the per-user Zz Creations suite root.'
     }
@@ -83,12 +83,13 @@ try {
     throw 'Policy regression: new packages must default to the per-user dual-scope context.'
   }
   if ($properties['UpgradeCode'].Trim('{}') -ne $policy.upgradeCode) { throw 'The existing upgrade identity must not change.' }
+  # DefaultDir is "short|long" when the long name isn't a valid 8.3 name (e.g. it has a space).
   $directories = @{}
   foreach ($row in (Read-Rows $database 'SELECT `Directory`, `Directory_Parent`, `DefaultDir` FROM `Directory`' 3)) {
     $directories[$row[0]] = @($row[1], $row[2])
   }
   if ($directories['INSTALLFOLDER'][0] -ne 'CraftSuiteFolder' -or
-      $directories['CraftSuiteFolder'][1] -ne 'Zz Creations') { throw 'Expected the app under the Zz Creations suite folder.' }
+      ($directories['CraftSuiteFolder'][1] -split '\|')[-1] -ne 'Zz Creations') { throw 'Expected the app under the Zz Creations suite folder.' }
   $programs = $directories['CraftSuiteFolder'][0]
   if ($programs -eq 'ProgramFiles6432Folder') { $programs = $directories[$programs][0] }
   if ($programs -notin 'ProgramFilesFolder', 'ProgramFiles64Folder') {
