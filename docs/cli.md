@@ -1,6 +1,6 @@
 # Command-line tool
 
-`soundcraft-cli` runs SoundCraft without a window: it converts and inspects audio, runs engine
+`soundcraft-cli` runs Solara without a window: it converts and inspects audio, runs engine
 commands on a session, serves MCP, and calls a running app. Follows
 [RFC-0012](https://github.com/storytold/craft-contrib/pull/18) (command-line conventions for the
 Craft apps).
@@ -41,7 +41,7 @@ pretty-print it; `--compact` prints the same JSON on one line. The result lines 
 `script` (`ID: JSON`) and the `--bounce` and `--save` results are always one line each. `commands`
 (without `--json`), `plugins`, `parity` and the `.scraft` summary of `info` are text. The
 `enabled` and `disabled_reason` fields of `describe` and `commands --json` are worked out against
-an empty session, not a session you have open. Errors go to standard error as `error: <message>`, and so do the warnings and errors SoundCraft and the plugin hosts log (`warning: <message>`, `error: <message>`), such as a plugin that fails to load. `mcp` writes only the protocol
+an empty session, not a session you have open. Errors go to standard error as `error: <message>`, and so do the warnings and errors Solara and the plugin hosts log (`warning: <message>`, `error: <message>`), such as a plugin that fails to load. `mcp` writes only the protocol
 to standard output.
 
 | Exit code | Meaning |

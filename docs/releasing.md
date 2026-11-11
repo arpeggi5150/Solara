@@ -1,18 +1,18 @@
-# Releasing SoundCraft
+# Releasing Solara
 
 Every push to the `release` branch runs `.github/workflows/release.yml`. The workflow builds
 signed installers for macOS, Windows, Linux, FreeBSD and the web, then creates or updates a
-**draft** GitHub Release named `SoundCraft v<version>`. Nobody sees a draft until a maintainer
+**draft** GitHub Release named `Solara v<version>`. Nobody sees a draft until a maintainer
 publishes it.
 
-This file describes how SoundCraft is released.
-User-facing names say **SoundCraft**. Files, binaries and ids stay lowercase
+This file describes how Solara is released.
+User-facing names say **Solara**. Files, binaries and ids stay lowercase
 (`soundcraft-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.soundcraft`).
 
 ## Cutting a release
 
 1. **Bump the version** on `main`. The only place it lives is `[workspace.package] version` in
-   the root `Cargo.toml`; the app reads it from `CARGO_PKG_VERSION` (*About SoundCraft*,
+   the root `Cargo.toml`; the app reads it from `CARGO_PKG_VERSION` (*About Solara*,
    `soundcraft --version`, `soundcraft-cli --version`).
 
    ```sh
@@ -23,7 +23,7 @@ User-facing names say **SoundCraft**. Files, binaries and ids stay lowercase
    Commit the change (`Cargo.toml` + `Cargo.lock`) through the normal review flow.
 2. **Merge `main` into `release`** (or fast-forward it) and push. The workflow starts by itself.
 3. **Wait for the draft.** After about 30 to 60 minutes (notarization and the FreeBSD VM are the
-   slow parts), the Releases page has a draft `SoundCraft v0.2.0`, tagged `v0.2.0` on the pushed
+   slow parts), the Releases page has a draft `Solara v0.2.0`, tagged `v0.2.0` on the pushed
    commit, with every artifact and `SHA256SUMS.txt`. The notes are generated from the merged PRs.
 4. **Check it.** Download an installer or two and look at the job summaries. Any `::warning::`
    there means a signing secret was missing and that artifact is unsigned.
@@ -45,9 +45,9 @@ web build and are checked, the signing jobs are refused, and no release is draft
 | Platform | Artifacts | Built on |
 |---|---|---|
 | macOS 11+ (universal: Apple silicon + Intel) | `soundcraft-<v>-macos-universal.dmg`, `soundcraft-cli-<v>-macos-universal.zip` | `macos-15` |
-| Windows 10+ x64 | `soundcraft-<v>-windows-x64.msi`, `soundcraft-<v>-windows-x64-portable.zip` | `windows-latest` |
-| Windows 10+ x86 (32-bit) | `soundcraft-<v>-windows-x86.msi`, `soundcraft-<v>-windows-x86-portable.zip` | `windows-latest` |
-| Windows 11 ARM64 | `soundcraft-<v>-windows-arm64.msi`, `soundcraft-<v>-windows-arm64-portable.zip` | `windows-latest` (cross-compiled; `windows-arm64.yml` installs and runs it on ARM64) |
+| Windows 10+ x64 | `solara-<v>-windows-x64.msi`, `solara-<v>-windows-x64-portable.zip` | `windows-latest` |
+| Windows 10+ x86 (32-bit) | `solara-<v>-windows-x86.msi`, `solara-<v>-windows-x86-portable.zip` | `windows-latest` |
+| Windows 11 ARM64 | `solara-<v>-windows-arm64.msi`, `solara-<v>-windows-arm64-portable.zip` | `windows-latest` (cross-compiled; `windows-arm64.yml` installs and runs it on ARM64) |
 | Linux x86_64 | `soundcraft-<v>-linux-x86_64.{AppImage,deb,rpm,tar.gz}` | `ubuntu-22.04` |
 | Linux aarch64 | `soundcraft-<v>-linux-aarch64.{AppImage,deb,rpm,tar.gz}` | `ubuntu-22.04-arm` |
 | Linux riscv64 | `soundcraft-<v>-linux-riscv64.tar.gz` (glibc 2.39+) | `ubuntu-24.04` (cross-compiled; CLI smoke-tested under QEMU) |
@@ -62,7 +62,7 @@ kept ready for a Flathub submission; the release's `.flatpak` bundles come from
 
 ### Audio libraries
 
-SoundCraft plays and records through [cpal](https://github.com/RustAudio/cpal): CoreAudio on
+Solara plays and records through [cpal](https://github.com/RustAudio/cpal): CoreAudio on
 macOS, WASAPI on Windows, ALSA on Linux and FreeBSD (PulseAudio and PipeWire through their ALSA
 plugins), and WebAudio in the browser.
 
@@ -74,19 +74,19 @@ plugins), and WebAudio in the browser.
   silent clock, so the transport still runs.
 - **Flatpak**: alsa-lib and its PulseAudio plugin come with the freedesktop runtime; the
   manifests grant `--socket=pulseaudio` (PipeWire's pulse server answers on it). No raw ALSA
-  devices and no JACK: SoundCraft doesn't use either.
+  devices and no JACK: Solara doesn't use either.
 - **Web**: browsers start audio only after a user gesture, so the first click in the page may be
   needed before sound plays. The web build has no recording.
 
 ### macOS
 
 `packaging/macos/package.sh` builds `aarch64-apple-darwin` and `x86_64-apple-darwin` with
-`MACOSX_DEPLOYMENT_TARGET=11.0`, joins them with `lipo`, and assembles `SoundCraft.app`:
+`MACOSX_DEPLOYMENT_TARGET=11.0`, joins them with `lipo`, and assembles `Solara.app`:
 
 - `Info.plist` is generated from `Info.plist.in`. The bundle id is `ai.storyteller.soundcraft`.
   It declares the `.scraft` session type (`ai.storyteller.soundcraft.session`, MIME
   `application/x-soundcraft-session`, role Editor, rank Owner) and lists WAV, AIFF/AIFC, FLAC,
-  MP3 and MIDI as Viewer/Alternate, so SoundCraft appears under *Open With* without taking over
+  MP3 and MIDI as Viewer/Alternate, so Solara appears under *Open With* without taking over
   the default player. `NSMicrophoneUsageDescription` explains the recording prompt.
 - **Signing** goes inside-out with the hardened runtime and a secure timestamp. The executable is
   signed first, then the bundle. There's no `--deep` on the final signature. `entitlements.plist`
@@ -96,7 +96,7 @@ plugins), and WebAudio in the browser.
   ticket is stapled to the app. The app goes on a DMG (`hdiutil`, with an `Applications` link).
   The DMG is signed, notarized and stapled too.
   Its Finder window (background, icon size and positions) comes from
-  [`packaging/macos/dmg/`](../packaging/macos/dmg/README.md), and its volume is named `SoundCraft`
+  [`packaging/macos/dmg/`](../packaging/macos/dmg/README.md), and its volume is named `Solara`
   without the version, which the window's background needs; the DMG file name keeps the version.
 - **CLI:** the universal `soundcraft-cli` is signed with the hardened runtime, zipped and
   notarized.
@@ -121,9 +121,9 @@ nor the portable zip needs the Visual C++ redistributable.
 - The script checks both PE headers: the machine type matches `-Arch`, `soundcraft.exe` is a GUI
   app (no console window) and `soundcraft-cli.exe` a console app.
 - `soundcraft.wxs` (WiX v5) is a dual-scope package (per-user by default into
-  `%LOCALAPPDATA%\Programs\ArtCraft\SoundCraft`, per-machine into `Program Files\ArtCraft\SoundCraft` (`Program Files (x86)` for the 32-bit build),
+  `%LOCALAPPDATA%\Programs\ArtCraft\Solara`, per-machine into `Program Files\ArtCraft\Solara` (`Program Files (x86)` for the 32-bit build),
   see `packaging/windows/INSTALLATION.md`) with an advertised Start
-  Menu shortcut. SoundCraft becomes the default app for `.scraft` and is listed under *Open with*
+  Menu shortcut. Solara becomes the default app for `.scraft` and is listed under *Open with*
   for `.wav`, `.aif`, `.aiff`, `.flac`, `.mp3`, `.mid` and `.midi`. It also registers App Paths
   (Win+R `soundcraft`). The MSI version is the numeric `X.Y.Z`; same-version upgrades let release
   candidates replace each other. The upgrade code `EE53D3E5-D0AE-40F9-808D-9417FDEBF61A` is fixed

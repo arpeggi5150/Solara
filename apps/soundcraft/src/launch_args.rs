@@ -16,7 +16,7 @@ use clap::{Command, CommandFactory, FromArgMatches, Parser};
 use soundcraft_automation::ControlTarget;
 use soundcraft_automation::args::{ControlServerArgs, blank_env_is_unset, name_env_vars};
 
-/// Opens SoundCraft with the given files
+/// Opens Solara with the given files
 #[derive(Parser)]
 #[command(name = "soundcraft", version = soundcraft_automation::args::long_version(), after_help = crate::env::help())]
 pub(crate) struct LaunchArgs {

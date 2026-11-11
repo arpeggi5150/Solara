@@ -57,7 +57,7 @@ fn not_found() -> std::io::Error {
 #[track_caller]
 fn assert_refused(got: &Invoke, port: u16) {
     assert_eq!((got.code, got.stdout.as_str()), (1, ""));
-    let prefix = format!("error: cannot reach SoundCraft at 127.0.0.1:{port}: ");
+    let prefix = format!("error: cannot reach Solara at 127.0.0.1:{port}: ");
     assert!(got.stderr.starts_with(&prefix) && got.stderr.contains(" (os error ") && got.stderr.ends_with(")\n"), "{}", got.stderr);
 }
 
@@ -65,7 +65,7 @@ fn assert_refused(got: &Invoke, port: u16) {
 fn top_level_help_lists_every_subcommand_on_stdout() {
     let long = invoke(&["--help"]);
     let help = assert_help(&long);
-    assert!(help.starts_with("soundcraft-cli: SoundCraft without a window\n\nUsage: soundcraft-cli <COMMAND>\n"), "{help}");
+    assert!(help.starts_with("soundcraft-cli: Solara without a window\n\nUsage: soundcraft-cli <COMMAND>\n"), "{help}");
     for sub in ["info", "convert", "run", "script", "commands", "describe", "app", "mcp", "parity", "plugins", "help"] {
         assert!(help.contains(&format!("\n  {sub} ")), "{sub}: {help}");
     }

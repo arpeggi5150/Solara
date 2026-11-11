@@ -38,7 +38,7 @@ fn write_help() -> &'static str {
     with_formats(&C, "The audio file to write; its extension picks the format ", FileFormat::writable_extensions, "")
 }
 
-/// soundcraft-cli: SoundCraft without a window
+/// soundcraft-cli: Solara without a window
 #[derive(Parser)]
 #[command(name = "soundcraft-cli", version = long_version(), arg_required_else_help = true)]
 pub(crate) struct Cli {

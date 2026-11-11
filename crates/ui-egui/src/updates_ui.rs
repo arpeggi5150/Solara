@@ -3,7 +3,7 @@
 use crate::SoundApp;
 
 /// Solara has no release feed of its own yet, and the update library still points at the upstream
-/// SoundCraft releases. Until Solara publishes releases, the menu item is hidden and the
+/// Solara releases. Until Solara publishes releases, the menu item is hidden and the
 /// `app.checkForUpdates` command refuses; the desktop app does not check at start either.
 pub const UPDATE_CHECKS_ENABLED: bool = false;
 

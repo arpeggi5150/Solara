@@ -1,10 +1,10 @@
-//! Agent control for SoundCraft.
+//! Agent control for Solara.
 //!
 //! - [`Backend`]: something that answers control-protocol methods (`engine.execute`,
 //!   `session.inspect`, `ui.*`…). [`Headless`] runs an in-process engine; [`Remote`] talks to a
 //!   running app's `--control` port.
 //! - [`mcp::Server`]: a Model Context Protocol server over stdio (newline-delimited JSON-RPC 2.0)
-//!   exposing SoundCraft as tools and resources.
+//!   exposing Solara as tools and resources.
 //! - [`args`]: the control and automation launch flags and their environment variables, as clap
 //!   types.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
@@ -116,9 +116,9 @@ pub enum RemoteError {
     /// The host name didn't resolve.
     #[error("{addr}: {source}")]
     Resolve { addr: String, source: io::Error },
-    #[error("cannot reach SoundCraft at {addr}: no addresses found")]
+    #[error("cannot reach Solara at {addr}: no addresses found")]
     NoAddress { addr: String },
-    #[error("cannot reach SoundCraft at {addr}: {source}")]
+    #[error("cannot reach Solara at {addr}: {source}")]
     Unreachable { addr: String, source: io::Error },
     /// Reading or writing the connection failed.
     #[error(transparent)]
@@ -244,7 +244,7 @@ impl Backend for Remote {
         true
     }
     fn describe(&self) -> String {
-        format!("SoundCraft app at {}", self.addr)
+        format!("Solara app at {}", self.addr)
     }
 }
 
@@ -268,7 +268,7 @@ mod tests {
         let mut r = Remote::new(&ControlTarget { host: Some("127.0.0.1".into()), port: 1 });
         let e = r.request("session.inspect", json!({})).unwrap_err();
         assert!(matches!(e, RemoteError::Unreachable { .. }), "{e:?}");
-        assert!(e.to_string().starts_with("cannot reach SoundCraft at 127.0.0.1:1: "), "{e}");
+        assert!(e.to_string().starts_with("cannot reach Solara at 127.0.0.1:1: "), "{e}");
     }
 
     #[test]

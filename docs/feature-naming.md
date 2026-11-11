@@ -56,9 +56,9 @@ Other offline items already have descriptive names. Multiple legacy entries mapp
 
 ## Product-name decision
 
-Deferred by the owner. The SoundCraft product name remains unchanged; this work only changes feature labels.
+Deferred by the owner. The Solara product name remains unchanged; this work only changes feature labels.
 
-The SoundCraft app name has a separate clearance concern involving the established audio brand Soundcraft. A candidate for review is **ArtCraft Audio**, a descriptive extension of the existing suite identity. It is only a proposal; no availability or legal clearance is claimed. Avoid adopting another audio product name simply because it ends in “Craft.”
+The Solara app name has a separate clearance concern involving the established audio brand Soundcraft. A candidate for review is **ArtCraft Audio**, a descriptive extension of the existing suite identity. It is only a proposal; no availability or legal clearance is claimed. Avoid adopting another audio product name simply because it ends in “Craft.”
 
 A product rename needs an owner decision and a separate migration PR covering app/window titles, website and release copy, package/binary names, bundle/application ids, installers, desktop files, update feeds, settings locations, file associations, shortcuts, URLs and external integrations. Preserve old command/package aliases and discover existing user data rather than resetting it. Verify the existing ArtCraft mark license applies to the new context before changing any brand assets. This feature-label draft makes none of those product-identity changes.
 

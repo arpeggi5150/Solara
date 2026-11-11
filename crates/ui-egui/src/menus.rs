@@ -27,7 +27,7 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("window.narrow_mix", "Narrow Mix", "View > Narrow Mix", Some("Cmd+Alt+M")),
     ("window.session_info", "Session Info", "", None),
     ("window.audio_health", "Session Audio Health", "", None),
-    ("window.about", "About SoundCraft", "", None),
+    ("window.about", "About Solara", "", None),
     ("window.close", "Close Window", "Window > Close Window", Some("Cmd+W")),
     ("window.hide_floating", "Hide All Floating Windows", "Window > Hide All Floating Windows", Some("Cmd+Ctrl+W")),
     ("window.midi_editor", "MIDI Editor", "Window > MIDI Editor", None),
@@ -272,9 +272,9 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
         ui,
         |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
-                ui.menu_button("SoundCraft", |ui| {
+                ui.menu_button("Solara", |ui| {
                     ui.add_enabled_ui(menu_entries_enabled, |ui| {
-                        if ui.button("About SoundCraft").clicked() {
+                        if ui.button("About Solara").clicked() {
                             app.ui.show_about = true;
                         }
                         if ui.add_enabled(preferences_enabled, egui::Button::new("Preferences...")).clicked() {
@@ -502,7 +502,7 @@ fn params_for(path: &str, id: &str) -> Value {
     }
 }
 
-/// Menu items that open a SoundCraft window when clicked (programmatic calls still run the command).
+/// Menu items that open a Solara window when clicked (programmatic calls still run the command).
 const MENU_WINDOWS: &[(&str, &str)] = &[
     ("Setup > Appearance", "window.ui_customization"),
     ("Setup > Hardware...", "window.playback_engine"),
