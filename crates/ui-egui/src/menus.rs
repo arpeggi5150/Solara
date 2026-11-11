@@ -280,7 +280,7 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                         if ui.add_enabled(preferences_enabled, egui::Button::new("Preferences...")).clicked() {
                             let _ = app.run("setup.preferences", json!({"value": true}));
                         }
-                        if ui.button("Check for Updates…").clicked() {
+                        if crate::updates_ui::UPDATE_CHECKS_ENABLED && ui.button("Check for Updates…").clicked() {
                             let _ = app.run("app.checkForUpdates", json!({}));
                         }
                         if ui.button("Session Info").clicked() {
@@ -598,6 +598,9 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
     };
     let r = match id {
         "app.checkForUpdates" | "help.checkForUpdates" => {
+            if !crate::updates_ui::UPDATE_CHECKS_ENABLED {
+                return Some(Err("update checks are off in this build".into()));
+            }
             crate::updates_ui::check(app);
             json!({})
         }

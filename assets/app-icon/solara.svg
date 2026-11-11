@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <style>
+      .gold { fill: #F1BA3E; }
+      .teal { fill: #003447; }
+    </style>
+  </defs>
+  <!-- Transparent background container -->
+  <g id="solara-emblem">
+    <!-- Center Sun Disc -->
+    <circle cx="512" cy="512" r="140" class="gold" />
+    <!-- 6 Sharp Spikes (3 Top, 3 Bottom) -->
+    <!-- Top Main Spike -->
+    <polygon points="512,120 492,420 532,420" class="gold" />
+    <!-- Top Left Minor Spike -->
+    <polygon points="340,320 450,450 480,420" class="gold" />
+    <!-- Top Right Minor Spike -->
+    <polygon points="684,320 574,450 544,420" class="gold" />
+    <!-- Bottom Main Spike -->
+    <polygon points="512,904 492,604 532,604" class="gold" />
+    <!-- Bottom Left Minor Spike -->
+    <polygon points="340,704 450,574 480,604" class="gold" />
+    <!-- Bottom Right Minor Spike -->
+    <polygon points="684,704 574,574 544,604" class="gold" />
+    <!-- Left Wing (Mirrored Mercury Wings) -->
+    <path d="M 372,480 Q 250,420 120,300 Q 220,460 372,520 Z" class="gold" />
+    <path d="M 372,520 Q 260,500 150,400 Q 240,540 372,560 Z" class="gold" />
+    <path d="M 372,560 Q 280,580 200,520 Q 260,600 372,600 Z" class="gold" />
+    <!-- Right Wing -->
+    <path d="M 652,480 Q 774,420 904,300 Q 804,460 652,520 Z" class="gold" />
+    <path d="M 652,520 Q 764,500 874,400 Q 784,540 652,560 Z" class="gold" />
+    <path d="M 652,560 Q 740,580 824,520 Q 764,600 652,600 Z" class="gold" />
+  </g>
+</svg>

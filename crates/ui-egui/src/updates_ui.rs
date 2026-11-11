@@ -2,6 +2,11 @@
 
 use crate::SoundApp;
 
+/// Solara has no release feed of its own yet, and the update library still points at the upstream
+/// SoundCraft releases. Until Solara publishes releases, the menu item is hidden and the
+/// `app.checkForUpdates` command refuses; the desktop app does not check at start either.
+pub const UPDATE_CHECKS_ENABLED: bool = false;
+
 #[cfg(not(target_arch = "wasm32"))]
 use craft_update::dialog::{CheckResultDialog, CheckResultResponse};
 #[cfg(not(target_arch = "wasm32"))]

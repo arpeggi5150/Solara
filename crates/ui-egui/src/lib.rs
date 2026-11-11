@@ -29,6 +29,7 @@ pub mod palette;
 pub mod panels;
 pub mod preferences;
 pub mod shortcuts;
+mod splash;
 pub mod theme;
 pub mod toolbar;
 pub mod updates_ui;
@@ -304,6 +305,8 @@ pub struct SoundApp {
     last_autosave: Option<std::time::Instant>,
     pub dialogs: dialogs::Dialogs,
     pub(crate) updates_rt: updates_ui::Runtime,
+    /// The start-up splash (off unless the host turns it on).
+    splash: splash::Splash,
     pub meters: HashMap<TrackId, MeterDisplay>,
     pub main_meter: MeterDisplay,
     /// Reused meter snapshot, taken from the player at an adaptive rate by `logic`: the highest

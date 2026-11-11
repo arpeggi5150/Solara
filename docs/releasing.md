@@ -115,7 +115,7 @@ open dist/release/soundcraft-*-macos-*.dmg
 (in `CARGO_TARGET_<TRIPLE>_RUSTFLAGS`, so host build scripts aren't affected), so neither the MSI
 nor the portable zip needs the Visual C++ redistributable.
 
-- `apps/soundcraft/build.rs` embeds the icon (`assets/app-icon/soundcraft.ico`) and VERSIONINFO
+- `apps/soundcraft/build.rs` embeds the icon (`assets/app-icon/solara.ico`) and VERSIONINFO
   with `winresource`, only when targeting Windows. Release packaging sets
   `SOUNDCRAFT_REQUIRE_WINRES=1` so a missing resource compiler fails the build.
 - The script checks both PE headers: the machine type matches `-Arch`, `soundcraft.exe` is a GUI
@@ -212,12 +212,11 @@ are written with `umask 077` and deleted in `always()`/`finally` steps.
 
 ## Icons
 
-`assets/app-icon/icon.svg` is the canonical icon: a **placeholder** singing nightingale, drawn as
-original SVG in the three-colour icon palette (ink, paper, SoundCraft teal `#14a9c4`); see
-`assets/app-icon/README.md`. `packaging/icons.sh` regenerates the 1024 px PNG, the macOS 512 px
-window icon, the `.icns`, the `.ico` (packed by `cargo xtask ico`) and the hicolor PNGs from it.
-It needs `resvg`, plus `iconutil` on macOS. The outputs are committed, so packaging never needs
-those tools. `apps/soundcraft/src/main.rs` sets the runtime window/Dock/taskbar icon from them.
+The app icon is the Solara icon in `assets/app-icon/`: the vector master `solara.svg`, the 1024 px
+PNG, `solara.ico` (Windows, 16–256 px) and `solara.icns` (macOS), plus the hicolor PNGs for
+Linux and FreeBSD. They are the final brand files supplied by the owner, committed as delivered
+and not regenerated; see `assets/app-icon/README.md`. `apps/soundcraft/src/main.rs` sets the
+runtime window/Dock/taskbar icon from them.
 
 ## Checks
 
