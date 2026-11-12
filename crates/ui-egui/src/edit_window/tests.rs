@@ -1652,7 +1652,7 @@ fn the_clip_gain_line_drags_the_clip_gain_in_the_pro_tools_layout() {
     let undo = h.state().engine.undo_history().len();
     drag(&mut h, on_line, on_line - vec2(0.0, 30.0));
     let after = h.state().engine.session().find_clip(clip.id).unwrap().1.gain_db;
-    assert!(after > 3.0, "dragged up 30 points: {after} dB");
+    assert!((after - 7.5).abs() < 1.0, "a quarter dB a point: 30 points up is about +7.5 dB, got {after}");
     assert_eq!(h.state().engine.undo_history().len(), undo + 1, "one undo step");
     assert_eq!(h.state().engine.session().find_clip(clip.id).unwrap().1.start, clip.start, "the line drag does not move the clip");
     // Classic shows no line at 0 dB, so the same press is the Smart tool's selector/grabber again.

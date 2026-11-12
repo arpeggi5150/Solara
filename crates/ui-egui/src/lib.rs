@@ -353,7 +353,8 @@ pub enum Gesture {
         track: TrackId,
         from_db: f32,
         anchor_y: f32,
-        db_per_point: f32,
+        /// Ctrl (Cmd) held: fine steps.
+        fine: bool,
     },
     Pencil {
         track: TrackId,

@@ -735,7 +735,8 @@ fn beat_detective(e: &mut Engine, p: &Value) -> Result<Value> {
 }
 
 /// Move each audio clip that starts inside `r` on track `t` to the nearest grid line (Edit window
-/// grid), in time order; a later clip covers the tail of an earlier one it lands on. A clip whose
+/// grid), in time order, without leaving the stretch those clips cover; a later clip covers the
+/// tail of an earlier one it lands on. A clip whose
 /// grid line is not after the previous clip's stays put, so close hits are never swallowed.
 /// `smooth` then lengthens each clip, as far as its file allows, to meet the next one, so the
 /// moves leave no gaps of silence. Returns how many clips moved.
@@ -752,13 +753,20 @@ fn conform_to_grid(s: &mut Session, t: TrackId, r: Range, smooth: bool) -> usize
     if let Some(pl) = s.track_mut(t).and_then(|t| t.playlist_mut()) {
         pl.clips.retain(|c| !ids.contains(&c.id));
     }
+    // The pieces stay between the selection start and the end of the last one, so nothing outside
+    // the selection is overwritten: a piece that would start before it stays put, one that would
+    // run past the last piece's end is shortened.
+    let (lo, Some(hi)) = (r.start, pieces.iter().map(Clip::end).max()) else { return 0 };
     let mut moved = 0;
     let mut last: Option<Samples> = None;
     for mut c in pieces {
-        let to = s.snap_to_grid(c.start).max(0);
-        if to != c.start && last.is_none_or(|l| to > l) {
+        let to = s.snap_to_grid(c.start).max(lo);
+        if to != c.start && to < hi && last.is_none_or(|l| to > l) {
             c.start = to;
             moved += 1;
+        }
+        if c.end() > hi {
+            c.trim_end_to(hi);
         }
         last = Some(c.start);
         crate::edit::place_clip(s, t, c);
@@ -1072,15 +1080,21 @@ mod tests {
     #[test]
     fn beat_analysis_conform_cuts_a_loose_take_onto_the_grid() {
         let mut e = Engine::default();
-        let t = drum_take(&mut e, &[0.52, 1.03, 1.47, 2.02], 3.0);
+        let t = drum_take(&mut e, &[0.52, 1.03, 1.47, 1.97], 3.0);
+        // The take is cut at 2.5 s, where its last piece runs into the clip after it.
+        crate::edit::separate_at(e.session_mut(), t, 120_000);
+        let after = e.session().track(t).unwrap().clips().iter().find(|c| c.start == 120_000).cloned().unwrap();
         let s = e.session_mut();
         s.tempo.set_tempo(0, 120.0).unwrap();
         s.edit.grid = soundcraft_time::GridValue::Note { value: soundcraft_time::NoteValue::Quarter, dotted: false, triplet: false };
         s.edit.grid_clips_markers = false;
-        let r = e.execute("event.beat_detective", &json!({"tracks": [t.0], "start": 12_000, "end": 144_000, "conform": true})).unwrap();
+        let r = e.execute("event.beat_detective", &json!({"tracks": [t.0], "start": 12_000, "end": 110_000, "conform": true})).unwrap();
         assert_eq!(r["count"], 4, "{r}");
         assert_eq!(r["conformed"], 4, "{r}");
+        // The clip after the selection is untouched, though the last piece moved later.
         let clips = e.session().track(t).unwrap().clips().to_vec();
+        assert!(clips.contains(&after), "{clips:?}");
+        let clips: Vec<Clip> = clips.into_iter().filter(|c| c.id != after.id).collect();
         let starts: Vec<Samples> = clips.iter().map(|c| c.start).collect();
         for beat in [24_000, 48_000, 72_000, 96_000] {
             assert!(starts.contains(&beat), "a piece starts on the quarter at {beat}: {starts:?}");
@@ -1096,9 +1110,10 @@ mod tests {
         for w in sorted.windows(2) {
             assert_eq!(w[0].end(), w[1].start, "{sorted:?}");
         }
-        // One undo puts the take back whole.
+        assert_eq!(sorted.last().map(Clip::end), Some(after.start));
+        // One undo puts the take back as it was.
         e.execute("edit.undo", &json!({})).unwrap();
-        assert_eq!(e.session().track(t).unwrap().clips().len(), 1);
+        assert_eq!(e.session().track(t).unwrap().clips().len(), 2);
     }
 
     #[test]

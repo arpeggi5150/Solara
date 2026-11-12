@@ -270,14 +270,8 @@ fn start_gesture(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::
         if s.edit.selected_tracks.is_empty() && s.edit.selected_clips.is_empty() {
             let _ = app.engine.execute("edit.select", &json!({"clips": [c.id.0]}));
         }
-        let body = gain_line_body(s, lane);
-        app.gesture = Some(Gesture::GainLine {
-            clip: c.id,
-            track: track.id,
-            from_db: c.gain_db,
-            anchor_y: origin.y,
-            db_per_point: gain_line_db_per_point(body),
-        });
+        app.gesture =
+            Some(Gesture::GainLine { clip: c.id, track: track.id, from_db: c.gain_db, anchor_y: origin.y, fine: mods.command || mods.ctrl });
     } else if let Some(c) = gain_drag {
         // `clip.gain` refuses to run with nothing selected.
         if s.edit.selected_tracks.is_empty() && s.edit.selected_clips.is_empty() {
@@ -331,12 +325,19 @@ fn start_gesture(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::
 
 /// While the clip gain line is dragged, the clip's gain follows the pointer up and down.
 fn drag_gain_line(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::Response) {
-    let (track, s, p) = (c.inp.track, c.inp.s, c.p);
-    if let Some(Gesture::GainLine { clip, track: t, from_db, anchor_y, db_per_point }) = app.gesture.clone()
-        && t == track.id
+    let (track, s, p, mods) = (c.inp.track, c.inp.s, c.p, c.mods);
+    if let Some(Gesture::GainLine { clip, track: t, from_db, anchor_y, fine }) = &mut app.gesture
+        && *t == track.id
         && resp.dragged()
     {
-        let db = (from_db + (anchor_y - p.y) * db_per_point).clamp(-144.0, 36.0);
+        // Ctrl (Cmd) switches to fine steps from where the pointer is, without a jump.
+        if *fine != (mods.command || mods.ctrl) {
+            *from_db = (*from_db + (*anchor_y - p.y) * gain_line_db_per_point(*fine)).clamp(-144.0, 36.0);
+            *anchor_y = p.y;
+            *fine = !*fine;
+        }
+        let clip = *clip;
+        let db = (*from_db + (*anchor_y - p.y) * gain_line_db_per_point(*fine)).clamp(-144.0, 36.0);
         if db.is_finite() && s.find_clip(clip).is_some_and(|(_, c)| (c.gain_db - db).abs() > 0.001) {
             let _ = app.engine.execute_merged("clip.gain", &json!({"clips": [clip.0], "db": db}), &format!("clip_gain:{}", clip.0));
         }

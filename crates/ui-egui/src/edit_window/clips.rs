@@ -341,9 +341,10 @@ pub(super) fn gain_line_y(body: Rect, db: f32) -> f32 {
     body.max.y - 3.0 - ((db.clamp(-36.0, 36.0) + 36.0) / 72.0) * (body.height() - 6.0)
 }
 
-/// How many dB one point of vertical travel on the gain line is worth in a clip body.
-pub(super) fn gain_line_db_per_point(body: Rect) -> f32 {
-    72.0 / (body.height() - 6.0).max(1.0)
+/// How many dB one point of vertical travel on the gain line is worth: a quarter dB, so a short
+/// lane still sets gain to a fraction of a dB; Ctrl (Cmd on macOS) for twentieths.
+pub(super) fn gain_line_db_per_point(fine: bool) -> f32 {
+    if fine { 0.05 } else { 0.25 }
 }
 
 /// The clip gain line and its icon.
