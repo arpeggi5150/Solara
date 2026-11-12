@@ -469,6 +469,10 @@ impl Engine {
         }
         match result {
             Ok(v) => {
+                if !Arc::ptr_eq(&before, &self.doc) {
+                    // Places of one pattern that held the same notes stay the same (FL-style Playlist).
+                    cmd::playlist::sync_links(self, &before);
+                }
                 cmd::remember_selection(self, &before);
                 if spec.undoable && !Arc::ptr_eq(&before, &self.doc) {
                     self.push_undo(spec.label, before);

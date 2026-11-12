@@ -100,15 +100,21 @@ a portal answer it uses Dark. Manual Light and Dark stay fixed when the OS appea
 An offscreen render without `--system-theme` supplies no OS appearance and therefore resolves
 System to Dark, or on Linux to the desktop's portal setting when one is available.
 
-Layouts: the app opens in the NEW layout. `ui.layout {"preset":"new"|"classic"|"reaper"}`
-switches between NEW, Classic (the Edit and Mix windows) and the Reaper-style layout (transport
-on top, track list and arrange view in the centre, mixer along the bottom) without touching the
-session; with no `preset` it returns the current one. `flStyle` and `abletonStyle` are named but
-refused until they are built. `ui.mixer {"value"?: bool}` expands or collapses the bottom mixer
-of NEW (M) or of the Reaper-style layout (Ctrl+M); each keeps its own state. In NEW,
+Layouts: the app opens in the NEW layout. `ui.layout {"preset":"new"|"flStyle"|"classic"|"reaper"}`
+switches between NEW, the FL-style layout (Browser and Channel Rack on the left, Playlist in the
+centre, Piano Roll and Mixer along the bottom), Classic (the Edit and Mix windows) and the
+Reaper-style layout (transport on top, track list and arrange view in the centre, mixer along the
+bottom) without touching the session; with no `preset` it returns the current one.
+`abletonStyle` is named but refused until it is built. `ui.mixer {"value"?: bool}` expands or
+collapses the bottom mixer of NEW (M), the FL-style layout (F9) or the Reaper-style layout
+(Ctrl+M); each keeps its own state. The FL-style layout's panels are `ui.channel_rack`,
+`ui.piano_roll` and `ui.browser` (`{"value"?: bool}`), and `ui.roll_slide`, `ui.roll_strum` and
+`ui.roll_arpeggiate` apply to the notes selected in its piano roll. In NEW,
 `ui.editor {"view": "auto"|"steps"|"piano"}` picks what the bottom Editor shows (B and P).
 
-Each layout brings its own key set: NEW's single-letter keys, Classic's shortcuts, and the
+Each layout brings its own key set: NEW's single-letter keys, Classic's shortcuts, the
+FL-style keys (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer, R record, Ctrl+B
+duplicate, Delete clear, Alt+S strum, Alt+A arpeggiate) and the
 Reaper-style keys (Ctrl+R record, R repeat, S split, Ctrl+T new track, Ctrl+M mixer, Alt+R
 Routing Matrix, ? Action List, Home/End, Delete, = and - zoom). The shared shortcuts (Space,
 Ctrl+S, Ctrl+Z, ...) work in every layout. `ui.keymap {}` lists the keys assigned by hand in
@@ -120,6 +126,21 @@ follows the layout: in the Reaper-style layout every track can, through
 `mix.receive {"track", "value"?: bool}`, which gives an audio, instrument or MIDI track a
 receive bus the mix engine adds in ahead of its inserts; in the other layouts sends go to aux,
 folder and bus tracks only.
+
+Patterns, FL-style: `playlist.place {"clip", "at", "track"?}` places the pattern a MIDI clip
+holds; the places stay one pattern, so a step or note edited in one place reaches every place
+that held the same notes (`playlist.make_unique {"clip"}` lets one go; `playlist.patterns` lists
+each pattern once). `rack.groove {"clip", "swing"?: 0..100, "humanize"?: 0..100}` sets a pattern's
+swing (every second sixteenth later) and humanize (repeatable timing and velocity variation),
+applied as it plays; the notes stay put. Piano roll tools: `midi.stamp {"clip", "chord", "pitch",
+"start_ticks", "length_ticks"?}`, `midi.slide {"clip", "indices", "value"?}` (portamento, CC65,
+around the note: it glides from the note before), `midi.strum {"clip", "indices", "ticks"?,
+"down"?}` and `midi.arpeggiate {"clip", "indices", "rate_ticks"?, "direction"?, "gate"?}`.
+Automation clips: `auto_clip.new {"track", "param"?, "start"?, "end"?}` holds a stretch of a lane
+as a clip; `auto_clip.move` and `auto_clip.copy {"id", "at", "track"?}` write its shape into the
+lane where it lands, so it drives the parameter there; `auto_clip.delete {"id"}` and
+`auto_clip.list {"track"?}`.
+
 New projects come from `session.new {"template": "drums"}` (one
 Drums track, as a fresh launch and File > New start) or `{"template": "empty"}` (no tracks); both start with loop
 playback on.

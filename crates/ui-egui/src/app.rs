@@ -86,6 +86,7 @@ impl SoundApp {
             gesture: None,
             edit_layout: edit_window::EditLayout::default(),
             midi: midi_editor::MidiEditorState::default(),
+            fl: crate::fl_layout::FlState::default(),
             ops: ops_windows::OpsState::default(),
             extra: extra_windows::ExtraState::default(),
             palette: palette::PaletteState::default(),
@@ -357,6 +358,8 @@ impl SoundApp {
             crate::new_layout::show(self, ui);
         } else if self.ui.layout == crate::new_layout::LayoutPreset::Reaper {
             crate::reaper_layout::show(self, ui);
+        } else if self.ui.layout == crate::new_layout::LayoutPreset::FlStyle {
+            crate::fl_layout::show(self, ui);
         } else {
             match if self.ui.mix_separate { MainWindow::Edit } else { self.ui.window } {
                 MainWindow::Edit => edit_window::show(self, ui),

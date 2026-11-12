@@ -377,6 +377,9 @@ pub struct Session {
     /// Performance). Independent of undo so a restore survives later edits.
     #[serde(default)]
     pub midi_originals: std::collections::BTreeMap<u64, soundcraft_midi::Sequence>,
+    /// Automation clips (FL-style Playlist), each on one lane of one track.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auto_clips: Vec<crate::AutoClip>,
     #[serde(skip)]
     pub pool: SourcePool,
     /// The folder relative source paths point into: where the session was opened or last saved.
@@ -415,6 +418,7 @@ impl Session {
             next_id: 1,
             comments: String::new(),
             midi_originals: std::collections::BTreeMap::new(),
+            auto_clips: Vec::new(),
             pool: SourcePool::default(),
             folder: None,
         };
@@ -772,6 +776,7 @@ impl Session {
             .chain(self.busses.iter().map(|b| b.id.0))
             .chain(self.markers.iter().map(|m| m.id.0))
             .chain(self.groups.iter().map(|g| g.id.0))
+            .chain(self.auto_clips.iter().map(|c| c.id))
             .max()
             .unwrap_or(0);
         self.next_id = self.next_id.max(max_id.saturating_add(1));
@@ -816,6 +821,11 @@ impl Session {
             truncate_chars(key, MAX_NAME_CHARS);
         }
         self.midi_originals.values_mut().for_each(bound_sequence);
+        // An automation clip sits on a track of this session.
+        let tracks: Vec<TrackId> = self.tracks.iter().map(|t| t.id).collect();
+        self.auto_clips.retain(|c| tracks.contains(&c.track));
+        self.auto_clips.truncate(crate::MAX_AUTO_CLIPS);
+        self.auto_clips.iter_mut().for_each(crate::AutoClip::sanitize);
         let e = &mut self.edit;
         for at in [
             &mut e.selection.start,

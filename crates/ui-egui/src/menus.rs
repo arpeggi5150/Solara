@@ -84,6 +84,12 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("window.action_list", "Action List", "", None),
     ("window.routing_matrix", "Routing Matrix", "", None),
     ("ui.keymap", "Assign Key", "", None),
+    ("ui.channel_rack", "Show/Hide Channel Rack", "", None),
+    ("ui.piano_roll", "Show/Hide Piano Roll", "", None),
+    ("ui.browser", "Show/Hide Browser", "", None),
+    ("ui.roll_slide", "Slide Selected Notes", "", None),
+    ("ui.roll_strum", "Strum Selected Notes", "", None),
+    ("ui.roll_arpeggiate", "Arpeggiate Selected Notes", "", None),
     ("ui.reduce_visual_effects", "Reduce Visual Effects", "", None),
     ("ui.undo_levels", "Levels of Undo", "", None),
 ];
@@ -352,6 +358,8 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                         "NEW"
                     } else if reaper {
                         "Reaper"
+                    } else if app.ui.layout == crate::new_layout::LayoutPreset::FlStyle {
+                        "FL"
                     } else if app.ui.window == MainWindow::Edit || app.ui.mix_separate {
                         "Edit"
                     } else {
@@ -609,6 +617,9 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
         return Some(crate::docking::command(app, id, p));
     }
     if let Some(r) = crate::new_layout::command(app, id, p) {
+        return Some(r);
+    }
+    if let Some(r) = crate::fl_layout::command(app, id, p) {
         return Some(r);
     }
     if let Some(v) = crate::extra_windows::run(app, id, p) {

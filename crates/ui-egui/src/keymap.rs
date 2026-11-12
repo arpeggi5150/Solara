@@ -1,7 +1,7 @@
 //! Key sets per layout, and the keys people assign themselves (Action List, `ui.keymap`).
 //!
 //! Each layout brings its own key set: NEW its single-letter keys, Classic the command registry's
-//! shortcuts, Reaper-style the keys a Reaper user expects. A key a person assigns belongs to the
+//! shortcuts, Reaper-style the keys a Reaper user expects, FL-style the keys an FL user expects. A key a person assigns belongs to the
 //! active key set and wins over that set's defaults. Every set still falls through to the shared
 //! registry shortcuts (Cmd+S, Cmd+Z, ...), so switching layout never loses them.
 
@@ -21,6 +21,7 @@ pub const MAX_OVERRIDES: usize = 512;
 pub fn set_id(layout: LayoutPreset) -> &'static str {
     match layout {
         LayoutPreset::Reaper => "reaper",
+        LayoutPreset::FlStyle => "fl",
         LayoutPreset::Classic => "classic",
         _ => "new",
     }
@@ -30,6 +31,7 @@ pub fn set_id(layout: LayoutPreset) -> &'static str {
 pub fn set_label(id: &str) -> &'static str {
     match id {
         "reaper" => "Reaper",
+        "fl" => "FL-style",
         "classic" => "Classic",
         _ => "NEW",
     }
@@ -56,10 +58,25 @@ pub const REAPER_KEYS: &[(&str, &str)] = &[
     ("Minus", "view.zoom_out"),
 ];
 
+/// The FL-style layout's own keys: chord, command. Space, Ctrl+Z, Ctrl+S and the rest come from
+/// the shared shortcuts.
+pub const FL_KEYS: &[(&str, &str)] = &[
+    ("F6", "ui.channel_rack"),
+    ("F7", "ui.piano_roll"),
+    ("Alt+F8", "ui.browser"),
+    ("F9", "ui.mixer"),
+    ("R", "transport.record"),
+    ("Cmd+B", "edit.duplicate"),
+    ("Delete", "edit.clear"),
+    ("Alt+S", "ui.roll_strum"),
+    ("Alt+A", "ui.roll_arpeggiate"),
+];
+
 /// The default chord a key set gives a command, if any (first one listed).
 pub fn default_chord(set: &str, id: &str) -> Option<&'static str> {
     match set {
         "reaper" => REAPER_KEYS.iter().find(|(_, c)| *c == id).map(|(k, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
+        "fl" => FL_KEYS.iter().find(|(_, c)| *c == id).map(|(k, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
         "new" => crate::new_layout::NEW_KEYS.iter().find(|(_, c, _)| *c == id).map(|(k, _, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
         _ => crate::menus::shortcut_for(id),
     }
@@ -127,13 +144,18 @@ pub fn dispatch(app: &mut SoundApp, key: Key, m: Modifiers, mac: bool) -> bool {
         return true;
     }
     match app.ui.layout {
-        LayoutPreset::Reaper => match REAPER_KEYS.iter().find(|(c, _)| pressed(c, key, m, mac)) {
-            Some((_, id)) => {
-                crate::menus::invoke_menu(app, id, "");
-                true
+        // Over the piano roll, Delete deletes notes there, not the Playlist selection.
+        LayoutPreset::FlStyle if key == Key::Delete && app.fl.roll_hovered => false,
+        LayoutPreset::Reaper | LayoutPreset::FlStyle => {
+            let keys = if app.ui.layout == LayoutPreset::Reaper { REAPER_KEYS } else { FL_KEYS };
+            match keys.iter().find(|(c, _)| pressed(c, key, m, mac)) {
+                Some((_, id)) => {
+                    crate::menus::invoke_menu(app, id, "");
+                    true
+                }
+                None => false,
             }
-            None => false,
-        },
+        }
         LayoutPreset::New => crate::new_layout::keys(app, key, m),
         _ => false,
     }
@@ -225,7 +247,7 @@ mod tests {
 
     #[test]
     fn every_layout_key_names_a_real_command_and_a_real_key() {
-        for (c, id) in REAPER_KEYS {
+        for (c, id) in REAPER_KEYS.iter().chain(FL_KEYS) {
             assert!(known(id), "{id}");
             assert!(crate::shortcuts::parse(c).is_some(), "{c}");
         }
@@ -262,6 +284,33 @@ mod tests {
         assert!(!dispatch(&mut app, Key::R, Modifiers::ALT, false));
         assert!(dispatch(&mut app, Key::B, Modifiers::NONE, false));
         assert_eq!(chord_for(&app, "ui.mixer").as_deref(), Some("M"));
+        app.ui.layout = LayoutPreset::Reaper;
+        assert_eq!(chord_for(&app, "ui.mixer").as_deref(), Some("Cmd+M"));
+    }
+
+    #[test]
+    fn fl_keys_work_in_the_fl_layout_only() {
+        let mut app = app(LayoutPreset::FlStyle);
+        let rack = app.ui.fl_rack_open;
+        assert!(dispatch(&mut app, Key::F6, Modifiers::NONE, false));
+        assert_ne!(app.ui.fl_rack_open, rack, "F6 shows or hides the Channel Rack");
+        let roll = app.ui.fl_roll_open;
+        assert!(dispatch(&mut app, Key::F7, Modifiers::NONE, false));
+        assert_ne!(app.ui.fl_roll_open, roll);
+        assert!(dispatch(&mut app, Key::F8, Modifiers::ALT, false));
+        assert!(!app.ui.fl_browser_open);
+        assert!(dispatch(&mut app, Key::F9, Modifiers::NONE, false));
+        assert!(app.ui.fl_mixer_open, "F9 is FL's mixer");
+        assert_eq!(chord_for(&app, "ui.mixer").as_deref(), Some("F9"));
+        assert_eq!(set_label(set_id(app.ui.layout)), "FL-style");
+        // Over the piano roll, Delete is the roll's.
+        app.fl.roll_hovered = true;
+        assert!(!dispatch(&mut app, Key::Delete, Modifiers::NONE, false));
+        // Other layouts keep their own keys.
+        for other in [LayoutPreset::New, LayoutPreset::Reaper, LayoutPreset::Classic] {
+            app.ui.layout = other;
+            assert!(!dispatch(&mut app, Key::F6, Modifiers::NONE, false), "{other:?}");
+        }
         app.ui.layout = LayoutPreset::Reaper;
         assert_eq!(chord_for(&app, "ui.mixer").as_deref(), Some("Cmd+M"));
     }

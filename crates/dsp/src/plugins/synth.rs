@@ -17,7 +17,13 @@ pub(crate) enum EventKind {
     /// Pitch bend as a frequency ratio.
     Bend(f32),
     ResetControllers,
+    /// Portamento (CC65): while on, a new note slides from the one sounding instead of starting
+    /// its own voice (FL-style slide notes).
+    Portamento(bool),
 }
+
+/// How long a slide takes when the Glide parameter is off.
+const SLIDE_MS: f32 = 60.0;
 
 /// Pitch bend range, semitones each way.
 const BEND_RANGE: f32 = 2.0;
@@ -221,6 +227,8 @@ struct Voice {
     held: bool,
     /// Released while the sustain pedal was down.
     sustained: bool,
+    /// Reached by a slide: glides at the slide rate.
+    slide: bool,
 }
 
 impl Voice {
@@ -238,6 +246,7 @@ impl Voice {
             age: 0,
             held: false,
             sustained: false,
+            slide: false,
         }
     }
 
@@ -256,6 +265,8 @@ pub struct SubtractiveSynth {
     amp_rates: AdsrRates,
     filt_rates: AdsrRates,
     glide_coef: f32,
+    slide_coef: f32,
+    portamento: bool,
     last_freq: Option<f32>,
     counter: u64,
     level: Smoother,
@@ -285,6 +296,8 @@ impl SubtractiveSynth {
             amp_rates: AdsrRates::default(),
             filt_rates: AdsrRates::default(),
             glide_coef: 0.0,
+            slide_coef: 0.0,
+            portamento: false,
             last_freq: None,
             counter: 0,
             level: Smoother::new(0.5),
@@ -303,6 +316,7 @@ impl SubtractiveSynth {
         self.filt_rates = AdsrRates::new(v(12), v(13), v(14) / 100.0, v(15), sr);
         let glide = v(16);
         self.glide_coef = if glide < 0.5 { 0.0 } else { crate::util::time_coef(glide / 3.0, sr) };
+        self.slide_coef = crate::util::time_coef(if glide < 0.5 { SLIDE_MS } else { glide } / 3.0, sr);
         self.level.set(db_to_gain(v(18)));
         self.cutoff.set(v(5));
     }
@@ -314,6 +328,17 @@ impl SubtractiveSynth {
         }
         self.counter += 1;
         let freq = note_hz(f32::from(note.min(127)));
+        // A slide takes over the note sounding most recently: same voice, no new attack.
+        if self.portamento
+            && let Some(v) = self.voices.iter_mut().filter(|v| v.held && v.active() && v.note != note).max_by_key(|v| v.age)
+        {
+            v.note = note;
+            v.target = freq;
+            v.slide = true;
+            v.age = self.counter;
+            self.last_freq = Some(freq);
+            return;
+        }
         // Reuse a voice already playing this note, else a free one, else steal.
         let idx = self
             .voices
@@ -333,7 +358,9 @@ impl SubtractiveSynth {
             })
             .unwrap_or(0);
         let sens = self.p.v(17) / 100.0;
-        let glide = self.glide_coef > 0.0;
+        // With nothing held, a slide still starts from the last note's pitch.
+        let slide = self.portamento && self.last_freq.is_some();
+        let glide = self.glide_coef > 0.0 || slide;
         let start = if glide { self.last_freq.unwrap_or(freq) } else { freq };
         let counter = self.counter;
         if let Some(v) = self.voices.get_mut(idx) {
@@ -342,6 +369,7 @@ impl SubtractiveSynth {
             v.vel = (1.0 - sens) + sens * f32::from(vel.min(127)) / 127.0;
             v.target = freq;
             v.freq = if was_active && glide { v.freq } else { start };
+            v.slide = slide;
             if !was_active {
                 v.osc1.reset();
                 v.osc2.phase = 0.37;
@@ -397,7 +425,9 @@ impl SubtractiveSynth {
             EventKind::ResetControllers => {
                 self.set_sustain(false);
                 self.bend = 1.0;
+                self.portamento = false;
             }
+            EventKind::Portamento(on) => self.portamento = on,
         }
     }
 
@@ -418,8 +448,9 @@ impl SubtractiveSynth {
             if !v.active() {
                 continue;
             }
-            if self.glide_coef > 0.0 {
-                v.freq = v.target + (v.freq - v.target) * self.glide_coef;
+            let coef = if v.slide { self.slide_coef } else { self.glide_coef };
+            if coef > 0.0 {
+                v.freq = v.target + (v.freq - v.target) * coef;
             } else {
                 v.freq = v.target;
             }
@@ -459,6 +490,7 @@ impl Plugin for SubtractiveSynth {
         self.cutoff.snap();
         self.sustain = false;
         self.bend = 1.0;
+        self.portamento = false;
     }
 
     fn process(&mut self, io: &mut [Vec<f32>], frames: usize) {
@@ -512,6 +544,7 @@ impl Plugin for SubtractiveSynth {
         let [status, d1, d2] = msg;
         let kind = match (status & 0xF0, d1) {
             (0xB0, 64) => EventKind::Sustain(d2 >= 64),
+            (0xB0, 65) => EventKind::Portamento(d2 >= 64),
             (0xB0, 120 | 123) => EventKind::AllOff,
             (0xB0, 121) => EventKind::ResetControllers,
             (0xE0, _) => {
@@ -525,5 +558,60 @@ impl Plugin for SubtractiveSynth {
 
     fn all_notes_off(&mut self) {
         self.events.push(0, EventKind::AllOff);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn synth() -> SubtractiveSynth {
+        let mut s = SubtractiveSynth::new();
+        s.prepare(48_000.0, 256, 2);
+        s
+    }
+
+    fn run(s: &mut SubtractiveSynth, frames: usize) {
+        let mut io = vec![vec![0.0f32; frames]; 2];
+        s.process(&mut io, frames);
+    }
+
+    fn active(s: &SubtractiveSynth) -> Vec<(u8, f32, f32)> {
+        s.voices.iter().filter(|v| v.active()).map(|v| (v.note, v.freq, v.target)).collect()
+    }
+
+    #[test]
+    fn a_slide_takes_over_the_sounding_note_and_glides() {
+        let mut s = synth();
+        s.note_on(0, 48, 100);
+        run(&mut s, 256);
+        s.midi(0, [0xB0, 65, 127]);
+        s.note_on(1, 60, 100);
+        run(&mut s, 64);
+        let v = active(&s);
+        assert_eq!(v.len(), 1, "one voice slides, no new attack: {v:?}");
+        let (note, freq, target) = v[0];
+        assert_eq!(note, 60);
+        assert!(freq < target * 0.99, "still on its way up: {freq} → {target}");
+        run(&mut s, 48_000 / 2);
+        let (_, freq, target) = active(&s)[0];
+        assert!((freq - target).abs() < 0.5, "arrived: {freq} vs {target}");
+        // Its note-off releases it; the first note's off finds nothing left to stop.
+        s.note_off(0, 48);
+        run(&mut s, 64);
+        assert!(s.voices.iter().any(|v| v.held && v.note == 60));
+    }
+
+    #[test]
+    fn without_portamento_notes_get_their_own_voice() {
+        let mut s = synth();
+        s.note_on(0, 48, 100);
+        s.note_on(0, 60, 100);
+        run(&mut s, 64);
+        assert_eq!(active(&s).len(), 2);
+        s.midi(0, [0xB0, 65, 127]);
+        s.midi(1, [0xB0, 121, 0]);
+        run(&mut s, 8);
+        assert!(!s.portamento, "Reset All Controllers ends portamento");
     }
 }

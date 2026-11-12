@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use soundcraft_model::{Route, TrackId, TrackKind};
 
-/// The layout presets the switcher offers. NEW, Classic and Reaper are built; the others are
+/// The layout presets the switcher offers. NEW, FL-style, Classic and Reaper are built; the others are
 /// listed and refused until they are built.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,7 +55,7 @@ impl LayoutPreset {
 
     /// Whether this preset is built yet.
     pub fn available(self) -> bool {
-        matches!(self, Self::New | Self::Classic | Self::Reaper)
+        matches!(self, Self::New | Self::FlStyle | Self::Classic | Self::Reaper)
     }
 }
 
@@ -101,8 +101,12 @@ pub fn command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<Value, 
     Some(match id {
         "ui.layout" => layout_command(app, p),
         "ui.mixer" => {
-            // Each layout keeps its own mixer state: NEW starts collapsed, Reaper's MCP starts open.
-            let open = if app.ui.layout == LayoutPreset::Reaper { &mut app.ui.reaper_mixer_open } else { &mut app.ui.new_mixer_open };
+            // Each layout keeps its own mixer state: NEW and FL start collapsed, Reaper's MCP open.
+            let open = match app.ui.layout {
+                LayoutPreset::Reaper => &mut app.ui.reaper_mixer_open,
+                LayoutPreset::FlStyle => &mut app.ui.fl_mixer_open,
+                _ => &mut app.ui.new_mixer_open,
+            };
             *open = p.get("value").and_then(Value::as_bool).unwrap_or(!*open);
             Ok(json!({"value": *open}))
         }
@@ -707,8 +711,12 @@ mod tests {
         assert_eq!(app.ui.layout, LayoutPreset::Classic);
         assert!(keys(&mut app, Key::Num1, Modifiers::NONE));
         assert_eq!(app.ui.layout, LayoutPreset::New);
-        // An unbuilt layout's key leaves NEW in place and says why.
+        // 2 is the FL-style layout.
         assert!(keys(&mut app, Key::Num2, Modifiers::NONE));
+        assert_eq!(app.ui.layout, LayoutPreset::FlStyle);
+        app.ui.layout = LayoutPreset::New;
+        // An unbuilt layout's key leaves NEW in place and says why.
+        assert!(keys(&mut app, Key::Num5, Modifiers::NONE));
         assert_eq!(app.ui.layout, LayoutPreset::New);
         assert!(app.ui.status.contains("not built yet"));
         // Modified keys belong to the shared shortcuts (Ctrl+D is Duplicate).

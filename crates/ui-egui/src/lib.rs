@@ -21,6 +21,7 @@ pub mod credits;
 pub mod dialogs;
 pub mod docking;
 pub mod edit_window;
+pub mod fl_layout;
 pub mod fonts;
 pub mod icons;
 pub mod import;
@@ -170,6 +171,13 @@ pub struct UiState {
     /// Window › Action List and View › Routing Matrix.
     pub show_action_list: bool,
     pub show_routing_matrix: bool,
+    /// The FL-style layout's panels (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer)
+    /// and its piano roll's ghost notes.
+    pub fl_browser_open: bool,
+    pub fl_rack_open: bool,
+    pub fl_roll_open: bool,
+    pub fl_mixer_open: bool,
+    pub fl_ghost_notes: bool,
 }
 
 impl Default for UiState {
@@ -243,6 +251,11 @@ impl Default for UiState {
             key_overrides: keymap::Overrides::new(),
             show_action_list: false,
             show_routing_matrix: false,
+            fl_browser_open: true,
+            fl_rack_open: true,
+            fl_roll_open: true,
+            fl_mixer_open: false,
+            fl_ghost_notes: true,
         }
     }
 }
@@ -351,6 +364,8 @@ pub struct SoundApp {
     pub gesture: Option<Gesture>,
     pub edit_layout: edit_window::EditLayout,
     pub midi: midi_editor::MidiEditorState,
+    /// The FL-style layout's own frame-to-frame state.
+    pub fl: fl_layout::FlState,
     pub ops: ops_windows::OpsState,
     pub extra: extra_windows::ExtraState,
     pub palette: palette::PaletteState,

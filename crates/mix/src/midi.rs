@@ -49,12 +49,15 @@ pub(crate) fn schedule_notes(s: &Session, t: &Track, pos: Samples, frames: usize
         // The block in clip ticks, one tick wider on each side so rounding never drops an event.
         let near = s.tempo.samples_to_ticks(pos, sr).saturating_sub(base).saturating_sub(1)
             ..=s.tempo.samples_to_ticks(end, sr).saturating_sub(base).saturating_add(1);
+        // Swing and humanize (FL-style Channel Rack), when the clip has any.
+        let groove = clip.groove.filter(|g| !g.is_straight());
         for n0 in &sequence.notes {
             let mut n = *n0;
-            n.velocity = (i64::from(n.velocity) + dv).clamp(1, 127) as u8;
+            let (gt, gv) = groove.map_or((0, 0), |g| groove_shift(&g, n0));
+            n.velocity = (i64::from(n.velocity) + dv + gv).clamp(1, 127) as u8;
             n.pitch = (i64::from(n.pitch) + dp).clamp(0, 127) as u8;
             n.length = ((n.length as f64 * dur) as i64).max(1);
-            n.start = n.start.saturating_add(delay).max(0);
+            n.start = n.start.saturating_add(delay).saturating_add(gt).max(0);
             // A note whose on and off both fall outside the block sends nothing: skip it before
             // converting its positions, so a long sequence costs a comparison per note per block.
             if n.start > *near.end() || n.start.saturating_add(n.length) < *near.start() {
@@ -88,6 +91,38 @@ pub(crate) fn schedule_notes(s: &Session, t: &Track, pos: Samples, frames: usize
             }
         }
     }
+}
+
+/// Ticks in one sixteenth, the step a groove swings.
+const SIXTEENTH: i64 = super::TICKS_PER_QUARTER / 4;
+
+/// How far a groove moves `n`: (ticks later, velocity added). Swing delays notes in every second
+/// sixteenth by up to half a sixteenth. Humanize moves timing by up to a quarter of a sixteenth
+/// and velocity by up to 24 either way, from a hash of the note, so every play and every bounce
+/// sounds the same.
+pub(crate) fn groove_shift(g: &soundcraft_model::Groove, n: &soundcraft_midi::Note) -> (i64, i64) {
+    let swing = if g.swing.is_finite() { g.swing.clamp(0.0, 1.0) } else { 0.0 };
+    let human = if g.humanize.is_finite() { g.humanize.clamp(0.0, 1.0) } else { 0.0 };
+    let mut ticks = 0i64;
+    if n.start.div_euclid(SIXTEENTH).rem_euclid(2) == 1 {
+        ticks += (f64::from(swing) * SIXTEENTH as f64 / 2.0).round() as i64;
+    }
+    let mut velocity = 0i64;
+    if human > 0.0 {
+        let h = mix64(u64::from(n.pitch) | u64::from(n.channel) << 8 | (n.start as u64) << 16);
+        let unit = |bits: u64| (bits & 0xFFFF) as f64 / 65_535.0 * 2.0 - 1.0;
+        ticks += (unit(h) * f64::from(human) * SIXTEENTH as f64 / 4.0).round() as i64;
+        velocity = (unit(h >> 16) * f64::from(human) * 24.0).round() as i64;
+    }
+    (ticks, velocity)
+}
+
+/// SplitMix64's finaliser: a well-spread hash of one word.
+fn mix64(mut x: u64) -> u64 {
+    x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^ (x >> 31)
 }
 
 /// A controller event as a MIDI 1.0 message on channel 1 (where the notes go), with `transpose`
