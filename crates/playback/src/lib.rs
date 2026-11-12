@@ -272,6 +272,11 @@ impl Player {
                             "audio device: {name} @ {rate} Hz, {channels} ch, {format}, buffer {}",
                             buffer.map_or("default".to_string(), |n| n.to_string())
                         );
+                        if let Some(want) = cfg.buffer_size
+                            && buffer != Some(want)
+                        {
+                            log::warn!("audio device {name} did not take the {want}-sample buffer; it runs at its default");
+                        }
                         Player {
                             shared,
                             fault,

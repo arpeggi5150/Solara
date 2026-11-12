@@ -549,7 +549,15 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
                 if p.silent {
                     "no device (silent clock)".to_string()
                 } else {
-                    let buf = p.device_buffer.map_or("default buffer".to_string(), |b| format!("{b} samples"));
+                    // The block the device actually asks for, as measured: on Windows shared mode it is
+                    // the system's period whatever buffer was asked for.
+                    let period = p.health().period_us;
+                    let measured = (period > 0).then(|| {
+                        let frames = u64::from(p.device_rate).saturating_mul(period).saturating_add(500_000) / 1_000_000;
+                        format!(" ({frames} samples, {:.1} ms blocks)", period as f64 / 1000.0)
+                    });
+                    let buf = p.device_buffer.map_or("default buffer".to_string(), |b| format!("{b}-sample buffer"));
+                    let buf = format!("{buf}{}", measured.unwrap_or_default());
                     format!("{} · {} Hz · {} ch · {buf}", p.device_name, p.device_rate, p.device_channels)
                 }
             }));
