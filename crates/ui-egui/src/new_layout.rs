@@ -169,7 +169,7 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     // Expanded, the Mixer takes up to half the window and the timeline keeps the rest.
     // Expanded, the Mixer takes up to 60% of the window, the Editor folds to its title row and
     // the timeline keeps the rest.
-    let mixer_h = if app.ui.new_mixer_open { (ui.max_rect().height() * 0.6).max(MIXER_EXPANDED_H) } else { MIXER_COLLAPSED_H };
+    let mixer_h = if app.ui.new_mixer_open { open_mixer_height(ui.available_rect_before_wrap().height()) } else { MIXER_COLLAPSED_H };
     egui::Panel::bottom("new_mixer").exact_size(mixer_h).frame(egui::Frame::NONE.fill(t.panel_bg)).show(ui, |ui| mixer(app, ui));
     if app.ui.new_mixer_open {
         egui::Panel::bottom("new_editor_folded")
@@ -199,11 +199,29 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.window_bg)).show(ui, |ui| {
         let full = ui.max_rect();
         let strip = Rect::from_min_max(pos2(full.min.x, full.max.y - ADD_STRIP_H), full.max);
-        let mut timeline = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_max(full.min, pos2(full.max.x, strip.min.y))));
+        let timeline_rect = Rect::from_min_max(full.min, pos2(full.max.x, strip.min.y));
+        let mut timeline = ui.new_child(egui::UiBuilder::new().max_rect(timeline_rect));
+        // A short timeline (the Mixer open in a small window) must not draw its rows over the
+        // Editor and the Mixer below it.
+        timeline.set_clip_rect(timeline_rect.intersect(ui.clip_rect()));
         crate::edit_window::main_area(app, &mut timeline);
         add_strip(app, ui, strip);
         browser_drop(app, ui);
     });
+}
+
+/// Height the open Mixer needs to show a whole channel strip, fader included, without scrolling:
+/// its header, the strip ([`crate::mix_window::STRIP_MIN_H`]) and the strips' scroll bar.
+pub const MIXER_FIT_H: f32 = MIXER_COLLAPSED_H + crate::mix_window::STRIP_MIN_H + 16.0;
+/// The timeline keeps at least this much height when the Mixer is open.
+pub const TIMELINE_MIN_H: f32 = 90.0;
+
+/// The open Mixer's height when `h` is left below the top bar: 60% of it, and at least
+/// enough for a whole strip, while the timeline keeps [`TIMELINE_MIN_H`] and the folded Editor
+/// its title row.
+pub fn open_mixer_height(h: f32) -> f32 {
+    let room = (h - TIMELINE_MIN_H - EDITOR_TITLE_H - ADD_STRIP_H).max(MIXER_EXPANDED_H);
+    (h * 0.6).max(MIXER_FIT_H).min(room)
 }
 
 /// Height of the one-click Add Bass / Chords / Lead row under the timeline.
@@ -802,6 +820,18 @@ mod tests {
         let clips = s.tracks[0].clips();
         assert_eq!(clips.len(), 4, "four bars of the pattern");
         assert!(clips.iter().all(|c| c.loop_id.is_some() && c.loop_id == clips[0].loop_id));
+    }
+
+    #[test]
+    fn the_open_mixer_fits_a_whole_strip_when_the_window_has_room() {
+        // R7-Win11's maximised window, and a shorter one where 60% alone cut the fader off.
+        for h in [1000.0, 800.0, 760.0] {
+            assert!(open_mixer_height(h) >= MIXER_FIT_H, "{h}");
+            assert!(h - open_mixer_height(h) >= TIMELINE_MIN_H + EDITOR_TITLE_H + ADD_STRIP_H - 0.01, "{h}");
+        }
+        // A very short window keeps some timeline and lets the strip scroll.
+        let short = open_mixer_height(600.0);
+        assert!((MIXER_EXPANDED_H..MIXER_FIT_H).contains(&short));
     }
 
     #[test]

@@ -58,6 +58,9 @@ pub fn separate_closed(app: &mut SoundApp) {
 
 /// Draw the horizontal Mix window strips for visible non-video tracks, scroll one requested strip into view and open
 /// New Tracks when the space past the last strip is double-clicked.
+/// The shortest a channel strip draws; shorter space scrolls.
+pub const STRIP_MIN_H: f32 = 560.0;
+
 pub(crate) fn content(app: &mut SoundApp, ui: &mut Ui) {
     let ids: Vec<TrackId> = app.engine.session().tracks.iter().filter(|x| !x.hidden && x.kind != TrackKind::Video).map(|x| x.id).collect();
     // Per-channel peaks for multichannel meters, from the snapshot `logic` takes from the player
@@ -181,7 +184,7 @@ fn strip(app: &mut SoundApp, ui: &mut Ui, id: TrackId, snap: Option<&MeterSnapsh
     let Some(track) = session.track(id) else { return };
     let narrow = app.ui.narrow_mix;
     let w = strip_width(narrow);
-    let h = ui.available_height().max(560.0);
+    let h = ui.available_height().max(STRIP_MIN_H);
     let (r, _) = ui.allocate_exact_size(vec2(w, h), Sense::hover());
     if scroll_here {
         // egui stops `item_spacing` short of the edge (the scroll area's, not the strips' 1 pt),
