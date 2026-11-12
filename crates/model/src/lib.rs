@@ -5,6 +5,7 @@
 //! [`SourcePool`] behind `Arc`s, so cloning a session for undo is cheap.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+mod auto_clip;
 mod automation;
 pub mod b64;
 mod clip;
@@ -15,8 +16,9 @@ mod session;
 mod source;
 mod track;
 
+pub use auto_clip::{AutoClip, MAX_AUTO_CLIPS};
 pub use automation::{AutoParam, AutomationLane, AutomationMode, AutomationPoint};
-pub use clip::{Clip, ClipContent, Fade, FadeShape};
+pub use clip::{Clip, ClipContent, Fade, FadeShape, Groove};
 pub use ids::{BusId, ClipId, GroupId, MarkerId, SourceId, TrackId};
 pub use markers::{Group, MarkerKind, MemoryLocation};
 pub use mixer::{

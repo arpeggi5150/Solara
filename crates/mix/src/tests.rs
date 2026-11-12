@@ -1334,3 +1334,73 @@ fn consolidate_many_tiny_effect_clips_stays_fast() {
     assert!((out[0][1000] - 0.5 * db_to_gain(-6.0)).abs() < 1e-6);
     assert_eq!(out[0][1001], 0.0);
 }
+
+struct Hits {
+    inner: Box<dyn Plugin>,
+    heard: Arc<std::sync::Mutex<Vec<(usize, u8, u8)>>>,
+}
+
+impl Plugin for Hits {
+    fn info(&self) -> &'static soundcraft_dsp::PluginInfo {
+        self.inner.info()
+    }
+    fn prepare(&mut self, sr: f32, mb: usize, ch: usize) {
+        self.inner.prepare(sr, mb, ch);
+    }
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+    fn set_param(&mut self, id: &str, v: f32) -> bool {
+        self.inner.set_param(id, v)
+    }
+    fn param(&self, id: &str) -> Option<f32> {
+        self.inner.param(id)
+    }
+    fn process(&mut self, io: &mut [Vec<f32>], frames: usize) {
+        self.inner.process(io, frames);
+    }
+    fn note_on(&mut self, offset: usize, note: u8, velocity: u8) {
+        self.heard.lock().unwrap().push((offset, note, velocity));
+    }
+}
+
+/// When each note starts (sample) and how loud, over the first quarter note of a two-step pattern.
+fn groove_hits(groove: Option<soundcraft_model::Groove>) -> Vec<(i64, u8)> {
+    let mut s = Session::default();
+    let t = s.add_track(TrackKind::Instrument, ChannelFormat::Stereo, None);
+    s.track_mut(t).unwrap().instrument = Some(Insert::new("clap:test.clock"));
+    let mut seq = soundcraft_midi::Sequence::default();
+    for start in [0, TICKS_PER_QUARTER / 4] {
+        seq.notes.push(soundcraft_midi::Note { pitch: 36, velocity: 100, release_velocity: 64, channel: 9, start, length: 60 });
+    }
+    let cid = s.new_clip_id();
+    let mut clip = Clip::midi(cid, "Pattern 1", 0, 96_000, seq);
+    clip.groove = groove;
+    s.track_mut(t).unwrap().playlist_mut().unwrap().clips.push(clip);
+    let heard = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let clock = Hits { inner: soundcraft_dsp::create("gain").unwrap(), heard: Arc::clone(&heard) };
+    let mut eng = MixEngine::new(48_000.0, 512);
+    eng.set_external_instances(true);
+    eng.adopt(vec![PreparedInstance { track: t, slot: INSTRUMENT_SLOT, id: "clap:test.clock".into(), ch: 2, plugin: Box::new(clock) }]);
+    let mut hits = Vec::new();
+    for block in 0..48 {
+        let pos = block * 512;
+        render_block(&mut eng, &s, pos);
+        hits.extend(heard.lock().unwrap().drain(..).map(|(o, _, v)| (pos + o as i64, v)));
+    }
+    hits
+}
+
+#[test]
+fn swing_delays_every_second_step_and_humanize_is_repeatable() {
+    let straight = groove_hits(None);
+    let step = straight[1].0 - straight[0].0;
+    assert!(step > 0, "{straight:?}");
+    let swung = groove_hits(Some(soundcraft_model::Groove { swing: 1.0, humanize: 0.0 }));
+    assert_eq!(swung[0].0, straight[0].0, "the first step stays on the beat");
+    assert!((swung[1].0 - straight[1].0 - step / 2).abs() <= 1, "full swing: half a step late: {swung:?} vs {straight:?}");
+    let human = groove_hits(Some(soundcraft_model::Groove { swing: 0.0, humanize: 1.0 }));
+    assert_ne!(human, straight, "humanize changes the feel");
+    assert_eq!(human, groove_hits(Some(soundcraft_model::Groove { swing: 0.0, humanize: 1.0 })), "and plays the same every time");
+    assert!(human.iter().all(|(at, v)| *at >= 0 && (76..=124).contains(v)), "{human:?}");
+}

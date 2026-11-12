@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 
 mod audio_midi;
 mod audiosuite;
+pub mod auto_clip;
 mod auto_rename;
 mod clap;
 mod clip;
@@ -25,6 +26,8 @@ mod mix;
 mod more_util;
 mod options;
 pub mod pattern;
+pub mod piano_roll;
+pub mod playlist;
 mod plugin_state;
 mod query;
 mod receive;
@@ -166,6 +169,9 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(zoom_toggle::specs());
         v.extend(strip_silence::specs());
         v.extend(receive::specs());
+        v.extend(playlist::specs());
+        v.extend(piano_roll::specs());
+        v.extend(auto_clip::specs());
         #[cfg(test)]
         v.extend(panic_probe::specs());
         v

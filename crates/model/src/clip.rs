@@ -140,6 +140,38 @@ pub struct Clip {
     /// `clip.unloop` still recognises the loop after the source's content is edited.
     #[serde(default)]
     pub loop_id: Option<u64>,
+    /// Swing and humanize, applied as the clip plays (FL-style Channel Rack). The notes stay put.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub groove: Option<Groove>,
+    /// The pattern this clip is an instance of (FL-style Playlist): instances that hold the same
+    /// notes stay the same when one of them is edited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern_link: Option<u64>,
+}
+
+/// Swing and humanize for a pattern, both 0..=1. Swing delays every second sixteenth by up to
+/// half a sixteenth; humanize moves each note's timing and velocity a little, the same way on
+/// every play and every bounce.
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+pub struct Groove {
+    #[serde(default)]
+    pub swing: f32,
+    #[serde(default)]
+    pub humanize: f32,
+}
+
+impl Groove {
+    /// Both amounts finite and within 0..=1.
+    pub fn sanitize(&mut self) {
+        for v in [&mut self.swing, &mut self.humanize] {
+            *v = if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.0 };
+        }
+    }
+
+    /// Whether the groove changes nothing.
+    pub fn is_straight(&self) -> bool {
+        self.swing <= 0.0 && self.humanize <= 0.0
+    }
 }
 
 fn one() -> f64 {
@@ -168,6 +200,8 @@ impl Clip {
             stretch: 1.0,
             group: None,
             loop_id: None,
+            groove: None,
+            pattern_link: None,
         }
     }
 
@@ -324,6 +358,9 @@ impl Clip {
         self.clamp_fades();
         self.fade_in.sanitize();
         self.fade_out.sanitize();
+        if let Some(g) = &mut self.groove {
+            g.sanitize();
+        }
         truncate_chars(&mut self.name, MAX_NAME_CHARS);
         if !self.gain_db.is_finite() {
             self.gain_db = 0.0;
