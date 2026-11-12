@@ -36,7 +36,7 @@
         <File Id="SoundcraftNoticeFile" Source="$(var.BinDir)\NOTICE" KeyPath="yes" />
       </Component>
       <Component Id="SoundcraftApp" Guid="8AFE8671-9BE6-40F4-9E8A-C8E10A74E61D">
-        <File Id="SoundcraftExe" Source="$(var.BinDir)\soundcraft.exe" KeyPath="yes">
+        <File Id="SoundcraftExe" Source="$(var.BinDir)\solara.exe" KeyPath="yes">
           <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Solara" Description="Solara digital audio workstation" WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SoundcraftIcon.ico" IconIndex="0" />
         </File>
 
@@ -60,23 +60,23 @@
         <RegistryValue Root="HKMU" Key="Software\Classes\.mid\OpenWithProgids" Name="Solara.Midi" Value="" Type="string" />
         <RegistryValue Root="HKMU" Key="Software\Classes\.midi\OpenWithProgids" Name="Solara.Midi" Value="" Type="string" />
 
-        <!-- "Open with" app list and the Run dialog (Win+R "soundcraft"). -->
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe" Name="FriendlyAppName" Value="Solara" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".scraft" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".wav" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".aif" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".aiff" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".flac" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".mp3" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".mid" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\soundcraft.exe\SupportedTypes" Name=".midi" Value="" Type="string" />
-        <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\soundcraft.exe" Value="[#SoundcraftExe]" Type="string" />
+        <!-- "Open with" app list and the Run dialog (Win+R "solara"). -->
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe" Name="FriendlyAppName" Value="Solara" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\shell\open\command" Value="&quot;[#SoundcraftExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".scraft" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".wav" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".aif" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".aiff" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".flac" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".mp3" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".mid" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Classes\Applications\solara.exe\SupportedTypes" Name=".midi" Value="" Type="string" />
+        <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\solara.exe" Value="[#SoundcraftExe]" Type="string" />
       <RegistryValue Root="HKMU" Key="Software\Solara" Name="InstallDir" Value="[INSTALLFOLDER]" Type="string" />
       </Component>
 
       <Component Id="SoundcraftCli" Guid="55B03A61-2019-4A1B-B0BD-2C5D1D44EA78">
-        <File Id="SoundcraftCliExe" Source="$(var.BinDir)\soundcraft-cli.exe" KeyPath="yes" />
+        <File Id="SoundcraftCliExe" Source="$(var.BinDir)\solara-cli.exe" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>

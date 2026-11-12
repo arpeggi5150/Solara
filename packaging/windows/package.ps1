@@ -5,7 +5,7 @@
 .DESCRIPTION
   Produces, in $env:DIST (default: dist/release):
     solara-<version>-windows-<arch>.msi                per-machine installer (WiX v5)
-    solara-<version>-windows-<arch>-portable.zip       soundcraft.exe + soundcraft-cli.exe
+    solara-<version>-windows-<arch>-portable.zip       solara.exe + solara-cli.exe
 
   The binaries link the C runtime statically (+crt-static), so neither the MSI nor the portable
   zip needs the Visual C++ redistributable. Signing is delegated to sign.ps1 (skipped with a
@@ -86,9 +86,11 @@ foreach ($check in @(@('soundcraft.exe', 2), @('soundcraft-cli.exe', 3))) {
 $Stage = Join-Path $TargetDir "windows-package\$Arch"
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
-Copy-Item (Join-Path $Bin 'soundcraft.exe'), (Join-Path $Bin 'soundcraft-cli.exe') $Stage
+# Cargo builds soundcraft.exe and soundcraft-cli.exe; Solara ships them as solara.exe and solara-cli.exe.
+Copy-Item (Join-Path $Bin 'soundcraft.exe') (Join-Path $Stage 'solara.exe')
+Copy-Item (Join-Path $Bin 'soundcraft-cli.exe') (Join-Path $Stage 'solara-cli.exe')
 
-& (Join-Path $PSScriptRoot 'sign.ps1') (Join-Path $Stage 'soundcraft.exe') (Join-Path $Stage 'soundcraft-cli.exe')
+& (Join-Path $PSScriptRoot 'sign.ps1') (Join-Path $Stage 'solara.exe') (Join-Path $Stage 'solara-cli.exe')
 
 # Required embedded-font notices ship independently of optional font inputs.
 Copy-Item -LiteralPath (Join-Path $Root 'NOTICE') -Destination $Stage
@@ -124,8 +126,8 @@ Compress-Archive -Path $Portable -DestinationPath $Zip
 # here; .github/workflows/windows-arm64.yml installs and runs it on ARM64 instead.
 $HostArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
 if ($Arch -ne 'arm64' -or $HostArch -eq 'arm64') {
-  Invoke-Native 'soundcraft-cli --version' { & (Join-Path $Stage 'soundcraft-cli.exe') --version }
+  Invoke-Native 'solara-cli --version' { & (Join-Path $Stage 'solara-cli.exe') --version }
 } else {
-  Write-Output "skipping soundcraft-cli --version: an $Arch build doesn't run on this $HostArch machine"
+  Write-Output "skipping solara-cli --version: an $Arch build doesn't run on this $HostArch machine"
 }
 Get-Item $Msi, $Zip | Format-Table Name, Length

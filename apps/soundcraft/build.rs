@@ -1,5 +1,5 @@
-//! Windows only: embed the app icon and version info (VERSIONINFO) into `soundcraft.exe`, so it
-//! shows in Explorer, the taskbar, the Start menu and Alt-Tab.
+//! Windows only: embed the app icon and version info (VERSIONINFO) into the app EXE (shipped as
+//! `solara.exe`), so it shows in Explorer, the taskbar, the Start menu and Alt-Tab.
 //!
 //! On every other target this does nothing. A missing resource compiler is a warning, so a
 //! cross-compile from macOS or Linux still links, unless `SOUNDCRAFT_REQUIRE_WINRES=1` turns it
@@ -18,8 +18,8 @@ fn main() {
         .set("FileDescription", "Solara digital audio workstation")
         .set("CompanyName", "Zee Creations LLC")
         .set("LegalCopyright", "Solara (c) Zee Creations LLC. Source code MIT OR Apache-2.0, see NOTICE.")
-        .set("OriginalFilename", "soundcraft.exe")
-        .set("InternalName", "soundcraft");
+        .set("OriginalFilename", "solara.exe")
+        .set("InternalName", "solara");
     if let Err(e) = res.compile() {
         if std::env::var_os("SOUNDCRAFT_REQUIRE_WINRES").is_some() {
             eprintln!("embedding Windows resources failed: {e}");

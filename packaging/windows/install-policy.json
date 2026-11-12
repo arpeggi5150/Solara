@@ -12,8 +12,8 @@
   ],
   "payloads": [
     "NOTICE",
-    "soundcraft-cli.exe",
-    "soundcraft.exe"
+    "solara-cli.exe",
+    "solara.exe"
   ],
   "registry": [
     [
@@ -72,67 +72,67 @@
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe",
+      "Software\\Classes\\Applications\\solara.exe",
       "FriendlyAppName",
       "Solara"
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\shell\\open\\command",
+      "Software\\Classes\\Applications\\solara.exe\\shell\\open\\command",
       "",
       "\"[#SoundcraftExe]\" \"%1\""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".scraft",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".wav",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".aif",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".aiff",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".flac",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".mp3",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".mid",
       ""
     ],
     [
       "-1",
-      "Software\\Classes\\Applications\\soundcraft.exe\\SupportedTypes",
+      "Software\\Classes\\Applications\\solara.exe\\SupportedTypes",
       ".midi",
       ""
     ],
     [
       "-1",
-      "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\soundcraft.exe",
+      "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\solara.exe",
       "",
       "[#SoundcraftExe]"
     ]

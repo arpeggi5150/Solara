@@ -244,7 +244,7 @@ PowerShell, from the folder containing the executable:
 
 ```powershell
 $env:WGPU_BACKEND = "vulkan"
-& .\soundcraft.exe
+& .\solara.exe
 Remove-Item Env:WGPU_BACKEND                     # restore the default for later launches
 ```
 
