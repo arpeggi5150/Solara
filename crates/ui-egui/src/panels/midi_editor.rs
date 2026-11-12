@@ -170,8 +170,16 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     draw_roll_background(&painter, &g);
     // Notes.
     let base = egui::Color32::from_rgb(track_color[0], track_color[1], track_color[2]);
+    // The FL-style layout's roll: ghost notes behind, slides marked, and the pencil always on.
+    let fl = crate::fl_layout::active(app);
+    if fl && app.ui.fl_ghost_notes {
+        draw_ghosts(&painter, &g, &crate::fl_layout::ghost_notes(&s, cid));
+    }
     draw_notes(app, &painter, &g, base);
-    note_pointer(app, ui, &g, cid, s.edit.tool == Tool::Pencil);
+    if fl {
+        draw_slides(&painter, &g);
+    }
+    note_pointer(app, ui, &g, cid, s.edit.tool == Tool::Pencil || fl);
     note_keys(app, ui, &g, cid);
     velocity_lane(app, ui, &g, cid, base, full.min.x + 6.0);
 }
@@ -310,6 +318,31 @@ fn draw_notes(app: &SoundApp, painter: &egui::Painter, g: &Roll<'_>, base: Color
     }
 }
 
+/// Other tracks' notes, faded, behind this clip's (FL-style ghost notes).
+fn draw_ghosts(painter: &egui::Painter, g: &Roll<'_>, ghosts: &[soundcraft_midi::Note]) {
+    for n in ghosts.iter().filter(|n| n.start < g.len_ticks && n.start + n.length > 0) {
+        let y = g.y_of(i32::from(n.pitch));
+        let r = Rect::from_min_max(pos2(g.x_of(n.start), y + 2.0), pos2(g.x_of(n.start + n.length).max(g.x_of(n.start) + 3.0), y + ROW_H - 2.0));
+        painter.rect(
+            r,
+            2.0,
+            Color32::from_rgba_unmultiplied(200, 200, 210, 28),
+            Stroke::new(1.0, Color32::from_rgba_unmultiplied(200, 200, 210, 70)),
+            StrokeKind::Inside,
+        );
+    }
+}
+
+/// A slide note's mark: an arrow at its start, pointing the way it glides in.
+fn draw_slides(painter: &egui::Painter, g: &Roll<'_>) {
+    for n in g.sequence.notes.iter().filter(|n| soundcraft_engine::cmd::piano_roll::is_slide(g.sequence, n)) {
+        let y = g.y_of(i32::from(n.pitch)) + ROW_H / 2.0;
+        let x = g.x_of(n.start) + 2.0;
+        let pts = vec![pos2(x, y - 3.5), pos2(x + 6.0, y), pos2(x, y + 3.5)];
+        painter.add(egui::Shape::convex_polygon(pts, Color32::from_rgb(255, 200, 80), Stroke::new(1.0, Color32::BLACK)));
+    }
+}
+
 /// Pointer interaction on the roll: note and band selection, drags and clicks.
 fn note_pointer(app: &mut SoundApp, ui: &mut Ui, g: &Roll<'_>, cid: ClipId, pencil: bool) {
     let Roll { sequence, roll, px_per_tick, grid_ticks, .. } = *g;
@@ -389,10 +422,21 @@ fn note_pointer(app: &mut SoundApp, ui: &mut Ui, g: &Roll<'_>, cid: ClipId, penc
             None if pencil => {
                 let pitch = g.pitch_at(p.y).clamp(0, 127);
                 let start = (((p.x - roll.min.x) / px_per_tick) as i64 / grid_ticks) * grid_ticks;
-                let _ = app.run(
-                    "midi.note_add",
-                    json!({"clip": cid.0, "pitch": pitch, "start_ticks": start.max(0), "length_ticks": grid_ticks, "velocity": 100}),
-                );
+                // With a chord stamp picked (FL-style), the click writes the whole chord.
+                let stamp = app.fl.stamp.filter(|_| crate::fl_layout::active(app));
+                let r = match stamp {
+                    Some(chord) => app.run(
+                        "midi.stamp",
+                        json!({"clip": cid.0, "chord": chord, "pitch": pitch, "start_ticks": start.max(0), "length_ticks": grid_ticks, "velocity": 100}),
+                    ),
+                    None => app.run(
+                        "midi.note_add",
+                        json!({"clip": cid.0, "pitch": pitch, "start_ticks": start.max(0), "length_ticks": grid_ticks, "velocity": 100}),
+                    ),
+                };
+                if let Err(e) = r {
+                    app.ui.status = e;
+                }
                 app.midi.selected.clear();
             }
             None => app.midi.selected.clear(),
