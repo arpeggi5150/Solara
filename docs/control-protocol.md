@@ -100,12 +100,27 @@ a portal answer it uses Dark. Manual Light and Dark stay fixed when the OS appea
 An offscreen render without `--system-theme` supplies no OS appearance and therefore resolves
 System to Dark, or on Linux to the desktop's portal setting when one is available.
 
-Layouts: the app opens in the NEW layout. `ui.layout {"preset":"new"|"classic"}` switches
-between NEW and Classic (the Edit and Mix windows) without touching the session; with no
-`preset` it returns the current one. `flStyle`, `reaper` and `abletonStyle` are named but
-refused until they are built. In NEW, `ui.mixer {"value"?: bool}` expands or collapses the
-bottom Mixer (M) and `ui.editor {"view": "auto"|"steps"|"piano"}` picks what the bottom
-Editor shows (B and P). New projects come from `session.new {"template": "drums"}` (one
+Layouts: the app opens in the NEW layout. `ui.layout {"preset":"new"|"classic"|"reaper"}`
+switches between NEW, Classic (the Edit and Mix windows) and the Reaper-style layout (transport
+on top, track list and arrange view in the centre, mixer along the bottom) without touching the
+session; with no `preset` it returns the current one. `flStyle` and `abletonStyle` are named but
+refused until they are built. `ui.mixer {"value"?: bool}` expands or collapses the bottom mixer
+of NEW (M) or of the Reaper-style layout (Ctrl+M); each keeps its own state. In NEW,
+`ui.editor {"view": "auto"|"steps"|"piano"}` picks what the bottom Editor shows (B and P).
+
+Each layout brings its own key set: NEW's single-letter keys, Classic's shortcuts, and the
+Reaper-style keys (Ctrl+R record, R repeat, S split, Ctrl+T new track, Ctrl+M mixer, Alt+R
+Routing Matrix, ? Action List, Home/End, Delete, = and - zoom). The shared shortcuts (Space,
+Ctrl+S, Ctrl+Z, ...) work in every layout. `ui.keymap {}` lists the keys assigned by hand in
+the active layout's set; `ui.keymap {"command", "key": "Cmd+Shift+R"}` assigns one (taking it
+from any other command in that set) and `{"command", "key": null}` goes back to the default.
+`window.action_list` opens the Action List (every command: search, run, set a key) and
+`window.routing_matrix` the Routing Matrix (every track's sends on one grid). What can receive
+follows the layout: in the Reaper-style layout every track can, through
+`mix.receive {"track", "value"?: bool}`, which gives an audio, instrument or MIDI track a
+receive bus the mix engine adds in ahead of its inserts; in the other layouts sends go to aux,
+folder and bus tracks only.
+New projects come from `session.new {"template": "drums"}` (one
 Drums track, as a fresh launch and File > New start) or `{"template": "empty"}` (no tracks); both start with loop
 playback on.
 
