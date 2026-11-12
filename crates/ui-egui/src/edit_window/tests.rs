@@ -1642,9 +1642,7 @@ fn the_clip_gain_line_drags_the_clip_gain_in_the_pro_tools_layout() {
     );
     h.run_steps(4);
     let tl = timeline(&h);
-    let (clip, lane) = clip_on_screen(&h, |xs, xe| {
-        xs > tl.min.x + 30.0 && xe < tl.max.x - 30.0 && xe - xs > 120.0
-    });
+    let (clip, lane) = clip_on_screen(&h, |xs, xe| xs > tl.min.x + 30.0 && xe < tl.max.x - 30.0 && xe - xs > 120.0);
     assert!(matches!(clip.content, ClipContent::Audio { .. }));
     assert_eq!(clip.gain_db, 0.0);
     let s = h.state().engine.session().clone();

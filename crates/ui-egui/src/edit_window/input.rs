@@ -271,7 +271,13 @@ fn start_gesture(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::
             let _ = app.engine.execute("edit.select", &json!({"clips": [c.id.0]}));
         }
         let body = gain_line_body(s, lane);
-        app.gesture = Some(Gesture::GainLine { clip: c.id, track: track.id, from_db: c.gain_db, anchor_y: origin.y, db_per_point: gain_line_db_per_point(body) });
+        app.gesture = Some(Gesture::GainLine {
+            clip: c.id,
+            track: track.id,
+            from_db: c.gain_db,
+            anchor_y: origin.y,
+            db_per_point: gain_line_db_per_point(body),
+        });
     } else if let Some(c) = gain_drag {
         // `clip.gain` refuses to run with nothing selected.
         if s.edit.selected_tracks.is_empty() && s.edit.selected_clips.is_empty() {

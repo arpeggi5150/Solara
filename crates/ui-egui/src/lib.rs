@@ -293,22 +293,85 @@ pub struct MeterDisplay {
 /// An in-progress mouse gesture in the Edit window.
 #[derive(Debug, Clone)]
 pub enum Gesture {
-    Select { track: TrackId, anchor: Samples, tracks: Vec<TrackId> },
-    MoveClips { clips: Vec<soundcraft_model::ClipId>, grab_at: Samples, delta: Samples, from_track: TrackId, to_track: TrackId },
-    TrimStart { clip: soundcraft_model::ClipId, track: TrackId, to: Samples },
-    TrimEnd { clip: soundcraft_model::ClipId, track: TrackId, to: Samples },
-    Fade { clip: soundcraft_model::ClipId, track: TrackId, fade_in: bool, to: Samples },
-    FadeCurve { clip: soundcraft_model::ClipId, fade_in: bool, curvature: f32, anchor: (f32, f32), height: f32 },
-    Scrub { last: Samples },
-    Fader { track: TrackId, start_db: f32 },
-    SendFader { track: TrackId, slot: usize },
-    ClipGain { clip: soundcraft_model::ClipId, track: TrackId, pos: f32, anchor: (f32, f32), fine: bool, fader_bottom: egui::Pos2 },
+    Select {
+        track: TrackId,
+        anchor: Samples,
+        tracks: Vec<TrackId>,
+    },
+    MoveClips {
+        clips: Vec<soundcraft_model::ClipId>,
+        grab_at: Samples,
+        delta: Samples,
+        from_track: TrackId,
+        to_track: TrackId,
+    },
+    TrimStart {
+        clip: soundcraft_model::ClipId,
+        track: TrackId,
+        to: Samples,
+    },
+    TrimEnd {
+        clip: soundcraft_model::ClipId,
+        track: TrackId,
+        to: Samples,
+    },
+    Fade {
+        clip: soundcraft_model::ClipId,
+        track: TrackId,
+        fade_in: bool,
+        to: Samples,
+    },
+    FadeCurve {
+        clip: soundcraft_model::ClipId,
+        fade_in: bool,
+        curvature: f32,
+        anchor: (f32, f32),
+        height: f32,
+    },
+    Scrub {
+        last: Samples,
+    },
+    Fader {
+        track: TrackId,
+        start_db: f32,
+    },
+    SendFader {
+        track: TrackId,
+        slot: usize,
+    },
+    ClipGain {
+        clip: soundcraft_model::ClipId,
+        track: TrackId,
+        pos: f32,
+        anchor: (f32, f32),
+        fine: bool,
+        fader_bottom: egui::Pos2,
+    },
     /// The clip gain line dragged up or down: the clip's gain from where it was pressed.
-    GainLine { clip: soundcraft_model::ClipId, track: TrackId, from_db: f32, anchor_y: f32, db_per_point: f32 },
-    Pencil { track: TrackId, points: Vec<(Samples, f32)> },
-    Breakpoint { track: TrackId, param: soundcraft_model::AutoParam, at: Samples },
-    MidiClip { track: TrackId, from: Samples, to: Samples },
-    ZoomBox { start: f32 },
+    GainLine {
+        clip: soundcraft_model::ClipId,
+        track: TrackId,
+        from_db: f32,
+        anchor_y: f32,
+        db_per_point: f32,
+    },
+    Pencil {
+        track: TrackId,
+        points: Vec<(Samples, f32)>,
+    },
+    Breakpoint {
+        track: TrackId,
+        param: soundcraft_model::AutoParam,
+        at: Samples,
+    },
+    MidiClip {
+        track: TrackId,
+        from: Samples,
+        to: Samples,
+    },
+    ZoomBox {
+        start: f32,
+    },
 }
 
 pub struct SoundApp {
