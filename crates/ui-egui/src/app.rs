@@ -360,6 +360,8 @@ impl SoundApp {
             crate::reaper_layout::show(self, ui);
         } else if self.ui.layout == crate::new_layout::LayoutPreset::FlStyle {
             crate::fl_layout::show(self, ui);
+        } else if crate::pt_layout::active(self) {
+            crate::pt_layout::show(self, ui);
         } else {
             match if self.ui.mix_separate { MainWindow::Edit } else { self.ui.window } {
                 MainWindow::Edit => edit_window::show(self, ui),

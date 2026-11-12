@@ -360,6 +360,8 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                         "Reaper"
                     } else if app.ui.layout == crate::new_layout::LayoutPreset::FlStyle {
                         "FL"
+                    } else if crate::pt_layout::active(app) {
+                        "Edit + Mix"
                     } else if app.ui.window == MainWindow::Edit || app.ui.mix_separate {
                         "Edit"
                     } else {
@@ -645,6 +647,11 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
             crate::updates_ui::check(app);
             json!({})
         }
+        "window.mix" if crate::pt_layout::active(app) && !app.ui.mix_separate => {
+            // The Pro Tools-style layout shows Mix under Edit.
+            app.ui.pt_mix_open = true;
+            json!({"window": "mix"})
+        }
         "window.mix" => {
             app.ui.window = MainWindow::Mix;
             app.focus_mix = app.ui.mix_separate;
@@ -663,6 +670,10 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
             if app.ui.mix_separate {
                 // Both are on screen: bring the Mix window forward instead.
                 app.focus_mix = true;
+            } else if crate::pt_layout::active(app) {
+                // The Pro Tools-style layout keeps Edit and shows or hides the Mix under it.
+                app.ui.pt_mix_open = !app.ui.pt_mix_open;
+                return Some(Ok(json!({"window": "edit", "mix": app.ui.pt_mix_open})));
             } else {
                 app.ui.window = if app.ui.window == MainWindow::Edit { MainWindow::Mix } else { MainWindow::Edit };
             }

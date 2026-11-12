@@ -32,6 +32,7 @@ pub mod new_layout;
 pub mod palette;
 pub mod panels;
 pub mod preferences;
+pub mod pt_layout;
 pub mod reaper_layout;
 pub mod routing_matrix;
 pub mod shortcuts;
@@ -178,6 +179,8 @@ pub struct UiState {
     pub fl_roll_open: bool,
     pub fl_mixer_open: bool,
     pub fl_ghost_notes: bool,
+    /// The Pro Tools-style layout's Mix under the Edit window (`ui.mixer`, Cmd+=). Open by default.
+    pub pt_mix_open: bool,
 }
 
 impl Default for UiState {
@@ -256,6 +259,7 @@ impl Default for UiState {
             fl_roll_open: true,
             fl_mixer_open: false,
             fl_ghost_notes: true,
+            pt_mix_open: true,
         }
     }
 }
