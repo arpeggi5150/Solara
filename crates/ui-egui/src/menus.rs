@@ -81,6 +81,9 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("ui.layout", "Layout", "", None),
     ("ui.mixer", "Expand/Collapse Mixer", "", None),
     ("ui.editor", "Editor View", "", None),
+    ("window.action_list", "Action List", "", None),
+    ("window.routing_matrix", "Routing Matrix", "", None),
+    ("ui.keymap", "Assign Key", "", None),
     ("ui.reduce_visual_effects", "Reduce Visual Effects", "", None),
     ("ui.undo_levels", "Levels of Undo", "", None),
 ];
@@ -299,8 +302,11 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                     });
                 });
                 let extra = ui_aliases();
+                let reaper = app.ui.layout == crate::new_layout::LayoutPreset::Reaper;
                 for root in tree() {
-                    ui.menu_button(&root.label, |ui| {
+                    // Reaper-style wording: a clip is an item there.
+                    let label = if reaper && root.path == "Clip" { "Item" } else { root.label.as_str() };
+                    ui.menu_button(label, |ui| {
                         ui.add_enabled_ui(menu_entries_enabled, |ui| {
                             for c in &root.children {
                                 menu_node(app, ui, c, &extra);
@@ -318,7 +324,7 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                             if root.path == "Window" {
                                 ui.separator();
                                 // The layout switcher's way back from Classic, which has no top bar.
-                                for preset in [crate::new_layout::LayoutPreset::New, crate::new_layout::LayoutPreset::Classic] {
+                                for preset in crate::new_layout::LayoutPreset::ALL.into_iter().filter(|p| p.available()) {
                                     if ui.radio(app.ui.layout == preset, format!("{} Layout", preset.label())).clicked() {
                                         let _ = run_ui_command(app, "ui.layout", &json!({"preset": preset.id()}));
                                         ui.close();
@@ -344,6 +350,8 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                     if app.engine.is_dirty() { " *" } else { "" },
                     if app.ui.layout == crate::new_layout::LayoutPreset::New {
                         "NEW"
+                    } else if reaper {
+                        "Reaper"
                     } else if app.ui.window == MainWindow::Edit || app.ui.mix_separate {
                         "Edit"
                     } else {
@@ -532,6 +540,8 @@ const MENU_WINDOWS: &[(&str, &str)] = &[
     ("Event > Time Operations > Time Operations Window", "window.time_ops"),
     ("Event > MIDI Operations > MIDI Operations Window", "window.midi_ops"),
     ("Event > MIDI Real-Time Properties", "window.rtp"),
+    ("Window > Action List...", "window.action_list"),
+    ("View > Routing Matrix", "window.routing_matrix"),
 ];
 
 /// The shortcut of an engine or window command.
@@ -672,6 +682,9 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
         "window.automation" => toggle(&mut app.ui.show_automation),
         "window.clip_effects" | "window.clip_effects_dock" => toggle(&mut app.ui.show_clip_effects),
         "window.search" => toggle(&mut app.ui.show_search),
+        "window.action_list" => toggle(&mut app.ui.show_action_list),
+        "window.routing_matrix" => toggle(&mut app.ui.show_routing_matrix),
+        "ui.keymap" => return Some(crate::keymap::command(app, p)),
         "window.score" => toggle(&mut app.ui.show_score),
         "window.beat_detective" => toggle(&mut app.ui.show_beat_detective),
         "window.tempo_ops" => toggle(&mut app.ui.show_tempo_ops),

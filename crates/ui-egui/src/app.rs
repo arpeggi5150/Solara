@@ -76,6 +76,9 @@ impl SoundApp {
             splash: splash::Splash::default(),
             raise: splash::Raise::default(),
             browser_search: String::new(),
+            action_search: String::new(),
+            keymap_capture: None,
+            action_selected: None,
             meters: HashMap::new(),
             main_meter: MeterDisplay::default(),
             meter_snapshot: soundcraft_playback::MeterSnapshot::default(),
@@ -351,6 +354,8 @@ impl SoundApp {
         // With the Mix window in its own native window, the main window keeps Edit.
         if self.ui.layout == crate::new_layout::LayoutPreset::New {
             crate::new_layout::show(self, ui);
+        } else if self.ui.layout == crate::new_layout::LayoutPreset::Reaper {
+            crate::reaper_layout::show(self, ui);
         } else {
             match if self.ui.mix_separate { MainWindow::Edit } else { self.ui.window } {
                 MainWindow::Edit => edit_window::show(self, ui),
@@ -369,6 +374,8 @@ impl SoundApp {
         recovery::show(self, &ctx);
         score_editor::show(self, &ctx);
         palette::show(self, &ctx);
+        crate::action_list::show(self, &ctx);
+        crate::routing_matrix::show(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
         splash::show(&mut self.splash, self.uptime, &ctx);

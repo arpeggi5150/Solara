@@ -132,6 +132,8 @@ fn short_label(text: &str) -> &str {
         "INSERTS F-J" => "I F-J",
         "SENDS A-E" => "S A-E",
         "SENDS F-J" => "S F-J",
+        "SENDS 1-5" => "S 1-5",
+        "SENDS 6-10" => "S 6-10",
         "INSTRUMENT" => "INST",
         _ => text,
     }
@@ -289,10 +291,22 @@ fn object_section(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32
     y
 }
 
+/// A section's title in the Reaper-style layout's words: inserts are FX, slots count from 1.
+fn reaper_title(title: &str) -> &str {
+    match title {
+        "INSERTS A-E" => "FX 1-5",
+        "INSERTS F-J" => "FX 6-10",
+        "SENDS A-E" => "SENDS 1-5",
+        "SENDS F-J" => "SENDS 6-10",
+        _ => title,
+    }
+}
+
 /// The insert and send sections.
 fn slot_sections(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32) -> f32 {
     let StripCtx { track, narrow, x0, inner_w, .. } = *cx;
     let t = Tokens::current();
+    let reaper = app.ui.layout == crate::new_layout::LayoutPreset::Reaper;
     for (key, title, off, is_send) in [
         ("inserts_ae", "INSERTS A-E", 0usize, false),
         ("inserts_fj", "INSERTS F-J", 5, false),
@@ -304,7 +318,7 @@ fn slot_sections(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32)
         }
         let sec = Rect::from_min_size(pos2(x0, y), vec2(inner_w, 16.0 + 5.0 * 17.0));
         inset(ui.painter(), sec, t.strip_section);
-        section_label(ui, sec, title, narrow);
+        section_label(ui, sec, if reaper { reaper_title(title) } else { title }, narrow);
         for k in 0..5 {
             let sr = Rect::from_min_size(pos2(x0 + 2.0, sec.min.y + 15.0 + k as f32 * 17.0), vec2(inner_w - 4.0, 15.0));
             if is_send {

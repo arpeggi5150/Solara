@@ -42,7 +42,7 @@ pub fn parse(s: &str) -> Option<(Modifiers, Key)> {
 }
 
 /// Whether the held modifiers `got` fire a shortcut that asks for `want`.
-fn mods_match(want: Modifiers, got: Modifiers, mac: bool) -> bool {
+pub(crate) fn mods_match(want: Modifiers, got: Modifiers, mac: bool) -> bool {
     // Off macOS egui reports Ctrl as both `ctrl` and `command`: Ctrl is the shortcut's Cmd, and a shortcut's
     // Ctrl (the Mac Control key) has no key of its own there, so Ctrl+X is Cut, not Cmd+Ctrl+X.
     let ctrl = if mac { want.ctrl == got.ctrl } else { !want.ctrl };
@@ -92,7 +92,9 @@ pub fn handle(app: &mut SoundApp, ctx: &egui::Context) {
             }
             continue;
         }
-        if app.ui.layout == crate::new_layout::LayoutPreset::New && crate::new_layout::keys(app, key, mods) {
+        // The Action List waiting for a key takes the next press; then the active layout's key set
+        // (keys assigned by hand, then the layout's own) goes before the shared shortcuts.
+        if crate::keymap::capture(app, key, mods, mac) || crate::keymap::dispatch(app, key, mods, mac) {
             continue;
         }
         if fixed(app, key, mods, mac) {
