@@ -259,10 +259,23 @@ fn browser(app: &mut SoundApp, ui: &mut Ui) {
         for p in &patterns {
             let label = if p.places > 1 { format!("{}  ×{}", p.name, p.places) } else { p.name.clone() };
             let resp = row(ui, &needle, &label, Item::Pattern(p.clip), current == Some(p.clip));
-            if let Some(resp) = resp
-                && resp.clicked()
-            {
-                let _ = app.run("edit.select", json!({"clips": [p.clip.0], "tracks": [p.track.0]}));
+            if let Some(resp) = resp {
+                if resp.clicked() {
+                    let _ = app.run("edit.select", json!({"clips": [p.clip.0], "tracks": [p.track.0]}));
+                }
+                // The selected place of a pattern placed more than once can become a pattern of its own.
+                let selected = current.filter(|c| p.places > 1 && same_pattern(app.engine.session(), *c, p.clip));
+                resp.context_menu(|ui| {
+                    let unique = ui.add_enabled(selected.is_some(), egui::Button::new("Make the selected place unique"));
+                    if unique.clicked() {
+                        if let Some(c) = selected
+                            && let Err(e) = app.run("playlist.make_unique", json!({"clip": c.0}))
+                        {
+                            app.ui.status = e;
+                        }
+                        ui.close();
+                    }
+                });
             }
         }
         heading(ui, "SOUNDS");
@@ -274,6 +287,12 @@ fn browser(app: &mut SoundApp, ui: &mut Ui) {
             row(ui, &needle, info.name, Item::Instrument(info.id), false);
         }
     });
+}
+
+/// Whether clips `a` and `b` are places of one pattern.
+fn same_pattern(s: &Session, a: ClipId, b: ClipId) -> bool {
+    let link = |c: ClipId| s.find_clip(c).and_then(|(_, x)| x.pattern_link);
+    a == b || link(a).is_some_and(|l| link(b) == Some(l))
 }
 
 fn heading(ui: &mut Ui, text: &str) {
@@ -396,7 +415,7 @@ fn roll_tools(app: &mut SoundApp, ui: &mut Ui) {
         |app: &SoundApp, id: &str| crate::keymap::chord_for(app, id).map(|c| format!(" ({})", crate::keymap::display(&c, mac))).unwrap_or_default();
     ui.label(egui::RichText::new("Stamp").font(regular(11.0)).color(t.text_dim));
     let name = app.fl.stamp.and_then(|id| CHORDS.iter().find(|c| c.0 == id)).map_or("Off", |c| c.1);
-    egui::ComboBox::from_id_salt("fl_stamp")
+    craft_ui::ComboBox::from_id_salt("fl_stamp")
         .width(110.0)
         .selected_text(name)
         .show_ui(ui, |ui| {
@@ -649,7 +668,7 @@ mod tests {
         let open = app.ui.fl_mixer_open;
         app.run("ui.mixer", json!({})).unwrap();
         assert_eq!(app.ui.fl_mixer_open, !open);
-        assert_eq!(app.ui.new_mixer_open, false);
+        assert!(!app.ui.new_mixer_open);
         assert!(app.run("ui.channel_rack", json!({"value": false})).is_ok());
         assert!(!app.ui.fl_rack_open);
     }

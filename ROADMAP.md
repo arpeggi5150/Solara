@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~5% and ~110–180 h away (the alpha gate's three failing workflows)
 
-> **Last reviewed:** 2026-10-24 · **Last updated:** 2026-11-12 · **Change:** trivial (Reaper-style layout, Action List, Routing Matrix, Cancel Zoom Toggle, side panels in dock columns, Auto Pan stereo balance, Clip List Auto Rename, Strip Silence rectangles, Strip Silence Rename, Strip Silence Extract and Separate, Clip Looping dialog, AudioSuite Vari-Fi speed ramps, Auto Pan plugin, Subharmonic plugin, Ring Modulator plugin, Float32 file headroom) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-24 · **Last updated:** 2026-11-12 · **Change:** trivial (FL-style layout, Reaper-style layout, Action List, Routing Matrix, Cancel Zoom Toggle, side panels in dock columns, Auto Pan stereo balance, Clip List Auto Rename, Strip Silence rectangles, Strip Silence Rename, Strip Silence Extract and Separate, Clip Looping dialog, AudioSuite Vari-Fi speed ramps, Auto Pan plugin, Subharmonic plugin, Ring Modulator plugin, Float32 file headroom) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Solara is a clean-room, pure-Rust digital audio workstation that aims at full parity with
 Avid Pro Tools, and then beyond it: faster, open, scriptable and agent-controllable. This page is
@@ -122,6 +122,7 @@ mutated and truncated movies. Field reports from the first public week are track
 
 ## Progress log
 
+- **2026-11-12:** An FL-style layout preset joins the switcher: Browser and Channel Rack on the left, Playlist in the centre, Piano Roll and Mixer along the bottom, and the FL key set (F6, F7, Alt+F8, F9). Patterns get swing and humanize, and placed patterns stay one pattern; the piano roll gets chord stamps, slide notes (the Subtractive Synth follows portamento), strum, arpeggiate and ghost notes; automation clips can be moved and copied and drive the parameter where they land. No readiness percentage change.
 - **2026-11-12:** A Reaper-style layout preset joins NEW and Classic in the layout switcher: transport on top, track list and arrange view in the centre, mixer along the bottom, Reaper wording (items, FX, sends) and the Reaper key set; switching layouts leaves the session unchanged. The Action List (Window › Action List…) searches every command, runs it, and assigns keys per layout. The Routing Matrix (View › Routing Matrix) shows every track's sends on one grid; in the Reaper-style layout every track can receive sends (`mix.receive`), in the others aux, folder and bus tracks do. No readiness percentage change.
 - **2026-10-25:** Alt+Shift+E (`view.zoom_toggle_cancel`) and an Alt-click on the Zoom Toggle button cancel Zoom Toggle and keep the current view: the zoom, the scroll and the track heights stay as they are, and the button is no longer lit. The next Zoom Toggle zooms in from that view and goes back to it. No readiness percentage change.
 - **2026-10-25:** Tracks and Groups and the Clip List sit in dock columns that run the Edit window's full height at its left and right edges, with the MIDI Editor under the session view between them; Mix docks Tracks and Groups at its left edge. A panel dragged onto a dock group joins it as a tab, stacks above or below it, or makes a new column; one dragged to an empty window edge makes a dock there. A list with no saved place reopens in its dock, and makes the dock again when it is gone. Preferences and window configurations saved with the earlier split-frame layouts load with the new default layouts and keep their other settings. No readiness percentage change.
@@ -178,6 +179,7 @@ mutated and truncated movies. Field reports from the first public week are track
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-12 | trivial | Progress log: FL-style layout, pattern groove, piano roll tools, automation clips; readiness estimates unchanged |
 | 2026-11-12 | trivial | Progress log: Reaper-style layout, Action List, Routing Matrix; readiness estimates unchanged |
 | 2026-10-25 | trivial | Progress log: Cancel Zoom Toggle; readiness estimates unchanged |
 | 2026-10-25 | trivial | Progress log: side panels in dock columns; readiness estimates unchanged |

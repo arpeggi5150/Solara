@@ -63,6 +63,7 @@ impl AutoClip {
     /// Positions bounded, points sorted and inside the clip, values finite and in range.
     pub fn sanitize(&mut self) {
         bound(&mut self.start);
+        self.start = self.start.max(0);
         self.length = self.length.clamp(1, MAX_POSITION);
         truncate_chars(&mut self.name, MAX_NAME_CHARS);
         let (lo, hi, _) = self.param.range();
