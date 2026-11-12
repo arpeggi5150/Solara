@@ -25,6 +25,7 @@ pub mod icons;
 pub mod import;
 pub mod menus;
 pub mod mix_window;
+pub mod new_layout;
 pub mod palette;
 pub mod panels;
 pub mod preferences;
@@ -151,6 +152,12 @@ pub struct UiState {
     pub window_size: [f32; 2],
     pub window_maximized: bool,
     pub ui_scale: f32,
+    /// The layout preset (`ui.layout`): NEW by default, Classic on request.
+    pub layout: new_layout::LayoutPreset,
+    /// The NEW layout's Mixer, expanded in place (`ui.mixer`, M). Collapsed by default.
+    pub new_mixer_open: bool,
+    /// What the NEW layout's Editor shows (`ui.editor`, B and P).
+    pub new_editor: new_layout::EditorView,
 }
 
 impl Default for UiState {
@@ -217,6 +224,9 @@ impl Default for UiState {
             window_size: [1600.0, 1000.0],
             window_maximized: false,
             ui_scale: 1.0,
+            layout: new_layout::LayoutPreset::New,
+            new_mixer_open: false,
+            new_editor: new_layout::EditorView::Auto,
         }
     }
 }
@@ -307,6 +317,8 @@ pub struct SoundApp {
     pub(crate) updates_rt: updates_ui::Runtime,
     /// The start-up splash (off unless the host turns it on).
     splash: splash::Splash,
+    /// The NEW layout Browser's search text.
+    browser_search: String,
     pub meters: HashMap<TrackId, MeterDisplay>,
     pub main_meter: MeterDisplay,
     /// Reused meter snapshot, taken from the player at an adaptive rate by `logic`: the highest

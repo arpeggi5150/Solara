@@ -14,7 +14,7 @@ impl Rig {
     fn new() -> Rig {
         let mut r = Rig {
             ctx: egui::Context::default(),
-            app: SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default()),
+            app: SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default()),
             shapes: Vec::new(),
         };
         r.frames(4);

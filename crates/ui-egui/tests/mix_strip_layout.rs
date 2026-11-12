@@ -12,7 +12,7 @@ const SCALE: [&str; 10] = ["12", "6", "0", "5", "10", "15", "20", "30", "40", "6
 static PALETTE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn mix(mode: ThemeMode) -> Harness<'static, SoundApp> {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.engine.session_mut().edit.selected_tracks.clear();
     // Fader caps at the bottom, clear of the scale.
     for track in &mut app.engine.session_mut().tracks {

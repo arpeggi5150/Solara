@@ -38,7 +38,7 @@ fn autosaved(root: &Path) -> String {
 }
 
 fn launch(root: &Path) -> SoundApp {
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     app.autosave_dir = Some(root.to_path_buf());
     app.leftovers = leftovers(root);
     app

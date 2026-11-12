@@ -32,6 +32,14 @@ impl SoundApp {
         self.splash.set(on);
     }
 
+    /// [`SoundApp::new`] in the Classic layout (the Edit and Mix windows), for drivers and tests
+    /// written against that layout.
+    pub fn new_classic(engine: Engine, player: Option<Player>, services: Services) -> Self {
+        let mut app = Self::new(engine, player, services);
+        app.ui.layout = crate::new_layout::LayoutPreset::Classic;
+        app
+    }
+
     /// Build an app around an engine and optional player, initialising UI, recording, autosave, control and
     /// synthetic-input state.
     pub fn new(engine: Engine, player: Option<Player>, services: Services) -> Self {
@@ -61,6 +69,7 @@ impl SoundApp {
             dialogs: dialogs::Dialogs::default(),
             updates_rt: updates_ui::Runtime::default(),
             splash: splash::Splash::default(),
+            browser_search: String::new(),
             meters: HashMap::new(),
             main_meter: MeterDisplay::default(),
             meter_snapshot: soundcraft_playback::MeterSnapshot::default(),
@@ -334,9 +343,13 @@ impl SoundApp {
             menus::menu_bar(self, ui);
         }
         // With the Mix window in its own native window, the main window keeps Edit.
-        match if self.ui.mix_separate { MainWindow::Edit } else { self.ui.window } {
-            MainWindow::Edit => edit_window::show(self, ui),
-            MainWindow::Mix => mix_window::show(self, ui),
+        if self.ui.layout == crate::new_layout::LayoutPreset::New {
+            crate::new_layout::show(self, ui);
+        } else {
+            match if self.ui.mix_separate { MainWindow::Edit } else { self.ui.window } {
+                MainWindow::Edit => edit_window::show(self, ui),
+                MainWindow::Mix => mix_window::show(self, ui),
+            }
         }
         if self.ui.mix_separate {
             mix_window::show_separate(self, &ctx);

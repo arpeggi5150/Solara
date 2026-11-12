@@ -10,7 +10,7 @@ use soundcraft_model::Route;
 use soundcraft_ui_egui::{MainWindow, Services, SoundApp};
 
 fn harness(engine: soundcraft_engine::Engine) -> Harness<'static, SoundApp> {
-    let mut app = SoundApp::new(engine, None, Services::default());
+    let mut app = SoundApp::new_classic(engine, None, Services::default());
     app.ui.window = MainWindow::Mix;
     let mut h = Harness::builder().with_size(vec2(1400.0, 1000.0)).build_ui_state(
         |ui, app: &mut SoundApp| {

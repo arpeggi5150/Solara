@@ -11,7 +11,7 @@ use soundcraft_time::SampleRate;
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
-        cmd!(noundo "session.new", "New...", ["File"], Some("Cmd+N"), "{name?: 'Untitled', sample_rate?: 48000, bit_depth?: 24, template?: blank|demo}", always, new_session),
+        cmd!(noundo "session.new", "New...", ["File"], Some("Cmd+N"), "{name?: 'Untitled', sample_rate?: 48000, bit_depth?: 24, template?: blank|empty|drums|demo}", always, new_session),
         cmd!(noundo "session.open", "Open Session...", ["File"], Some("Cmd+O"), "{path}", always, |e, p| {
             let path = str_param(p, "path").ok_or_else(|| bad("session.open", "`path` required"))?.to_string();
             let missing = crate::io::open_session(e, &path)?;
@@ -223,7 +223,22 @@ fn new_session(e: &mut Engine, p: &Value) -> Result<Value> {
             _ => soundcraft_model::BitDepthSetting::Int24,
         };
     }
+    let template = str_param(p, "template").unwrap_or("blank");
+    if !matches!(template, "blank" | "empty" | "drums" | "demo") {
+        return Err(bad("session.new", format!("unknown template `{template}` (blank, empty, drums or demo)")));
+    }
+    if matches!(template, "empty" | "drums") {
+        // New projects loop until loop playback is turned off.
+        s.edit.loop_playback = true;
+    }
     e.replace_session(s);
+    if template == "drums" {
+        // One Drums track playing the built-in Drum Synth. Started fresh: the track is part of the
+        // new session, not an undoable edit, and the session opens clean.
+        e.execute("track.new", &json!({"kind": "instrument", "name": "Drums", "instrument": "drum_synth"}))?;
+        let doc = e.session().clone();
+        e.replace_session(doc);
+    }
     e.path = None;
     Ok(json!({"name": e.session().name, "sample_rate": e.session().sample_rate.hz()}))
 }

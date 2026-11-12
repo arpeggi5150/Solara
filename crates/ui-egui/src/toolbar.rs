@@ -666,6 +666,12 @@ fn tempo_value(app: &mut SoundApp, ui: &mut Ui, right: f32, y: f32, bpm: f64) {
     resp.on_hover_text("Drag to change the tempo (Shift: fine steps), or click to type it");
 }
 
+/// The tempo at the playhead as an editable field in the current layout row (NEW layout top bar).
+pub(crate) fn tempo_field(app: &mut SoundApp, ui: &mut Ui, bpm: f64) {
+    let (rect, _) = ui.allocate_exact_size(vec2(84.0, 18.0), Sense::hover());
+    tempo_value(app, ui, rect.max.x - 4.0, rect.center().y, bpm);
+}
+
 /// Draws the compact stereo main-output meter.
 fn output_meter(app: &mut SoundApp, ui: &mut Ui) {
     let (r, _) = ui.allocate_exact_size(vec2(26.0, 64.0), Sense::hover());

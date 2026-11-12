@@ -78,6 +78,9 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("ui.bounce_dialog", "Bounce Mix…", "", None),
     ("ui.set", "Set UI State", "", None),
     ("ui.theme", "Appearance", "", None),
+    ("ui.layout", "Layout", "", None),
+    ("ui.mixer", "Expand/Collapse Mixer", "", None),
+    ("ui.editor", "Editor View", "", None),
     ("ui.reduce_visual_effects", "Reduce Visual Effects", "", None),
     ("ui.undo_levels", "Levels of Undo", "", None),
 ];
@@ -314,6 +317,14 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                             }
                             if root.path == "Window" {
                                 ui.separator();
+                                // The layout switcher's way back from Classic, which has no top bar.
+                                for preset in [crate::new_layout::LayoutPreset::New, crate::new_layout::LayoutPreset::Classic] {
+                                    if ui.radio(app.ui.layout == preset, format!("{} Layout", preset.label())).clicked() {
+                                        let _ = run_ui_command(app, "ui.layout", &json!({"preset": preset.id()}));
+                                        ui.close();
+                                    }
+                                }
+                                ui.separator();
                                 let mut separate = app.ui.mix_separate;
                                 if ui
                                     .checkbox(&mut separate, "Mix in Separate Window")
@@ -331,7 +342,13 @@ pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
                     "{}{}  —  {}",
                     app.engine.session().name,
                     if app.engine.is_dirty() { " *" } else { "" },
-                    if app.ui.window == MainWindow::Edit || app.ui.mix_separate { "Edit" } else { "Mix" }
+                    if app.ui.layout == crate::new_layout::LayoutPreset::New {
+                        "NEW"
+                    } else if app.ui.window == MainWindow::Edit || app.ui.mix_separate {
+                        "Edit"
+                    } else {
+                        "Mix"
+                    }
                 );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(egui::RichText::new(title).color(t.text_dim));
@@ -580,6 +597,9 @@ fn wants_dialog(id: &str) -> bool {
 pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<Value, String>> {
     if matches!(id, "ui.dock" | "ui.dock.reset") {
         return Some(crate::docking::command(app, id, p));
+    }
+    if let Some(r) = crate::new_layout::command(app, id, p) {
+        return Some(r);
     }
     if let Some(v) = crate::extra_windows::run(app, id, p) {
         return Some(Ok(v));

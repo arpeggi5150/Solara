@@ -13,7 +13,7 @@ fn press(h: &mut Harness<'_, SoundApp>, pos: Pos2, pressed: bool) {
 /// groups them all.
 #[test]
 fn dragging_down_the_group_dialogs_track_list_adds_each_track() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let tracks: Vec<(u64, String)> = app.engine.session().tracks.iter().map(|t| (t.id.0, t.name.clone())).collect();
     assert!(tracks.len() >= 4);
     app.run("edit.select", json!({"tracks": [tracks[0].0], "exact": true})).unwrap();
@@ -47,7 +47,7 @@ fn dragging_down_the_group_dialogs_track_list_adds_each_track() {
 /// pre-filled, and OK edits that group in place instead of adding a second one.
 #[test]
 fn modify_group_dialog_edits_the_existing_group() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let tracks: Vec<(u64, String)> = app.engine.session().tracks.iter().map(|t| (t.id.0, t.name.clone())).collect();
     assert!(tracks.len() >= 2);
     let g = app.run("track.group", json!({"tracks": [tracks[0].0], "name": "Drums"})).unwrap()["group"].as_u64().unwrap();

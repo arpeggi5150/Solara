@@ -12,7 +12,7 @@ fn press(ctx: &egui::Context, app: &mut SoundApp, key: Key, modifiers: Modifiers
 fn ctrl_shift_arrows_nudge_the_selected_clip_gain() {
     let pc_ctrl = Modifiers { ctrl: true, command: true, ..Modifiers::NONE };
     for (os, ctrl) in [(OperatingSystem::Mac, Modifiers::CTRL), (OperatingSystem::Windows, pc_ctrl), (OperatingSystem::Nix, pc_ctrl)] {
-        let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+        let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
         let kick = app.engine.session().track_by_name("Kick").unwrap().clips()[0].id;
         app.engine.execute("edit.select", &json!({"clips": [kick.0]})).unwrap();
         let ctx = egui::Context::default();
@@ -40,7 +40,7 @@ fn type_in_app(ctx: &egui::Context, app: &mut SoundApp, keys: &[(Key, Modifiers)
 
 #[test]
 fn tab_leaves_the_keys_to_the_shortcuts() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let ctx = egui::Context::default();
     for _ in 0..3 {
         type_in_app(&ctx, &mut app, &[]);
@@ -62,7 +62,7 @@ fn bare_plus_and_minus_nudge_the_selected_clip_in_edit() {
     // the Grid-value shortcut (#125 above). So nudge must fire on the bare, unshifted key the "+"
     // symbol sits on, same as "-" already does; `Key::Plus` stays bound too for a keyboard (e.g. a
     // numpad) that does send it on its own.
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let kick = app.engine.session().track_by_name("Kick").unwrap().clips()[0].id;
     app.engine.execute("edit.select", &json!({"clips": [kick.0]})).unwrap();
     let ctx = egui::Context::default();
@@ -99,7 +99,7 @@ fn cmd_equals_toggles_mix_and_edit_without_zooming() {
     let mac_cmd = Modifiers { mac_cmd: true, command: true, ..Modifiers::NONE };
     let pc_ctrl = Modifiers { ctrl: true, command: true, ..Modifiers::NONE };
     for (os, cmd) in [(OperatingSystem::Mac, mac_cmd), (OperatingSystem::Windows, pc_ctrl), (OperatingSystem::Nix, pc_ctrl)] {
-        let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+        let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
         let ctx = egui::Context::default();
         ctx.set_os(os);
         ctx.set_zoom_factor(1.25);
@@ -137,7 +137,7 @@ fn x_and_middle(app: &SoundApp, at: i64) -> (f32, f32) {
 
 #[test]
 fn left_and_right_arrows_centre_the_edit_window_on_the_selected_clip() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let ctx = egui::Context::default();
     let (clip_id, clip) = app.engine.session().tracks.iter().flat_map(|t| t.clips()).find(|c| c.start > 100_000).map(|c| (c.id, c.range())).unwrap();
     app.run("view.zoom_set", json!({"samples_per_px": 10.0})).unwrap();
@@ -166,7 +166,7 @@ fn left_and_right_arrows_centre_the_edit_window_on_the_selected_clip() {
 /// Over the piano roll the arrows move the selected note and leave the Edit window's view alone.
 #[test]
 fn the_piano_roll_keeps_the_plain_arrows() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.ui.show_midi_editor = true;
     app.run("edit.select", json!({"tracks": ["Keys"], "start": 0, "end": 480_000})).unwrap();
     app.run("view.zoom_set", json!({"samples_per_px": 10.0})).unwrap();
@@ -195,7 +195,7 @@ fn the_piano_roll_keeps_the_plain_arrows() {
 /// arrows, so they centre the Edit window there as anywhere else.
 #[test]
 fn a_midi_editor_behind_another_tab_leaves_the_arrows_to_the_edit_window() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     app.ui.show_midi_editor = true;
     let (clip_id, clip) = app.engine.session().tracks.iter().flat_map(|t| t.clips()).find(|c| c.start > 100_000).map(|c| (c.id, c.range())).unwrap();
     app.run("view.zoom_set", json!({"samples_per_px": 10.0})).unwrap();

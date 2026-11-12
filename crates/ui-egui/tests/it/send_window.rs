@@ -16,7 +16,7 @@ fn harness() -> (Harness<'static, SoundApp>, soundcraft_model::TrackId) {
         engine.execute("mix.new_bus", &json!({"name": bus})).unwrap();
         engine.execute("mix.send", &json!({"track": vox.0, "slot": slot, "bus": bus, "level_db": -10.0})).unwrap();
     }
-    let mut app = SoundApp::new(engine, None, Services::default());
+    let mut app = SoundApp::new_classic(engine, None, Services::default());
     app.ui.window = MainWindow::Mix;
     let mut h = Harness::builder().with_size(vec2(1400.0, 900.0)).with_step_dt(1.0 / 60.0).build_ui_state(
         |ui, app: &mut SoundApp| {

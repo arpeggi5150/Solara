@@ -220,7 +220,7 @@ fn main() -> eframe::Result {
         }
     }
 
-    let engine = if demo { soundcraft_engine::demo::demo_engine() } else { Engine::default() };
+    let engine = if demo { soundcraft_engine::demo::demo_engine() } else { new_project() };
     let prefs = load_prefs(&env).unwrap_or_default();
     let mut options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -296,6 +296,15 @@ fn main() -> eframe::Result {
 /// A saved window size, or the default when the prefs file holds nonsense (NaN, negative, tiny).
 fn sane_window_size([w, h]: [f32; 2]) -> [f32; 2] {
     if w.is_finite() && h.is_finite() && w >= 960.0 && h >= 600.0 { [w.min(16_384.0), h.min(16_384.0)] } else { [1600.0, 1000.0] }
+}
+
+/// A new project: one Drums track playing the built-in Drum Synth, with loop playback on.
+fn new_project() -> Engine {
+    let mut engine = Engine::default();
+    if let Err(e) = engine.execute("session.new", &serde_json::json!({"template": "drums"})) {
+        log::warn!("new project: {e}");
+    }
+    engine
 }
 
 #[cfg(test)]

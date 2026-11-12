@@ -7,7 +7,7 @@ use soundcraft_ui_egui::{Services, SoundApp};
 use std::path::{Path, PathBuf};
 
 fn harness() -> Harness<'static, SoundApp> {
-    let app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let mut h = Harness::builder().with_size(vec2(1400.0, 900.0)).with_max_steps(1_000).build_ui_state(
         |ui, app: &mut SoundApp| {
             app.logic(&ui.ctx().clone());

@@ -9,7 +9,7 @@ use soundcraft_model::TrackId;
 use soundcraft_ui_egui::{MainWindow, Services, SoundApp};
 
 fn harness(engine: soundcraft_engine::Engine, window: MainWindow) -> Harness<'static, SoundApp> {
-    let mut app = SoundApp::new(engine, None, Services::default());
+    let mut app = SoundApp::new_classic(engine, None, Services::default());
     app.ui.window = window;
     app.run("view.edit_inserts_ae", json!({})).unwrap();
     app.run("track.height", json!({"tracks": ["Vox"], "height": "medium"})).unwrap();

@@ -19,7 +19,7 @@ fn tempo(h: &egui_kittest::Harness<'_, SoundApp>) -> Option<(egui::Rect, egui::R
 fn a_narrow_window_scrolls_the_toolbar_to_reach_the_tempo() {
     let mut engine = soundcraft_engine::Engine::default();
     engine.execute("track.new", &json!({})).unwrap();
-    let app = SoundApp::new(engine, None, Services::default());
+    let app = SoundApp::new_classic(engine, None, Services::default());
     let mut h = egui_kittest::Harness::builder().with_size(vec2(WIDTH, 700.0)).build_ui_state(
         |ui, app: &mut SoundApp| {
             app.logic(ui.ctx());

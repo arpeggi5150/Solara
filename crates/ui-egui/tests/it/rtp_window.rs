@@ -14,7 +14,7 @@ fn press(h: &mut Harness<'_, SoundApp>, pos: Pos2, pressed: bool) {
 /// (stale) defaults — and the form never showed the target's own values.
 #[test]
 fn editing_rtp_velocity_leaves_the_other_properties_alone() {
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     app.engine.execute("track.new", &json!({"kind": "instrument", "name": "Synth"})).unwrap();
     let t = app.engine.session().tracks.last().unwrap().id;
     app.engine.execute("event.midi_rtp", &json!({"track": t.0, "transpose": 7, "duration": 50.0})).unwrap();

@@ -3,7 +3,7 @@ use soundcraft_ui_egui::{ControlRequest, Services, SoundApp, control, menus};
 
 fn commands(params: Value) -> Vec<Value> {
     let (tx, rx) = std::sync::mpsc::channel();
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default()).with_control(rx);
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default()).with_control(rx);
     let (req, reply) = ControlRequest::new("engine.commands", params);
     tx.send(req).unwrap();
     control::drain(&mut app, &egui::Context::default());

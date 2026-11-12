@@ -5,10 +5,11 @@ use serde_json::json;
 use soundcraft_ui_egui::{MainWindow, Services, SoundApp, UiState, docking::Panel};
 
 pub(crate) fn harness(state: Option<UiState>, width: f32, scale: f32) -> Harness<'static, SoundApp> {
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     app.run("track.new", json!({"name":"Voice"})).unwrap();
     if let Some(state) = state {
-        app.ui = state;
+        // These states describe the Classic layout's docks.
+        app.ui = UiState { layout: soundcraft_ui_egui::new_layout::LayoutPreset::Classic, ..state };
     }
     let mut h = Harness::builder().with_size(vec2(width, 900.0)).with_pixels_per_point(scale).build_ui_state(
         |ui, app: &mut SoundApp| {
@@ -156,7 +157,7 @@ fn docking_renders_edit_and_mix_default_floating_and_redocked() {
 #[test]
 fn reset_is_enabled_and_resolves_in_native_and_in_window_menu_trees() {
     use soundcraft_ui_egui::menus;
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     let path = "Window > Reset Panel Layout";
     let extra: Vec<_> = menus::UI_COMMANDS.iter().map(|(id, _, path, _)| (*path, *id)).collect();
     assert_eq!(menus::command_for_path(path, &extra).as_deref(), Some("ui.dock.reset"));

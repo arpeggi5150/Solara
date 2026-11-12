@@ -4,7 +4,7 @@ use soundcraft_ui_egui::{Services, SoundApp};
 
 #[test]
 fn the_audio_device_choice_is_kept_only_when_it_is_applied() {
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     let before = app.ui.audio.clone();
 
     let r = app.run("ui.audio_device", json!({})).unwrap();
@@ -27,7 +27,7 @@ fn the_audio_device_choice_is_kept_only_when_it_is_applied() {
 }
 
 fn new_app() -> SoundApp {
-    SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default())
+    SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default())
 }
 
 #[test]

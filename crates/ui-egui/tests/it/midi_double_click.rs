@@ -12,7 +12,7 @@ struct Rig {
 
 impl Rig {
     fn new(tool: &str) -> Rig {
-        let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+        let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
         app.engine.execute("edit.tool", &json!({"tool": tool})).unwrap();
         let mut r = Rig { ctx: egui::Context::default(), app };
         for _ in 0..4 {

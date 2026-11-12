@@ -250,7 +250,7 @@ fn split_frame_settings_load_as_the_dock_defaults_and_dock_layouts_round_trip() 
     assert!(state.narrow_mix);
 
     // A configuration saved before dock columns resets the same way when recalled.
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     app.run("ui.dock", json!({"operation":"float","panel":"tracks","rect":[80,90,260,400]})).unwrap();
     app.ui.configurations = vec![("Old".into(), split_frame_settings())];
     soundcraft_ui_egui::windows::recall_configuration(&mut app, &split_frame_settings()).unwrap();

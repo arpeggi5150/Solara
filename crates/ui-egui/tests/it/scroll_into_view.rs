@@ -10,7 +10,7 @@ use soundcraft_ui_egui::{MainWindow, Services, SoundApp};
 const SIZE: (f32, f32) = (1400.0, 900.0);
 
 fn harness(tracks: usize) -> Harness<'static, SoundApp> {
-    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::Engine::default(), None, Services::default());
     for i in 1..=tracks {
         app.run("track.new", json!({"name": format!("T{i:02}")})).unwrap();
     }

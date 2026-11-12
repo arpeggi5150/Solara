@@ -8,7 +8,7 @@ use soundcraft_ui_egui::{Services, SoundApp, menus};
 /// or Next Clip fills the gap up to the next clip, the last loop cut short to meet it.
 #[test]
 fn clip_looping_fills_up_to_the_next_clip() {
-    let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());
+    let mut app = SoundApp::new_classic(soundcraft_engine::demo::demo_engine(), None, Services::default());
     let kick = app.engine.session().track_by_name("Kick").unwrap();
     let (track, clip) = (kick.id, kick.clips()[0].clone());
     let after = kick.clips().iter().filter(|c| c.start >= clip.end()).min_by_key(|c| c.start).unwrap().clone();
