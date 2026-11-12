@@ -57,10 +57,15 @@ where
     let mut scratch = vec![0.0f32; 8192 * frame];
     let chunk = scratch.len();
     let (failed, guard, gone) = (Arc::clone(fault), Arc::clone(shared), Arc::clone(fault));
+    let rate = u64::from(config.sample_rate.max(1));
+    #[cfg(not(target_arch = "wasm32"))]
+    let (clock, mut last, mut epoch) = (std::time::Instant::now(), None::<u64>, 0u64);
     device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
             mark_audio_thread();
+            #[cfg(not(target_arch = "wasm32"))]
+            let started = u64::try_from(clock.elapsed().as_nanos()).unwrap_or(u64::MAX);
             for out in data.chunks_mut(chunk) {
                 let Some(s) = scratch.get_mut(..out.len()) else { return };
                 guarded_block(&failed, &guard, s, |d| state.fill(d, channels));
@@ -68,6 +73,22 @@ where
                     *o = T::from_sample(*x);
                 }
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let frames = u64::try_from(data.len() / frame).unwrap_or(0);
+                let period = frames.saturating_mul(1_000_000_000) / rate;
+                let done = u64::try_from(clock.elapsed().as_nanos()).unwrap_or(u64::MAX);
+                // A reset starts timing afresh, so the wait before it is not counted.
+                let reset = failed.health_epoch();
+                if reset != epoch {
+                    epoch = reset;
+                    last = None;
+                }
+                failed.health.note(period, last.map(|l| started.saturating_sub(l)), done.saturating_sub(started));
+                last = Some(started);
+            }
+            #[cfg(target_arch = "wasm32")]
+            let _ = rate;
         },
         // cpal may call this on the audio thread (on ALSA in a loop while the device stays
         // broken): marked, so the logger hands the record off instead of writing it.
@@ -79,6 +100,9 @@ where
             // route, and an xrun is transient, so neither counts as losing the stream.
             if devices::stream_lost(&e) {
                 gone.gone.store(true, Ordering::Relaxed);
+            }
+            if e.kind() == cpal::ErrorKind::Xrun {
+                gone.health.xruns.fetch_add(1, Ordering::Relaxed);
             }
             log::warn!("audio stream error: {e}");
         },

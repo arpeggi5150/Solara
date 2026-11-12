@@ -25,6 +25,7 @@
 pub mod devices;
 pub mod record;
 
+pub use callback::AudioHealth;
 pub use devices::AudioConfig;
 
 use soundcraft_dsp::{Plugin, PluginEditor, PluginStateReader};
@@ -201,6 +202,17 @@ impl Player {
         self.fault.trouble(stalled)
     }
 
+    /// How cleanly the output has been fed since it opened or since [`Player::reset_health`]:
+    /// late blocks, gaps between blocks and reported xruns.
+    pub fn health(&self) -> AudioHealth {
+        self.fault.health.snapshot()
+    }
+
+    /// Start counting [`Player::health`] afresh.
+    pub fn reset_health(&self) {
+        self.fault.reset_health();
+    }
+
     fn side(&self) -> std::sync::MutexGuard<'_, Side> {
         self.side.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -260,6 +272,11 @@ impl Player {
                             "audio device: {name} @ {rate} Hz, {channels} ch, {format}, buffer {}",
                             buffer.map_or("default".to_string(), |n| n.to_string())
                         );
+                        if let Some(want) = cfg.buffer_size
+                            && buffer != Some(want)
+                        {
+                            log::warn!("audio device {name} did not take the {want}-sample buffer; it runs at its default");
+                        }
                         Player {
                             shared,
                             fault,

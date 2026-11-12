@@ -549,7 +549,15 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
                 if p.silent {
                     "no device (silent clock)".to_string()
                 } else {
-                    let buf = p.device_buffer.map_or("default buffer".to_string(), |b| format!("{b} samples"));
+                    // The block the device actually asks for, as measured: on Windows shared mode it is
+                    // the system's period whatever buffer was asked for.
+                    let period = p.health().period_us;
+                    let measured = (period > 0).then(|| {
+                        let frames = u64::from(p.device_rate).saturating_mul(period).saturating_add(500_000) / 1_000_000;
+                        format!(" ({frames} samples, {:.1} ms blocks)", period as f64 / 1000.0)
+                    });
+                    let buf = p.device_buffer.map_or("default buffer".to_string(), |b| format!("{b}-sample buffer"));
+                    let buf = format!("{buf}{}", measured.unwrap_or_default());
                     format!("{} · {} Hz · {} ch · {buf}", p.device_name, p.device_rate, p.device_channels)
                 }
             }));
@@ -598,7 +606,8 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
 
 /// `ui.audio_device`: `{list?: bool}` returns the audio systems and their devices;
 /// `{system?, output?, input?, sample_rate?, buffer_size?}` (a `null` value means "default") sets
-/// the choice and reopens the devices. Always returns the choice and the open device.
+/// the choice and reopens the devices. Always returns the choice and the open device, with its
+/// `health` (late blocks, gaps and xruns since it opened); `{reset_health: true}` restarts that count.
 pub fn audio_device_command(app: &mut SoundApp, p: &serde_json::Value) -> Result<serde_json::Value, String> {
     use serde_json::Value;
     let mut changed = false;
@@ -621,8 +630,20 @@ pub fn audio_device_command(app: &mut SoundApp, p: &serde_json::Value) -> Result
     if changed {
         app.apply_audio_config(cfg)?;
     }
+    if p.get("reset_health").and_then(Value::as_bool).unwrap_or(false)
+        && let Some(pl) = app.player.as_ref()
+    {
+        pl.reset_health();
+    }
     let device = app.player.as_ref().map(|pl| {
-        json!({"name": pl.device_name, "sample_rate": pl.device_rate, "channels": pl.device_channels, "buffer_size": pl.device_buffer, "silent": pl.silent})
+        let h = pl.health();
+        json!({
+            "name": pl.device_name, "sample_rate": pl.device_rate, "channels": pl.device_channels, "buffer_size": pl.device_buffer, "silent": pl.silent,
+            "health": {
+                "clean": h.clean(), "blocks": h.blocks, "late": h.late, "gaps": h.gaps, "xruns": h.xruns,
+                "worst_render_us": h.worst_render_us, "worst_gap_us": h.worst_gap_us, "period_us": h.period_us,
+            },
+        })
     });
     let mut out = json!({"config": app.ui.audio, "device": device});
     if p.get("list").and_then(Value::as_bool).unwrap_or(false) {

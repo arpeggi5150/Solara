@@ -33,6 +33,15 @@ Newline-delimited JSON over TCP on `127.0.0.1`. One request per line, one reply 
 {"id": 1, "ok": true, "result": {"tracks": [12, 13]}}
 ```
 
+Audio devices: the `ui.audio_device` command (sent through `engine.execute`, like other `ui.*`
+commands) takes `{list?, system?, output?, input?, sample_rate?, buffer_size?, reset_health?}`. It
+lists audio systems and devices (`list`), sets the device choice, and returns the open device with
+its `buffer_size` (null = the device default) and `health` since it opened or since `reset_health`:
+`blocks`, `late` (filled slower than real time), `gaps` (a wait between blocks long enough for the
+device to run dry), `xruns`, `worst_render_us`, `worst_gap_us`, `period_us` (the block the device
+actually asks for, as measured) and `clean`. On Windows the build uses WASAPI shared mode, where
+the device asks for the system's period (usually 10 ms) whatever buffer is requested.
+
 Errors: `{"id": 1, "ok": false, "error": "bad parameters for `mix.volume`: no track named `Nope`"}`.
 
 ## Methods
