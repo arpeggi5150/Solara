@@ -4,8 +4,8 @@
 //! audio devices that failed to open or broke, plugins that refused their stored state or failed
 //! to activate, CLAP plugins' own log messages, decode errors on import) vanished. A launch from a
 //! desktop menu has no terminal, so the file is what a bug report can attach:
-//! `<settings dir>/logs/soundcraft.log`, beside `ui.json`, `Autosave/` and `Presets/`. Each start
-//! moves the previous log to `soundcraft.1.log` (and that one to `.2`), so the log of a run that
+//! `<settings dir>/logs/solara.log`, beside `ui.json`, `Autosave/` and `Presets/`. Each start
+//! moves the previous log to `solara.1.log` (and that one to `.2`), so the log of a run that
 //! crashed survives the next launch. Runs without preferences (`SOUNDCRAFT_NO_PREFS`, agents' test
 //! runs) log to standard error only, so they don't rotate away the user's own logs.
 //!
@@ -39,10 +39,10 @@ use std::time::SystemTime;
 use log::LevelFilter;
 
 /// The current log file's name inside the log directory.
-pub const LOG_FILE: &str = "soundcraft.log";
+pub const LOG_FILE: &str = "solara.log";
 /// The log directory inside the settings directory.
 pub const LOG_DIR: &str = "logs";
-/// How many previous logs are kept (`soundcraft.1.log` … `soundcraft.<KEEP>.log`).
+/// How many previous logs are kept (`solara.1.log` … `solara.<KEEP>.log`).
 pub const KEEP: usize = 2;
 /// The log file stops growing past this size (a runaway warning can't fill the disk).
 pub const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
@@ -145,7 +145,7 @@ fn utc_parts(secs: i64, nanos: u32) -> (i64, chrono::NaiveDateTime) {
 }
 
 fn numbered(dir: &Path, n: usize) -> PathBuf {
-    if n == 0 { dir.join(LOG_FILE) } else { dir.join(format!("soundcraft.{n}.log")) }
+    if n == 0 { dir.join(LOG_FILE) } else { dir.join(format!("solara.{n}.log")) }
 }
 
 /// Shift the previous logs up one (`.log` → `.1.log` → … → `.<KEEP>.log`, the oldest dropped)

@@ -36,7 +36,7 @@ pub(crate) fn mcp(args: &McpArgs, err: &mut dyn Write) -> Result<(), CliError> {
         if let Some(roots) = roots {
             // Every thread of this process, not only the server's: nothing reaches past the roots.
             file_access::confine_process(roots.clone());
-            outln!(err, "soundcraft-cli: files confined: {}", roots.describe());
+            outln!(err, "solara-cli: files confined: {}", roots.describe());
             h = h.with_automation_roots(Some(roots));
         }
         let mut s = Server::new(h);

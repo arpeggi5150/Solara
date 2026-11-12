@@ -40,7 +40,7 @@ pub fn start(port: u16, ctx: egui::Context) -> Receiver<ControlRequest> {
     };
     let actual = listener.local_addr().map(|a| a.port()).unwrap_or(port);
     log::info!("control server listening on 127.0.0.1:{actual}");
-    println!("SOUNDCRAFT_CONTROL_PORT={actual}");
+    println!("SOLARA_CONTROL_PORT={actual}");
     let spawned = std::thread::Builder::new().name("soundcraft-control".into()).spawn(move || accept_loop(listener, tx, ctx));
     if let Err(e) = spawned {
         log::error!("control thread failed: {e}");

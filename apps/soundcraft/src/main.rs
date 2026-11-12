@@ -1,12 +1,12 @@
 //! Solara desktop app.
 //!
-//! Usage: `soundcraft [--demo] [--control <port>] [--no-audio] [session.scraft | audio files…]`; `soundcraft --help` lists the flags and `SOUNDCRAFT_CONTROL_PORT`.
+//! Usage: `soundcraft [--demo] [--control <port>] [--no-audio] [session.scraft | audio files…]`; `soundcraft --help` lists the flags and `SOLARA_CONTROL_PORT`.
 //!
-//! `--control <port>` (or `SOUNDCRAFT_CONTROL_PORT`) starts a localhost JSON-lines control server
+//! `--control <port>` (or `SOLARA_CONTROL_PORT`) starts a localhost JSON-lines control server
 //! (`0` picks a free port and prints it): `{"id":1,"method":"ui.inspect","params":{}}` →
 //! `{"id":1,"ok":true,"result":…}`. See `soundcraft_ui_egui::control` for the methods.
 //!
-//! `log` records go to standard error and `<settings dir>/logs/soundcraft.log` (`RUST_LOG` sets the
+//! `log` records go to standard error and `<settings dir>/logs/solara.log` (`RUST_LOG` sets the
 //! levels); see [`logging`].
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
