@@ -40,6 +40,10 @@ pub(crate) fn drive_drag(app: &mut SoundApp, ctx: &egui::Context) {
     let (s, tl) = (app.engine.session_arc(), rect(app.edit_layout.timeline));
     let p = ctx.pointer_latest_pos();
     if !ctx.input(|i| i.pointer.any_down()) {
+        let alt = ctx.input(|i| i.modifiers.alt);
+        if app.ui.layout == crate::new_layout::LayoutPreset::New && finish_pattern_drag(app, &s, alt) {
+            return;
+        }
         finish_drag(app, &s, tl, p);
         return;
     }
@@ -289,6 +293,40 @@ fn move_delta(plan: &DragPlan, s: &Session, from: TrackId, raw: Samples, flip: b
         ops::grid_delta(s, c, raw, mode == EditMode::GridRelative, &plan.moving_ids)
     } else {
         raw
+    }
+}
+
+/// The NEW layout's pattern gestures, when the drag is one: Alt-dragging MIDI clips drops copies
+/// (`pattern.copy`), and dragging a MIDI clip's end past its end loops it (`clip.loop`) instead of
+/// stretching it. Takes the gesture and returns true when it handled it.
+fn finish_pattern_drag(app: &mut SoundApp, s: &Session, alt: bool) -> bool {
+    let midi = |id: ClipId| s.find_clip(id).is_some_and(|(_, c)| matches!(c.content, soundcraft_model::ClipContent::Midi { .. }));
+    match &app.gesture {
+        Some(Gesture::MoveClips { clips, delta, from_track, to_track, .. })
+            if alt && (*delta != 0 || from_track != to_track) && clips.iter().all(|c| midi(*c)) =>
+        {
+            let (clips, delta, from, to) = (clips.clone(), *delta, *from_track, *to_track);
+            app.gesture = None;
+            for id in clips {
+                let Some((own, start)) = s.find_clip(id).map(|(t, c)| (t, c.start)) else { continue };
+                // The grabbed track's clips land on the target; clips from other tracks stay on theirs.
+                let track = if own == from { to } else { own };
+                if let Err(e) = app.run("pattern.copy", json!({"clip": id.0, "at": start.saturating_add(delta).max(0), "track": track.0})) {
+                    app.ui.status = e;
+                }
+            }
+            true
+        }
+        Some(Gesture::TrimEnd { clip, to, .. }) if midi(*clip) && s.find_clip(*clip).is_some_and(|(_, c)| *to > c.end()) => {
+            let (clip, to) = (*clip, *to);
+            app.gesture = None;
+            let start = s.find_clip(clip).map_or(0, |(_, c)| c.start);
+            if let Err(e) = app.run("clip.loop", json!({"clips": [clip.0], "length": to.saturating_sub(start)})) {
+                app.ui.status = e;
+            }
+            true
+        }
+        _ => false,
     }
 }
 

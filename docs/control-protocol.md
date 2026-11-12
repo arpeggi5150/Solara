@@ -100,6 +100,16 @@ Editor shows (B and P). New projects come from `session.new {"template": "drums"
 Drums track, as a fresh launch and File > New start) or `{"template": "empty"}` (no tracks); both start with loop
 playback on.
 
+Patterns are one-bar MIDI clips edited in NEW's step sequencer (16 sixteenth-note steps per
+bar). `pattern.step {"clip"|"track", "pitch", "step", "velocity"?}` sets (velocity 1..127),
+clears (0) or toggles (no velocity) a step; given a track instead of a clip, it uses the track's
+first MIDI clip, making one on bar 1 if there is none. A step in a looped pattern changes in each
+of its loops. `pattern.new {"track", "at"?}` makes an empty pattern, `pattern.add_sound {"pitch",
+"track"?, "at"?}` is what dropping a Browser sound does (without a track it makes a Drums track),
+and `pattern.copy {"clip", "at", "track"?}` drops an independent copy (Alt-drag in NEW). Each
+selects its pattern, so Play loops it while loop playback is on. In NEW, dragging a MIDI clip's
+end past its end runs `clip.loop` with that length.
+
 `view.scroll_into_view {"track":"Bass"}` (a track id or name; without it, the first selected
 track) brings the track to the top of the Edit window and the left of the Mix window, the same as
 Scroll Into View in the track name menu. A window not on screen catches up when it is next shown.

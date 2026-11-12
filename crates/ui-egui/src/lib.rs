@@ -31,6 +31,7 @@ pub mod panels;
 pub mod preferences;
 pub mod shortcuts;
 mod splash;
+pub mod step_seq;
 pub mod theme;
 pub mod toolbar;
 pub mod updates_ui;
