@@ -43,6 +43,7 @@ Errors: `{"id": 1, "ok": false, "error": "bad parameters for `mix.volume`: no tr
 | `engine.commands` | `{filter?}` | Every command: id, label, menu path, shortcut, params doc, enabled + reason. Includes UI-layer commands (`window.*`). |
 | `engine.parity` | `{}` | Parity report against the incumbent's menu catalog. |
 | `session.inspect` | `{detail?: "summary"|"full"}` | The document: tracks, clips (with times), inserts (+params when full), sends, routing, automation, markers, groups, busses, sources (`loaded` true when decoded audio is in the pool), selection, zoom (`samples_per_px`, `scroll`), transport, undo label. |
+| `ui.audio_device` | `{list?, system?, output?, input?, sample_rate?, buffer_size?, reset_health?}` | Lists audio systems and devices (`list`), sets the device choice, and returns the open device with its `buffer_size` (null = device default) and `health`: `blocks`, `late` (filled slower than real time), `gaps` (a wait between blocks long enough to run dry), `xruns`, `worst_render_us`, `worst_gap_us`, `period_us` and `clean`. `reset_health` restarts the count. |
 | `ui.inspect` | `{}` | UI state (`window`, panels, dialogs), window size, playing/position, audio device, and `edit_layout` (timeline rect and every track row's rect, for clicking). |
 | `ui.set` | any `UiState` fields | e.g. `{"window": "Mix", "narrow_mix": true}`. |
 | `ui.menu.list` | `{}` | Every catalog menu path and the command that implements it (or null). |

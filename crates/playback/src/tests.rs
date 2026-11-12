@@ -718,3 +718,26 @@ fn armed_tracks_are_heard_and_metered_after_playback_stops() {
     assert!(out.iter().any(|x| x.abs() > 0.1), "the input is heard");
     assert!(shared.meters.lock().unwrap().tracks.get(&t).is_some_and(|m| m.peak[0] > 0.1), "and metered");
 }
+
+#[test]
+fn health_counts_late_blocks_gaps_and_resets() {
+    use super::callback::{Fault, GAP_SLACK_NS};
+    let f = Fault::default();
+    let period = 2_666_666; // 128 frames at 48 kHz
+    f.health.note(period, None, 300_000);
+    f.health.note(period, Some(period), 400_000);
+    let h = f.health.snapshot();
+    assert!(h.clean());
+    assert_eq!((h.blocks, h.period_us, h.worst_render_us), (2, 2666, 400));
+    // A block that took longer than its audio is late; a wait of more than two blocks is a gap.
+    f.health.note(period, Some(period), period + 1);
+    f.health.note(period, Some(2 * period + GAP_SLACK_NS), 1);
+    assert!(!f.health.snapshot().clean());
+    assert_eq!((f.health.snapshot().late, f.health.snapshot().gaps), (1, 0), "two blocks plus slack is still on time");
+    f.health.note(period, Some(2 * period + GAP_SLACK_NS + 1), 1);
+    assert_eq!(f.health.snapshot().gaps, 1);
+    let epoch = f.health_epoch();
+    f.reset_health();
+    assert_ne!(f.health_epoch(), epoch);
+    assert_eq!(f.health.snapshot(), super::AudioHealth { period_us: 2666, ..Default::default() });
+}

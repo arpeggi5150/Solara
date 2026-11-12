@@ -25,6 +25,7 @@
 pub mod devices;
 pub mod record;
 
+pub use callback::AudioHealth;
 pub use devices::AudioConfig;
 
 use soundcraft_dsp::{Plugin, PluginEditor, PluginStateReader};
@@ -199,6 +200,17 @@ impl Player {
         #[cfg(target_arch = "wasm32")]
         let stalled = false;
         self.fault.trouble(stalled)
+    }
+
+    /// How cleanly the output has been fed since it opened or since [`Player::reset_health`]:
+    /// late blocks, gaps between blocks and reported xruns.
+    pub fn health(&self) -> AudioHealth {
+        self.fault.health.snapshot()
+    }
+
+    /// Start counting [`Player::health`] afresh.
+    pub fn reset_health(&self) {
+        self.fault.reset_health();
     }
 
     fn side(&self) -> std::sync::MutexGuard<'_, Side> {

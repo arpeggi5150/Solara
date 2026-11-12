@@ -15,9 +15,105 @@ pub(crate) struct Fault {
     pub(crate) beats: std::sync::atomic::AtomicU64,
     /// The UI has been told.
     reported: AtomicBool,
+    /// How cleanly the device is being fed: late blocks, gaps and xruns.
+    pub(crate) health: Health,
+    /// Bumped by each health reset, so the callback restarts its gap timing.
+    health_resets: std::sync::atomic::AtomicU64,
+}
+
+/// Counters for how cleanly the output is fed, kept by the audio callback without locks or
+/// allocation. A block is late when filling it took longer than the audio it holds; a gap is a
+/// wait between blocks of more than two blocks' worth of audio (plus 2 ms of scheduling slack),
+/// long enough for the device to run dry; an xrun is one the audio system reported.
+#[derive(Default)]
+pub(crate) struct Health {
+    blocks: std::sync::atomic::AtomicU64,
+    late: std::sync::atomic::AtomicU64,
+    gaps: std::sync::atomic::AtomicU64,
+    pub(crate) xruns: std::sync::atomic::AtomicU64,
+    worst_render_us: std::sync::atomic::AtomicU64,
+    worst_gap_us: std::sync::atomic::AtomicU64,
+    period_us: std::sync::atomic::AtomicU64,
+}
+
+/// A snapshot of [`Health`] since the last reset.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AudioHealth {
+    /// Blocks the device asked for.
+    pub blocks: u64,
+    /// Blocks that took longer to fill than the audio they hold.
+    pub late: u64,
+    /// Waits between blocks long enough for the device to run dry.
+    pub gaps: u64,
+    /// Xruns the audio system reported.
+    pub xruns: u64,
+    /// The longest time spent filling one block, in microseconds.
+    pub worst_render_us: u64,
+    /// The longest wait between two blocks, in microseconds.
+    pub worst_gap_us: u64,
+    /// The audio in the last block, in microseconds (the effective buffer).
+    pub period_us: u64,
+}
+
+impl AudioHealth {
+    /// No late blocks, gaps or xruns.
+    pub fn clean(&self) -> bool {
+        self.late == 0 && self.gaps == 0 && self.xruns == 0
+    }
+}
+
+/// Slack allowed on top of two blocks before a wait counts as a gap.
+pub(crate) const GAP_SLACK_NS: u64 = 2_000_000;
+
+impl Health {
+    /// Account one block holding `period_ns` of audio, filled in `render_ns`, that started
+    /// `since_last_ns` after the previous block (None for the first block after a reset or start).
+    pub(crate) fn note(&self, period_ns: u64, since_last_ns: Option<u64>, render_ns: u64) {
+        self.blocks.fetch_add(1, Ordering::Relaxed);
+        self.period_us.store(period_ns / 1000, Ordering::Relaxed);
+        self.worst_render_us.fetch_max(render_ns / 1000, Ordering::Relaxed);
+        if render_ns > period_ns {
+            self.late.fetch_add(1, Ordering::Relaxed);
+        }
+        if let Some(gap) = since_last_ns {
+            self.worst_gap_us.fetch_max(gap / 1000, Ordering::Relaxed);
+            if gap > period_ns.saturating_mul(2).saturating_add(GAP_SLACK_NS) {
+                self.gaps.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> AudioHealth {
+        let get = |a: &std::sync::atomic::AtomicU64| a.load(Ordering::Relaxed);
+        AudioHealth {
+            blocks: get(&self.blocks),
+            late: get(&self.late),
+            gaps: get(&self.gaps),
+            xruns: get(&self.xruns),
+            worst_render_us: get(&self.worst_render_us),
+            worst_gap_us: get(&self.worst_gap_us),
+            period_us: get(&self.period_us),
+        }
+    }
+
+    pub(crate) fn reset(&self) {
+        for a in [&self.blocks, &self.late, &self.gaps, &self.xruns, &self.worst_render_us, &self.worst_gap_us] {
+            a.store(0, Ordering::Relaxed);
+        }
+    }
 }
 
 impl Fault {
+    /// Clear the health counters; the next block starts the gap timing afresh.
+    pub(crate) fn reset_health(&self) {
+        self.health.reset();
+        self.health_resets.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn health_epoch(&self) -> u64 {
+        self.health_resets.load(Ordering::Relaxed)
+    }
+
     /// What stopped the output, once.
     pub(crate) fn trouble(&self, stalled: bool) -> Option<OutputTrouble> {
         let trouble = if self.failed.load(Ordering::Relaxed) {
