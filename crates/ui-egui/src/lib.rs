@@ -303,6 +303,8 @@ pub enum Gesture {
     Fader { track: TrackId, start_db: f32 },
     SendFader { track: TrackId, slot: usize },
     ClipGain { clip: soundcraft_model::ClipId, track: TrackId, pos: f32, anchor: (f32, f32), fine: bool, fader_bottom: egui::Pos2 },
+    /// The clip gain line dragged up or down: the clip's gain from where it was pressed.
+    GainLine { clip: soundcraft_model::ClipId, track: TrackId, from_db: f32, anchor_y: f32, db_per_point: f32 },
     Pencil { track: TrackId, points: Vec<(Samples, f32)> },
     Breakpoint { track: TrackId, param: soundcraft_model::AutoParam, at: Samples },
     MidiClip { track: TrackId, from: Samples, to: Samples },

@@ -321,14 +321,38 @@ fn draw_crossfade_tail(cl: &ClipLane<'_>, g: &ClipGeom<'_>) {
     }
 }
 
+/// Whether `clip` shows its clip gain line: View › Clip › Clip Gain Line on, and the clip has gain,
+/// or its track shows clip gain, or (audio clips) the Pro Tools-style layout, which always shows it.
+pub(super) fn gain_line_shown(app: &SoundApp, s: &Session, track: &Track, clip: &Clip) -> bool {
+    s.edit.flag("view.clip.gain_line")
+        && (!clip.gain_env.is_empty()
+            || clip.gain_db.abs() > 0.01
+            || track.view == "clip_gain"
+            || (crate::pt_layout::active(app) && matches!(clip.content, ClipContent::Audio { .. })))
+}
+
+/// The clip body in `lane` the gain line is drawn in (below the name bar).
+pub(super) fn gain_line_body(s: &Session, lane: Rect) -> Rect {
+    Rect::from_min_max(pos2(lane.min.x, lane.min.y + 1.0 + clip_name_height(s, lane)), pos2(lane.max.x, lane.max.y - 1.0))
+}
+
+/// The y of `db` on the gain line of a clip body: -36 dB at the bottom to +36 dB at the top.
+pub(super) fn gain_line_y(body: Rect, db: f32) -> f32 {
+    body.max.y - 3.0 - ((db.clamp(-36.0, 36.0) + 36.0) / 72.0) * (body.height() - 6.0)
+}
+
+/// How many dB one point of vertical travel on the gain line is worth in a clip body.
+pub(super) fn gain_line_db_per_point(body: Rect) -> f32 {
+    72.0 / (body.height() - 6.0).max(1.0)
+}
+
 /// The clip gain line and its icon.
 fn draw_gain_line(cl: &ClipLane<'_>, clip: &Clip, g: &ClipGeom<'_>) {
-    let ClipLane { painter, s, track, tl, lane, .. } = *cl;
+    let ClipLane { app, painter, s, track, tl, lane, .. } = *cl;
     let ClipGeom { body_r, x0, x1, dim, .. } = *g;
     // Clip gain line.
-    let show_gain = s.edit.flag("view.clip.gain_line") && (!clip.gain_env.is_empty() || clip.gain_db.abs() > 0.01 || track.view == "clip_gain");
-    if show_gain && body_r.height() > 12.0 {
-        let gy = |db: f32| body_r.max.y - 3.0 - ((db.clamp(-36.0, 36.0) + 36.0) / 72.0) * (body_r.height() - 6.0);
+    if gain_line_shown(app, s, track, clip) && body_r.height() > 12.0 {
+        let gy = |db: f32| gain_line_y(body_r, db);
         let col = Color32::from_rgba_unmultiplied(255, 255, 255, 170);
         if clip.gain_env.is_empty() {
             painter.line_segment([pos2(x0, gy(clip.gain_db)), pos2(x1, gy(clip.gain_db))], Stroke::new(1.0, col));
