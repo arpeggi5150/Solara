@@ -85,7 +85,7 @@ impl Backend for Headless {
 }
 
 /// Where a running app's control channel listens: what `soundcraft-cli app --port`,
-/// `soundcraft-cli mcp --connect`, `soundcraft --control` and SOUNDCRAFT_CONTROL_PORT give, parsed
+/// `soundcraft-cli mcp --connect`, `soundcraft --control` and SOLARA_CONTROL_PORT give, parsed
 /// once (`args::control_target`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ControlTarget {

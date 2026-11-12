@@ -1,6 +1,6 @@
 //! The desktop app's command line, as clap types: `soundcraft --help` comes from these doc
 //! comments, so the help and the parser can't disagree. Anything they don't declare is a usage
-//! error naming it (exit status 2), as is a bad `--control` or `SOUNDCRAFT_CONTROL_PORT`. A file
+//! error naming it (exit status 2), as is a bad `--control` or `SOLARA_CONTROL_PORT`. A file
 //! whose name starts with `-` goes after `--`. Another host's `host:port` is a usage error from
 //! `--control` and ignored from the variable ([`control_port`]).
 //!
@@ -60,7 +60,7 @@ pub(crate) fn parse(mut cmd: Command, args: impl IntoIterator<Item = OsString>) 
     Ok(launch)
 }
 
-/// The port the control server starts on, from `--control` or `SOUNDCRAFT_CONTROL_PORT`
+/// The port the control server starts on, from `--control` or `SOLARA_CONTROL_PORT`
 /// (`source`). The server listens on 127.0.0.1 only, so it can't serve another host's
 /// `host:port`. From the flag that is a usage error. The variable is `soundcraft-cli app`'s too and
 /// may point it at another machine, so from there it is ignored with a warning and the app opens
@@ -70,7 +70,7 @@ fn control_port(value: Option<ControlTarget>, source: Option<ValueSource>) -> Re
         None => Ok(None),
         Some(target) if target.is_loopback() => Ok(Some(target.port)),
         Some(target) if source == Some(ValueSource::EnvVariable) => {
-            log::warn!("SOUNDCRAFT_CONTROL_PORT={target} names another host, so no control server starts: it listens on 127.0.0.1 only");
+            log::warn!("SOLARA_CONTROL_PORT={target} names another host, so no control server starts: it listens on 127.0.0.1 only");
             Ok(None)
         }
         Some(target) => Err(RemoteHost(target)),
@@ -143,7 +143,7 @@ mod tests {
             assert!(help.contains(text), "{text}: {help}");
         }
         let help = command().render_help().to_string();
-        assert!(help.contains("[env: SOUNDCRAFT_CONTROL_PORT"), "{help}");
+        assert!(help.contains("[env: SOLARA_CONTROL_PORT"), "{help}");
         for var in ["SOUNDCRAFT_CONFIG_DIR", "SOUNDCRAFT_NO_PREFS", "SOUNDCRAFT_NO_SYSTEM_FONTS", "SOUNDCRAFT_WAYLAND", "RUST_LOG"] {
             assert!(help.contains(&format!("\n  {var} ")), "{var}: {help}");
         }

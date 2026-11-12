@@ -38,9 +38,9 @@ fn write_help() -> &'static str {
     with_formats(&C, "The audio file to write; its extension picks the format ", FileFormat::writable_extensions, "")
 }
 
-/// soundcraft-cli: Solara without a window
+/// solara-cli: Solara without a window
 #[derive(Parser)]
-#[command(name = "soundcraft-cli", version = long_version(), arg_required_else_help = true)]
+#[command(name = "solara-cli", version = long_version(), arg_required_else_help = true)]
 pub(crate) struct Cli {
     #[command(subcommand)]
     pub(crate) command: Command,
@@ -444,13 +444,13 @@ fn cmd_spec(s: &str) -> Result<CmdSpec, ValueError> {
 /// ([`Command::check_outputs`]), so nothing has run when it is reported.
 pub(crate) fn parse(args: &[OsString]) -> Result<Cli, clap::Error> {
     let mut cmd = Cli::command().mut_subcommands(|sub| sub.mut_args(blank_env_is_unset));
-    let argv = std::iter::once(OsString::from("soundcraft-cli")).chain(args.iter().cloned());
+    let argv = std::iter::once(OsString::from("solara-cli")).chain(args.iter().cloned());
     let matches = match cmd.try_get_matches_from_mut(argv) {
         Err(e) if e.kind() != ErrorKind::DisplayHelp => {
             let Some(flag) = args.iter().take_while(|a| *a != "--").find(|a| *a == "--help" || *a == "-h") else {
                 return Err(name_env_vars(e, &cmd, args));
             };
-            let help = [OsString::from("soundcraft-cli"), args.first().cloned().unwrap_or_default(), flag.clone()];
+            let help = [OsString::from("solara-cli"), args.first().cloned().unwrap_or_default(), flag.clone()];
             return Err(cmd.try_get_matches_from_mut(help).err().unwrap_or(e));
         }
         matches => matches?,

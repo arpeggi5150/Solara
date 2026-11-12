@@ -20,9 +20,9 @@ fn invoke(dir: &Path, args: &[&str]) -> Invoke {
 
 fn invoke_env(dir: &Path, args: &[&str], control_port: Option<&str>) -> Invoke {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_soundcraft-cli"));
-    cmd.env("SOUNDCRAFT_NO_PREFS", "1").env_remove("SOUNDCRAFT_CONTROL_PORT");
+    cmd.env("SOUNDCRAFT_NO_PREFS", "1").env_remove("SOLARA_CONTROL_PORT");
     if let Some(port) = control_port {
-        cmd.env("SOUNDCRAFT_CONTROL_PORT", port);
+        cmd.env("SOLARA_CONTROL_PORT", port);
     }
     let out = cmd.current_dir(dir).args(args).stdin(Stdio::null()).output().unwrap();
     Invoke { code: out.status.code().unwrap(), stdout: String::from_utf8(out.stdout).unwrap(), stderr: String::from_utf8(out.stderr).unwrap() }
@@ -361,7 +361,7 @@ fn an_output_that_is_an_input_is_refused_before_any_work() {
     for (args, message) in refused {
         let got = invoke(&dir, args);
         assert_usage_error(&got, message);
-        assert!(got.stderr.contains("\nUsage: soundcraft-cli "), "{}", got.stderr);
+        assert!(got.stderr.contains("\nUsage: solara-cli "), "{}", got.stderr);
     }
     assert_eq!(std::fs::read(dir.join("in.wav")).unwrap(), wav);
     assert_eq!(std::fs::read(dir.join("s.scraft")).unwrap(), session);
@@ -478,7 +478,7 @@ fn a_bad_port_variable_is_a_usage_error_naming_it() {
     for bad in ["abc", "70000", ":80"] {
         assert_usage_error(
             &invoke_env(&dir, &["app", "session.inspect"], Some(bad)),
-            &format!("invalid value '{bad}' for 'SOUNDCRAFT_CONTROL_PORT': expected a port, 0-65535, or host:port"),
+            &format!("invalid value '{bad}' for 'SOLARA_CONTROL_PORT': expected a port, 0-65535, or host:port"),
         );
     }
 }
@@ -487,7 +487,7 @@ fn a_bad_port_variable_is_a_usage_error_naming_it() {
 fn app_help_names_the_port_variable() {
     let got = invoke(&sandbox("app-help"), &["app", "--help"]);
     assert_eq!(got.code, 0, "{}", got.stderr);
-    assert!(got.stdout.contains("[env: SOUNDCRAFT_CONTROL_PORT=]\n          [default: 7979]\n"), "{}", got.stdout);
+    assert!(got.stdout.contains("[env: SOLARA_CONTROL_PORT=]\n          [default: 7979]\n"), "{}", got.stdout);
 }
 
 // ---- mcp ----
@@ -502,16 +502,12 @@ fn mcp_accepts_its_flags_in_both_spellings_and_exits_cleanly_on_empty_stdin() {
     for args in [&["mcp", "--automation-read-root", "."][..], &["mcp", "--automation-read-root=."][..]] {
         let got = invoke(&dir, args);
         assert_eq!((got.code, got.stdout.as_str()), (0, ""));
-        assert!(got.stderr.starts_with("soundcraft-cli: files confined: read ") && got.stderr.ends_with("; write none\n"), "{}", got.stderr);
+        assert!(got.stderr.starts_with("solara-cli: files confined: read ") && got.stderr.ends_with("; write none\n"), "{}", got.stderr);
     }
     // A repeated write-root flag is accepted in either spelling.
     let twice = invoke(&dir, &["mcp", "--automation-write-root=.", "--automation-write-root", "."]);
     assert_eq!(twice.code, 0);
-    assert!(
-        twice.stderr.starts_with("soundcraft-cli: files confined: read none; write ") && !twice.stderr.contains("; write none"),
-        "{}",
-        twice.stderr
-    );
+    assert!(twice.stderr.starts_with("solara-cli: files confined: read none; write ") && !twice.stderr.contains("; write none"), "{}", twice.stderr);
 }
 
 #[test]

@@ -65,7 +65,7 @@ fn assert_refused(got: &Invoke, port: u16) {
 fn top_level_help_lists_every_subcommand_on_stdout() {
     let long = invoke(&["--help"]);
     let help = assert_help(&long);
-    assert!(help.starts_with("soundcraft-cli: Solara without a window\n\nUsage: soundcraft-cli <COMMAND>\n"), "{help}");
+    assert!(help.starts_with("solara-cli: Solara without a window\n\nUsage: solara-cli <COMMAND>\n"), "{help}");
     for sub in ["info", "convert", "run", "script", "commands", "describe", "app", "mcp", "parity", "plugins", "help"] {
         assert!(help.contains(&format!("\n  {sub} ")), "{sub}: {help}");
     }
@@ -78,7 +78,7 @@ fn top_level_help_lists_every_subcommand_on_stdout() {
 
 #[test]
 fn version_flags_print_the_long_version_to_stdout() {
-    let expected = format!("soundcraft-cli {} ({} {})\n", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH);
+    let expected = format!("solara-cli {} ({} {})\n", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH);
     for spelling in ["--version", "-V"] {
         let got = invoke(&[spelling]);
         assert_eq!((got.code, got.stdout, got.stderr), (0, expected.clone(), String::new()), "{spelling}");
@@ -153,11 +153,7 @@ fn every_subcommand_has_help_listing_its_arguments() {
         ("script", "script [OPTIONS] <FILE>", &["<FILE>", "--keep-going"]),
         ("commands", "commands [OPTIONS] [FILTER]", &["[FILTER]", "--json", "--compact"]),
         ("describe", "describe [OPTIONS] <ID>", &["<ID>", "--compact"]),
-        (
-            "app",
-            "app [OPTIONS] <METHOD> [JSON]",
-            &["--port <P>", "--compact", "<METHOD>", "[JSON]", "[env: SOUNDCRAFT_CONTROL_PORT", "[default: 7979]"],
-        ),
+        ("app", "app [OPTIONS] <METHOD> [JSON]", &["--port <P>", "--compact", "<METHOD>", "[JSON]", "[env: SOLARA_CONTROL_PORT", "[default: 7979]"]),
         (
             "mcp",
             "mcp [OPTIONS]",
@@ -169,14 +165,14 @@ fn every_subcommand_has_help_listing_its_arguments() {
     for &(sub, usage, args) in cases {
         let long = invoke(&[sub, "--help"]);
         let help = assert_help(&long);
-        assert!(help.contains(&format!("\nUsage: soundcraft-cli {usage}\n")), "{sub}: {help}");
+        assert!(help.contains(&format!("\nUsage: solara-cli {usage}\n")), "{sub}: {help}");
         let shared: &[&str] = if matches!(sub, "run" | "script") { &engine } else { &[] };
         for arg in args.iter().chain(shared).chain(&["-h, --help"]) {
             assert!(help.contains(arg), "{sub} lacks {arg}: {help}");
         }
         // `help SUB` is `SUB --help`; `-h` is the one-line-per-flag summary.
         assert_eq!(invoke(&["help", sub]).stdout, long.stdout, "help {sub}");
-        assert!(assert_help(&invoke(&[sub, "-h"])).contains(&format!("\nUsage: soundcraft-cli {usage}\n")), "{sub} -h");
+        assert!(assert_help(&invoke(&[sub, "-h"])).contains(&format!("\nUsage: solara-cli {usage}\n")), "{sub} -h");
     }
 }
 
@@ -185,8 +181,8 @@ fn help_wins_over_a_mistake_before_it() {
     let help = invoke(&["run", "--help"]).stdout;
     assert_eq!(assert_help(&invoke(&["run", "--bounce", "--help"])), help);
     assert_eq!(assert_help(&invoke(&["run", "--bogus", "--help"])), help);
-    assert!(assert_help(&invoke(&["convert", "--rate", "-h"])).contains("Usage: soundcraft-cli convert"));
-    assert!(assert_help(&invoke(&["mcp", "--connect", "--help"])).contains("Usage: soundcraft-cli mcp"));
+    assert!(assert_help(&invoke(&["convert", "--rate", "-h"])).contains("Usage: solara-cli convert"));
+    assert!(assert_help(&invoke(&["mcp", "--connect", "--help"])).contains("Usage: solara-cli mcp"));
     // After `--`, `--help` is a value.
     assert_eq!(invoke(&["info", "--", "--help"]).code, 1);
 }

@@ -136,9 +136,9 @@ fn rotation_keeps_the_previous_logs_and_starts_an_empty_file() {
         std::fs::write(&path, format!("run {run}")).expect("write");
     }
     assert_eq!(read(&dir.join(LOG_FILE)), "run 4");
-    assert_eq!(read(&dir.join("soundcraft.1.log")), "run 3");
-    assert_eq!(read(&dir.join("soundcraft.2.log")), "run 2");
-    assert!(!dir.join("soundcraft.3.log").exists(), "only {KEEP} old logs are kept");
+    assert_eq!(read(&dir.join("solara.1.log")), "run 3");
+    assert_eq!(read(&dir.join("solara.2.log")), "run 2");
+    assert!(!dir.join("solara.3.log").exists(), "only {KEEP} old logs are kept");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -241,7 +241,7 @@ fn the_logger_filters_records_and_writes_them_to_the_attached_file() {
     // A second launch rotates: the first log becomes `.1`.
     let second = AppLogger::new(Filter::parse(DEFAULT_FILTER), false);
     assert_eq!(second.attach_dir(&dir).expect("attach again"), dir.join(LOG_FILE));
-    assert_eq!(read(&dir.join("soundcraft.1.log")), text);
+    assert_eq!(read(&dir.join("solara.1.log")), text);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

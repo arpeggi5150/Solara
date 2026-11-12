@@ -78,7 +78,7 @@ link stays. An existing file that is not an input is replaced without asking.
 
 | Variable | Flag | Notes |
 |---|---|---|
-| `SOUNDCRAFT_CONTROL_PORT` | `app --port` (CLI), `--control` (desktop app) | A port or `host:port`, an IPv6 host in brackets (`[::1]:7979`). The desktop app takes the port of a loopback `host:port` (`127.0.0.1`, `localhost`). Its control server listens on `127.0.0.1` only, so it ignores another host from the variable, with a log warning, and starts no control server; given to `--control`, another host is a usage error |
+| `SOLARA_CONTROL_PORT` | `app --port` (CLI), `--control` (desktop app) | A port or `host:port`, an IPv6 host in brackets (`[::1]:7979`). The desktop app takes the port of a loopback `host:port` (`127.0.0.1`, `localhost`). Its control server listens on `127.0.0.1` only, so it ignores another host from the variable, with a log warning, and starts no control server; given to `--control`, another host is a usage error |
 
 - A flag wins over its variable.
 - An empty variable counts as unset.
@@ -108,7 +108,7 @@ names the variable.
 | `FILES` | Sessions, audio and MIDI files to open; put `--` before a name that starts with `-` |
 | `--demo` (alias `--sample`) | Start with the demo session |
 | `--no-audio` | Don't open an audio device |
-| `--control <PORT>` | Start the control server on this port (`0` picks a free port and prints it); falls back to `SOUNDCRAFT_CONTROL_PORT` |
+| `--control <PORT>` | Start the control server on this port (`0` picks a free port and prints it); falls back to `SOLARA_CONTROL_PORT` |
 | `--version`, `-V` | Print the version |
 | `--help`, `-h` | Print the flags and the environment variables |
 

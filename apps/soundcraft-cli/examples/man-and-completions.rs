@@ -38,5 +38,7 @@ pub(crate) fn generate(dir: &Path) -> std::io::Result<()> {
     }
     // A fresh command: `clap_complete::generate_to` built `cmd`, adding the `help` subcommand,
     // which `clap_mangen` would otherwise give pages of its own (`soundcraft-cli-help-convert.1`).
-    clap_mangen::generate_to(soundcraft_cli::command(), dir)
+    // Pages are named for the installed binary (soundcraft-cli on Linux and FreeBSD); the
+    // command itself calls itself solara-cli.
+    clap_mangen::generate_to(soundcraft_cli::command().name("soundcraft-cli"), dir)
 }

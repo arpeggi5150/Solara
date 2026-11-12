@@ -130,7 +130,7 @@ field you click. A new row starts with its count focused and selected; Enter cre
 
 ### Logs
 
-The desktop app writes its `log` records to standard error and to `logs/soundcraft.log` in the
+The desktop app writes its `log` records to standard error and to `logs/solara.log` in the
 settings directory, beside `ui.json`, `Autosave/` and `Presets/` (Linux `~/.config/soundcraft/logs/`,
 or `$XDG_CONFIG_HOME/soundcraft/logs/`; macOS `~/Library/Application Support/Solara/logs/`;
 Windows `%APPDATA%\Solara\logs\`). A start from a desktop menu or the Dock has no terminal, so
@@ -244,7 +244,7 @@ PowerShell, from the folder containing the executable:
 
 ```powershell
 $env:WGPU_BACKEND = "vulkan"
-& .\soundcraft.exe
+& .\solara.exe
 Remove-Item Env:WGPU_BACKEND                     # restore the default for later launches
 ```
 

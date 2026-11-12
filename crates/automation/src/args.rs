@@ -21,7 +21,7 @@ use crate::ControlTarget;
 #[derive(Args)]
 pub struct ControlClientArgs {
     /// The app's control port or host:port
-    #[arg(long, value_name = "P", env = "SOUNDCRAFT_CONTROL_PORT", default_value = "7979", value_parser = control_target)]
+    #[arg(long, value_name = "P", env = "SOLARA_CONTROL_PORT", default_value = "7979", value_parser = control_target)]
     pub port: ControlTarget,
 }
 
@@ -32,7 +32,7 @@ pub struct ControlServerArgs {
     /// Start the localhost JSON-lines control server on this port (0 picks a free port and prints
     /// it)
     // allow_negative_numbers makes `--control -1` a bad port rather than an unexpected argument.
-    #[arg(long, value_name = "PORT", env = "SOUNDCRAFT_CONTROL_PORT", value_parser = control_target, allow_negative_numbers = true)]
+    #[arg(long, value_name = "PORT", env = "SOLARA_CONTROL_PORT", value_parser = control_target, allow_negative_numbers = true)]
     pub control: Option<ControlTarget>,
 }
 
@@ -50,7 +50,7 @@ pub struct AutomationArgs {
 }
 
 /// A [`ControlTarget`], for clap's `value_parser`: `soundcraft-cli app --port`, `mcp --connect`,
-/// `soundcraft --control`, and SOUNDCRAFT_CONTROL_PORT, which may carry spaces.
+/// `soundcraft --control`, and SOLARA_CONTROL_PORT, which may carry spaces.
 pub fn control_target(s: &str) -> Result<ControlTarget, NotATarget> {
     let (host, port) = host_and_port(s.trim())?;
     Ok(ControlTarget { host: host.map(str::to_owned), port })
@@ -81,7 +81,7 @@ pub fn long_version() -> &'static str {
     LONG.get_or_init(|| format!("{} ({} {})", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH))
 }
 
-/// For `Command::mut_args`: an empty or blank variable counts as unset, so `SOUNDCRAFT_CONTROL_PORT=`
+/// For `Command::mut_args`: an empty or blank variable counts as unset, so `SOLARA_CONTROL_PORT=`
 /// turns a fallback off without `unset`. clap would pass the empty value to the parser.
 pub fn blank_env_is_unset(arg: Arg) -> Arg {
     let blank = arg.get_env().and_then(std::env::var_os).is_some_and(|v| v.to_str().is_some_and(|v| v.trim().is_empty()));

@@ -318,6 +318,8 @@ pub struct SoundApp {
     pub(crate) updates_rt: updates_ui::Runtime,
     /// The start-up splash (off unless the host turns it on).
     splash: splash::Splash,
+    /// Bring the window to the front at launch (off unless the host turns it on).
+    raise: splash::Raise,
     /// The NEW layout Browser's search text.
     browser_search: String,
     pub meters: HashMap<TrackId, MeterDisplay>,

@@ -1,12 +1,12 @@
 //! Solara desktop app.
 //!
-//! Usage: `soundcraft [--demo] [--control <port>] [--no-audio] [session.scraft | audio files…]`; `soundcraft --help` lists the flags and `SOUNDCRAFT_CONTROL_PORT`.
+//! Usage: `soundcraft [--demo] [--control <port>] [--no-audio] [session.scraft | audio files…]`; `soundcraft --help` lists the flags and `SOLARA_CONTROL_PORT`.
 //!
-//! `--control <port>` (or `SOUNDCRAFT_CONTROL_PORT`) starts a localhost JSON-lines control server
+//! `--control <port>` (or `SOLARA_CONTROL_PORT`) starts a localhost JSON-lines control server
 //! (`0` picks a free port and prints it): `{"id":1,"method":"ui.inspect","params":{}}` →
 //! `{"id":1,"ok":true,"result":…}`. See `soundcraft_ui_egui::control` for the methods.
 //!
-//! `log` records go to standard error and `<settings dir>/logs/soundcraft.log` (`RUST_LOG` sets the
+//! `log` records go to standard error and `<settings dir>/logs/solara.log` (`RUST_LOG` sets the
 //! levels); see [`logging`].
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
@@ -257,6 +257,7 @@ fn main() -> eframe::Result {
             let mut app = SoundApp::new(engine, player, services());
             app.set_startup_update_check(soundcraft_ui_egui::updates_ui::UPDATE_CHECKS_ENABLED);
             app.set_splash(true);
+            app.set_bring_to_front(true);
             app.set_system_fonts(env.system_fonts());
             app.autosave_dir = env.config_dir.as_ref().map(|d| d.join("Autosave"));
             app.leftovers = app.autosave_dir.as_deref().map(soundcraft_engine::autosave::leftovers).unwrap_or_default();
