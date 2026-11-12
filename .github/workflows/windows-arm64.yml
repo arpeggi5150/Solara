@@ -31,5 +31,8 @@ jobs:
     with:
       app-name: soundcraft
       app-dir: Solara
+      # The installer ships the app and CLI as solara.exe and solara-cli.exe (package.ps1 renames them).
+      main-binary: solara.exe
+      cli-binary: solara-cli.exe
       install-relative-path: Programs/Zee Creations/Solara
       install-scope: perUser
