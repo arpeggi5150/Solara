@@ -114,11 +114,12 @@ impl Dialogs {
 
     /// Whether a worker thread is finding Strip Silence rectangles.
     pub fn strip_scan_running(&self) -> bool {
+        // The web build has no worker threads, so it never runs one.
         #[cfg(not(target_arch = "wasm32"))]
-        if self.strip_rectangles.running.is_some() {
-            return true;
-        }
-        false
+        let running = self.strip_rectangles.running.is_some();
+        #[cfg(target_arch = "wasm32")]
+        let running = false;
+        running
     }
 
     pub fn open_rename_track(&mut self, id: TrackId, name: &str) {
