@@ -41,11 +41,15 @@ pub fn run(app: &mut SoundApp, action: &Action) {
 pub fn show(app: &mut SoundApp, ctx: &egui::Context) {
     if !app.ui.show_action_list {
         app.keymap_capture = None;
+        app.escape_taken = false;
         return;
     }
     let t = Tokens::current();
     let mac = ctx.os() == egui::os::OperatingSystem::Mac;
-    let mut open = true;
+    // Escape closes the list, unless it just canceled a key assignment.
+    let taken = std::mem::take(&mut app.escape_taken);
+    let escape = ctx.input(|i| i.key_pressed(Key::Escape)) && !taken && app.keymap_capture.is_none();
+    let mut open = !escape;
     let mut run_now: Option<Action> = None;
     let set = crate::keymap::set_id(app.ui.layout);
     egui::Window::new("Action List")
@@ -241,5 +245,6 @@ mod tests {
         assert!(crate::keymap::capture(&mut app, Key::Escape, Modifiers::NONE, false));
         assert_eq!(app.keymap_capture, None);
         assert!(app.ui.key_overrides.is_empty());
+        assert!(app.escape_taken, "that Escape must not also close the Action List");
     }
 }

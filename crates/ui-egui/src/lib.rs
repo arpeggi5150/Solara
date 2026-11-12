@@ -341,6 +341,8 @@ pub struct SoundApp {
     pub(crate) action_search: String,
     pub(crate) keymap_capture: Option<String>,
     pub(crate) action_selected: Option<String>,
+    /// Escape just canceled a key assignment, so it must not also close the Action List.
+    pub(crate) escape_taken: bool,
     pub meters: HashMap<TrackId, MeterDisplay>,
     pub main_meter: MeterDisplay,
     /// Reused meter snapshot, taken from the player at an adaptive rate by `logic`: the highest

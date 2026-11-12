@@ -79,6 +79,7 @@ impl SoundApp {
             action_search: String::new(),
             keymap_capture: None,
             action_selected: None,
+            escape_taken: false,
             meters: HashMap::new(),
             main_meter: MeterDisplay::default(),
             meter_snapshot: soundcraft_playback::MeterSnapshot::default(),

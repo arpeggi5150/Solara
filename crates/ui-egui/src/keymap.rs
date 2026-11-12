@@ -144,6 +144,7 @@ pub fn dispatch(app: &mut SoundApp, key: Key, m: Modifiers, mac: bool) -> bool {
 pub fn capture(app: &mut SoundApp, key: Key, m: Modifiers, mac: bool) -> bool {
     let Some(id) = app.keymap_capture.take() else { return false };
     if key == Key::Escape || !assignable(key) {
+        app.escape_taken = key == Key::Escape;
         app.ui.status = "Key assignment canceled".into();
         return true;
     }
