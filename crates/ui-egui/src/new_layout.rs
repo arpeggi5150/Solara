@@ -334,9 +334,12 @@ fn switcher(app: &mut SoundApp, ui: &mut Ui) {
     }
 }
 
-/// What the Browser lists: instruments and effects by name, filtered by the search text.
+/// What the Browser lists: the drum sounds, instruments and effects by name, filtered by the
+/// search text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BrowserItem {
+    /// A Drum Synth sound, by MIDI pitch.
+    Sound(u8),
     Instrument(&'static str),
     Effect(&'static str),
 }
@@ -358,7 +361,9 @@ fn browser(app: &mut SoundApp, ui: &mut Ui) {
     let plugins = soundcraft_dsp::plugins();
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         let _ = heading(ui, "SOUNDS");
-        ui.label(egui::RichText::new("Drop audio files on the timeline.").font(regular(11.0)).color(t.text_dim));
+        for (pitch, name) in soundcraft_engine::cmd::pattern::SOUNDS {
+            browser_row(ui, &needle, name, BrowserItem::Sound(pitch));
+        }
         let _ = heading(ui, "LOOPS");
         ui.label(egui::RichText::new("Drop audio files on the timeline.").font(regular(11.0)).color(t.text_dim));
         let _ = heading(ui, "INSTRUMENTS");
@@ -383,27 +388,21 @@ fn browser_row(ui: &mut Ui, needle: &str, name: &str, item: BrowserItem) {
     }
     ui.painter().text(pos2(rect.min.x + 6.0, rect.center().y), Align2::LEFT_CENTER, name, regular(12.0), t.text);
     if resp.drag_started() {
-        ui.ctx().data_mut(|d| d.insert_temp(drag_id(), item_key(item)));
+        ui.ctx().data_mut(|d| d.insert_temp(drag_id(), item));
     }
     let hint = match item {
+        BrowserItem::Sound(_) => "Drag onto a track to step it in a pattern",
         BrowserItem::Instrument(_) => "Drag onto the timeline for a new instrument track",
         BrowserItem::Effect(_) => "Drag onto a track to insert it",
     };
     resp.on_hover_text(hint);
 }
 
-/// Browser items travel through egui memory as `(is_instrument, plugin id)`.
-fn item_key(item: BrowserItem) -> (bool, &'static str) {
-    match item {
-        BrowserItem::Instrument(id) => (true, id),
-        BrowserItem::Effect(id) => (false, id),
-    }
-}
-
-/// Finish a Browser drag released over the timeline: an effect goes into the first free insert of
-/// the track under the pointer; an instrument makes a new instrument track that plays it.
+/// Finish a Browser drag released over the timeline: a sound goes into the pattern under the
+/// pointer (made if needed, on a new Drums track when no track is there); an effect goes into the
+/// first free insert of the track under the pointer; an instrument makes a new instrument track.
 fn browser_drop(app: &mut SoundApp, ui: &mut Ui) {
-    let Some((instrument, plugin)) = ui.ctx().data(|d| d.get_temp::<(bool, &'static str)>(drag_id())) else { return };
+    let Some(item) = ui.ctx().data(|d| d.get_temp::<BrowserItem>(drag_id())) else { return };
     let (released, pos) = ui.input(|i| (i.pointer.any_released(), i.pointer.interact_pos()));
     if let Some(p) = pos
         && ui.max_rect().contains(p)
@@ -413,21 +412,42 @@ fn browser_drop(app: &mut SoundApp, ui: &mut Ui) {
     if !released {
         return;
     }
-    ui.ctx().data_mut(|d| d.remove::<(bool, &'static str)>(drag_id()));
+    ui.ctx().data_mut(|d| d.remove::<BrowserItem>(drag_id()));
     let Some(p) = pos.filter(|p| ui.max_rect().contains(*p)) else { return };
-    let result = if instrument {
-        let name = soundcraft_dsp::plugins().iter().find(|i| i.id == plugin).map_or(plugin, |i| i.name);
-        app.run("track.new", json!({"kind": "instrument", "instrument": plugin, "name": name}))
-    } else {
-        let Some(track) = app.edit_layout.rows.iter().find(|(_, r)| crate::edit_window::rect(*r).contains(p)).map(|(id, _)| *id) else {
-            app.ui.status = "Drop an effect on a track".into();
-            return;
-        };
-        app.run("mix.insert", json!({"track": track, "plugin": plugin}))
+    let row = app.edit_layout.rows.iter().find(|(_, r)| crate::edit_window::rect(*r).contains(p)).map(|(id, _)| *id);
+    let result = match item {
+        BrowserItem::Sound(pitch) => {
+            let s = app.engine.session();
+            let at = crate::edit_window::sample_at(s, crate::edit_window::rect(app.edit_layout.timeline), p.x).max(0);
+            drop_sound(app, pitch, row.map(TrackId), at)
+        }
+        BrowserItem::Instrument(plugin) => {
+            let name = soundcraft_dsp::plugins().iter().find(|i| i.id == plugin).map_or(plugin, |i| i.name);
+            app.run("track.new", json!({"kind": "instrument", "instrument": plugin, "name": name}))
+        }
+        BrowserItem::Effect(plugin) => {
+            let Some(track) = row else {
+                app.ui.status = "Drop an effect on a track".into();
+                return;
+            };
+            app.run("mix.insert", json!({"track": track, "plugin": plugin}))
+        }
     };
     if let Err(e) = result {
         app.ui.status = e;
     }
+}
+
+/// Drop a drum sound at `at`: on `track` it joins the pattern there (made if needed); with no
+/// track it makes a Drums track. The Editor turns to the step sequencer on that pattern.
+pub fn drop_sound(app: &mut SoundApp, pitch: u8, track: Option<TrackId>, at: i64) -> Result<Value, String> {
+    let mut p = json!({"pitch": pitch, "at": at});
+    if let Some(t) = track {
+        p["track"] = json!(t.0);
+    }
+    let r = app.run("pattern.add_sound", p)?;
+    app.ui.new_editor = EditorView::StepSequencer;
+    Ok(r)
 }
 
 /// The track the Inspector and Editor follow: the first selected track, else the first track.
@@ -520,22 +540,25 @@ fn slot_list(ui: &mut Ui, items: &[String], empty: &str) {
     }
 }
 
-/// The Editor follows the selection: MIDI and instrument tracks get the piano roll; B asks for the
-/// step sequencer, which arrives with the pattern layer.
 /// Height of the Editor's title row, all that shows while the Mixer is expanded.
 pub const EDITOR_TITLE_H: f32 = 22.0;
 
-/// What the Editor shows now: `Auto` resolves by the focused track's kind.
+/// What the Editor shows now. `Auto` follows the focused track: a Drum Synth track gets the step
+/// sequencer, other MIDI and instrument tracks the piano roll. B and P pick one outright.
 fn editor_view(app: &SoundApp) -> EditorView {
-    let kind = focus_track(app).and_then(|id| app.engine.session().track(id).map(|t| t.kind));
+    let track = focus_track(app).and_then(|id| app.engine.session().track(id));
     match app.ui.new_editor {
-        EditorView::Auto => match kind {
-            Some(TrackKind::Midi | TrackKind::Instrument) => EditorView::PianoRoll,
+        EditorView::Auto => match track {
+            Some(t) if t.instrument.as_ref().is_some_and(|i| i.plugin == DRUM_SYNTH) => EditorView::StepSequencer,
+            Some(t) if matches!(t.kind, TrackKind::Midi | TrackKind::Instrument) => EditorView::PianoRoll,
             _ => EditorView::Auto,
         },
         v => v,
     }
 }
+
+/// The Drum Synth's registry id: its tracks open in the step sequencer.
+pub const DRUM_SYNTH: &str = "drum_synth";
 
 /// The Editor's title row, with its top border.
 fn editor_title(app: &SoundApp, ui: &Ui, r: Rect) {
@@ -553,6 +576,8 @@ fn editor_title(app: &SoundApp, ui: &Ui, r: Rect) {
 fn editor(app: &mut SoundApp, ui: &mut Ui) {
     let t = Tokens::current();
     let r = ui.max_rect();
+    // Claim the whole panel, so the resizable panel keeps its height whatever the view draws.
+    ui.expand_to_include_rect(r);
     editor_title(app, ui, r);
     let view = editor_view(app);
     let title = Rect::from_min_size(r.min, vec2(r.width(), EDITOR_TITLE_H));
@@ -563,9 +588,7 @@ fn editor(app: &mut SoundApp, ui: &mut Ui) {
             child.ctx().data_mut(|data| data.insert_temp(egui::Id::unique("soundcraft-midi-body"), body));
             crate::docking::minimum_body(&mut child, vec2(420.0, 160.0), |ui| crate::midi_editor::show(app, ui));
         }
-        EditorView::StepSequencer => {
-            child.painter().text(body.center(), Align2::CENTER_CENTER, "The step sequencer arrives with patterns.", regular(12.0), t.text_dim);
-        }
+        EditorView::StepSequencer => crate::step_seq::show(app, &mut child, focus_track(app)),
         EditorView::Auto => {
             child.painter().text(body.center(), Align2::CENTER_CENTER, "Select a track or clip to edit it here.", regular(12.0), t.text_dim);
         }
@@ -679,6 +702,106 @@ mod tests {
         let names: Vec<&str> = app.engine.session().tracks.iter().map(|t| t.name.as_str()).collect();
         assert_eq!(names, ["Drums", "Bass", "Chords", "Lead"]);
         assert!(app.engine.session().tracks.iter().all(|t| t.kind == TrackKind::Instrument));
+    }
+
+    /// Run one frame with the pointer up (and Alt held when asked), finishing the app's gesture.
+    fn release(app: &mut SoundApp, alt: bool) {
+        let ctx = egui::Context::default();
+        let input =
+            egui::RawInput { events: vec![egui::Event::ModifiersChanged(if alt { Modifiers::ALT } else { Modifiers::NONE })], ..Default::default() };
+        let mut out = ctx.run_ui(input, |ui| crate::edit_window::drive_drag(app, ui.ctx()));
+        out.textures_delta.clear();
+    }
+
+    fn drums_with_pattern() -> (SoundApp, TrackId, soundcraft_model::ClipId) {
+        let mut app = app();
+        app.engine.execute("session.new", &json!({"template": "drums"})).unwrap();
+        let t = app.engine.session().tracks[0].id;
+        let r = drop_sound(&mut app, 36, Some(t), 0).unwrap();
+        (app, t, soundcraft_model::ClipId(r["clip"].as_u64().unwrap()))
+    }
+
+    #[test]
+    fn the_gate_drop_a_sound_step_it_and_space_loops_the_pattern() {
+        let (mut app, t, clip) = drums_with_pattern();
+        assert_eq!(app.ui.new_editor, EditorView::StepSequencer);
+        assert_eq!(editor_view(&app), EditorView::StepSequencer);
+        app.run("pattern.step", json!({"clip": clip.0, "pitch": 42, "step": 2})).unwrap();
+        let range = app.engine.session().find_clip(clip).unwrap().1.range();
+        assert!(app.engine.session().edit.loop_playback, "the Drums template plays in a loop");
+        assert_eq!(app.engine.session().edit.selection, range);
+        // Space plays the selected pattern, looped.
+        app.run("transport.toggle", json!({})).unwrap();
+        app.handle_transport(0.25);
+        assert!(app.is_playing());
+        assert_eq!(app.sim.and_then(|(_, _, l)| l), Some(range));
+        // Past the bar's end the playhead comes round to the pattern's start again.
+        for _ in 0..12 {
+            app.handle_transport(0.25);
+            assert!(app.is_playing());
+            assert!(range.contains(app.position()), "{} left the pattern {range:?}", app.position());
+        }
+        // M still folds the mixer in and out of the same window.
+        assert!(keys(&mut app, Key::M, Modifiers::NONE));
+        assert!(app.ui.new_mixer_open);
+        assert_eq!(app.ui.layout, LayoutPreset::New);
+        assert_eq!(crate::step_seq::focused_pattern(app.engine.session(), t), Some(clip));
+    }
+
+    #[test]
+    fn a_sound_dropped_on_empty_space_makes_a_drums_track() {
+        let mut app = app();
+        app.engine.execute("session.new", &json!({"template": "empty"})).unwrap();
+        drop_sound(&mut app, 38, None, 0).unwrap();
+        let s = app.engine.session();
+        assert_eq!(s.tracks.len(), 1);
+        assert_eq!(s.tracks[0].name, "Drums");
+        assert_eq!(editor_view(&app), EditorView::StepSequencer);
+    }
+
+    #[test]
+    fn a_drums_track_opens_in_the_step_sequencer_and_a_synth_track_in_the_piano_roll() {
+        let mut app = app();
+        app.engine.execute("session.new", &json!({"template": "drums"})).unwrap();
+        assert_eq!(editor_view(&app), EditorView::StepSequencer);
+        let bass = add_quick_track(&mut app, "Bass").unwrap();
+        let id = bass.get("tracks").and_then(|t| t.get(0)).and_then(Value::as_u64).map(TrackId).unwrap_or(app.engine.session().tracks[1].id);
+        app.engine.execute("edit.select", &json!({"tracks": [id.0]})).unwrap();
+        assert_eq!(editor_view(&app), EditorView::PianoRoll);
+    }
+
+    #[test]
+    fn alt_dragging_a_pattern_drops_an_independent_copy() {
+        let (mut app, t, clip) = drums_with_pattern();
+        let bar = app.engine.session().find_clip(clip).unwrap().1.length;
+        app.gesture = Some(crate::Gesture::MoveClips { clips: vec![clip], grab_at: 0, delta: bar, from_track: t, to_track: t });
+        release(&mut app, true);
+        let s = app.engine.session();
+        let starts: Vec<i64> = s.tracks[0].clips().iter().map(|c| c.start).collect();
+        assert_eq!(starts, [0, bar], "the original stays and a copy lands one bar later");
+        assert_ne!(s.tracks[0].clips()[1].id, clip);
+    }
+
+    #[test]
+    fn a_plain_drag_still_moves_a_pattern() {
+        let (mut app, t, clip) = drums_with_pattern();
+        let bar = app.engine.session().find_clip(clip).unwrap().1.length;
+        app.gesture = Some(crate::Gesture::MoveClips { clips: vec![clip], grab_at: 0, delta: bar, from_track: t, to_track: t });
+        release(&mut app, false);
+        let starts: Vec<i64> = app.engine.session().tracks[0].clips().iter().map(|c| c.start).collect();
+        assert_eq!(starts, [bar]);
+    }
+
+    #[test]
+    fn dragging_a_patterns_edge_past_its_end_loops_it() {
+        let (mut app, t, clip) = drums_with_pattern();
+        let bar = app.engine.session().find_clip(clip).unwrap().1.length;
+        app.gesture = Some(crate::Gesture::TrimEnd { clip, track: t, to: bar * 4 });
+        release(&mut app, false);
+        let s = app.engine.session();
+        let clips = s.tracks[0].clips();
+        assert_eq!(clips.len(), 4, "four bars of the pattern");
+        assert!(clips.iter().all(|c| c.loop_id.is_some() && c.loop_id == clips[0].loop_id));
     }
 
     #[test]
