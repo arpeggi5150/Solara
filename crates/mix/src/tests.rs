@@ -225,6 +225,40 @@ fn sends_feed_aux_via_bus() {
 }
 
 #[test]
+fn an_audio_track_with_a_receive_mixes_in_what_is_sent_to_it() {
+    let (mut s, source) = session_with_dc(0.5, 4800);
+    let bus = s.add_bus("Gtr Receive", ChannelFormat::Stereo);
+    // An empty audio track: everything it plays comes through its receive.
+    let target = s.add_track(TrackKind::Audio, ChannelFormat::Stereo, Some("Gtr"));
+    {
+        let tr = s.track_mut(source).unwrap();
+        tr.mixer.output = Route::None;
+        let mut snd = soundcraft_model::SendSlot::new(Route::Bus(bus));
+        snd.level_db = 0.0;
+        tr.mixer.sends[0] = Some(snd);
+    }
+    let silent = render_range(&s, Range::new(0, 4800), 512);
+    assert!(silent[0][1000].abs() < 1e-6, "no receive yet: {}", silent[0][1000]);
+    s.track_mut(target).unwrap().mixer.receive = Some(bus);
+    let out = render_range(&s, Range::new(0, 4800), 512);
+    assert!(out[0][1000] > 0.1, "the receive should carry the send: {}", out[0][1000]);
+    // The receiving track renders after the sender, so the very first block carries it too.
+    assert!(out[0][10] > 0.1, "first block: {}", out[0][10]);
+    // Its own fader applies to what it receives.
+    s.track_mut(target).unwrap().mixer.mute = true;
+    let muted = render_range(&s, Range::new(0, 4800), 512);
+    assert!(muted[0][1000].abs() < 1e-6, "muted: {}", muted[0][1000]);
+}
+
+#[test]
+fn a_receive_ignores_a_bus_that_is_gone() {
+    let (mut s, t) = session_with_dc(0.5, 4800);
+    s.track_mut(t).unwrap().mixer.receive = Some(soundcraft_model::BusId(9_999));
+    let out = render_range(&s, Range::new(0, 4800), 512);
+    assert!(out[0][1000] > 0.1, "the track still plays its own audio: {}", out[0][1000]);
+}
+
+#[test]
 fn send_level_automation_is_capped_at_the_fader_top() {
     // #884: a send lane point past +12 dB (pushed without `set_point`'s clamp) reads as +12.
     let (mut s, t) = session_with_dc(0.5, 4800);

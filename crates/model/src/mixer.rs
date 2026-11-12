@@ -524,6 +524,11 @@ pub struct Mixer {
     /// Surround panner, used when the output is multichannel (None = the stereo pan to L/R).
     #[serde(default)]
     pub surround: Option<SurroundPan>,
+    /// The bus an audio, instrument or MIDI track mixes in on top of its own signal, ahead of
+    /// its inserts, so other tracks can send to it (Reaper-style receives). Aux and folder tracks
+    /// read their input bus instead and ignore this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receive: Option<BusId>,
 }
 
 impl Mixer {
@@ -550,6 +555,7 @@ impl Mixer {
             trim_db: 0.0,
             vca: None,
             surround: None,
+            receive: None,
         }
     }
 

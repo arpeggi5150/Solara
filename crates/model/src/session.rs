@@ -779,6 +779,10 @@ impl Session {
         truncate_chars(&mut self.comments, MAX_COMMENT_CHARS);
         for t in &mut self.tracks {
             t.mixer.sanitize();
+            // A receive names a bus of this session, or nothing.
+            if t.mixer.receive.is_some_and(|b| !self.busses.iter().any(|x| x.id == b)) {
+                t.mixer.receive = None;
+            }
             truncate_chars(&mut t.name, MAX_NAME_CHARS);
             truncate_chars(&mut t.comments, MAX_COMMENT_CHARS);
             if t.playlists.is_empty() {

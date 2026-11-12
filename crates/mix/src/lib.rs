@@ -675,8 +675,9 @@ fn is_live(t: &Track) -> bool {
     !(t.kind == TrackKind::Master || t.inactive || t.kind == TrackKind::Vca)
 }
 
+/// Auxes, folders and tracks with a receive: they read buses, so they render in phase 2.
 fn is_aux(t: &Track) -> bool {
-    matches!(t.kind, TrackKind::Aux | TrackKind::Folder)
+    routing::is_bus_reader(t)
 }
 
 /// Metronome: a short synthesized blip on every beat of the tempo map, accented on beat 1 of

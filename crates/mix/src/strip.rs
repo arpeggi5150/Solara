@@ -3,7 +3,7 @@ use super::clips::{ClipFx, clip_fx_params, render_clip};
 use super::instances::{INSTRUMENT_SLOT, PluginFailures, PreparedInstance, create_instance_for, is_third_party};
 use super::midi::{chase_controllers, schedule_notes};
 use super::pan::{PanSpec, apply_matrix, build_matrix, identity_matrix};
-use super::routing::receives_solo;
+use super::routing::{reads_bus, receives_solo};
 use super::{
     AutoParam, BusId, ChannelFormat, MAX_CHANNELS, PanLaw, Plugin, Range, Route, Samples, Session, SourceAudio, Track, TrackId, TrackKind, Transport,
     db_to_gain,
@@ -271,10 +271,10 @@ fn render_audio_clips(s: &Session, t: &Track, strip: &mut Strip, blk: Block) {
     }
 }
 
-/// An aux or folder reads the bus its input is routed from.
+/// Mix in the bus the track reads (an aux's input, or a track's receive) on top of the strip.
 fn read_aux_bus(t: &Track, strip: &mut Strip, busses: &HashMap<BusId, BusBuf>, frames: usize) {
-    if let Route::Bus(b) = &t.mixer.input
-        && let Some(src) = busses.get(b)
+    if let Some(b) = reads_bus(t)
+        && let Some(src) = busses.get(&b)
     {
         let (ns, nd) = (src.buf.len(), strip.buf.len());
         let dst_fmt = strip_format(t, nd);
@@ -428,6 +428,10 @@ pub(crate) fn process_strip(s: &Session, t: &Track, strip: &mut Strip, busses: &
         TrackKind::Aux | TrackKind::Folder => read_aux_bus(t, strip, busses, frames),
         TrackKind::Instrument | TrackKind::Midi => render_instrument(s, t, strip, blk, &transport),
         _ => {}
+    }
+    // A receive adds what other tracks send to this one, ahead of its FX (Reaper-style).
+    if matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi) && t.mixer.receive.is_some() {
+        read_aux_bus(t, strip, busses, frames);
     }
     let trim = db_to_gain(t.mixer.trim_db) * if t.mixer.phase_invert { -1.0 } else { 1.0 };
     if (trim - 1.0).abs() > f32::EPSILON {
