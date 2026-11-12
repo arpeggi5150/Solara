@@ -257,6 +257,7 @@ fn main() -> eframe::Result {
             let mut app = SoundApp::new(engine, player, services());
             app.set_startup_update_check(soundcraft_ui_egui::updates_ui::UPDATE_CHECKS_ENABLED);
             app.set_splash(true);
+            app.set_bring_to_front(true);
             app.set_system_fonts(env.system_fonts());
             app.autosave_dir = env.config_dir.as_ref().map(|d| d.join("Autosave"));
             app.leftovers = app.autosave_dir.as_deref().map(soundcraft_engine::autosave::leftovers).unwrap_or_default();

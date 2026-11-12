@@ -32,6 +32,11 @@ impl SoundApp {
         self.splash.set(on);
     }
 
+    /// Whether the window asks to come to the front at launch (off by default, for the same reason).
+    pub fn set_bring_to_front(&mut self, on: bool) {
+        self.raise.set(on);
+    }
+
     /// [`SoundApp::new`] in the Classic layout (the Edit and Mix windows), for drivers and tests
     /// written against that layout.
     pub fn new_classic(engine: Engine, player: Option<Player>, services: Services) -> Self {
@@ -69,6 +74,7 @@ impl SoundApp {
             dialogs: dialogs::Dialogs::default(),
             updates_rt: updates_ui::Runtime::default(),
             splash: splash::Splash::default(),
+            raise: splash::Raise::default(),
             browser_search: String::new(),
             meters: HashMap::new(),
             main_meter: MeterDisplay::default(),
@@ -366,6 +372,7 @@ impl SoundApp {
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
         splash::show(&mut self.splash, self.uptime, &ctx);
+        splash::raise(&mut self.raise, self.uptime, &ctx);
         // The sampler's drop rects are current now, so route any captured drop in this pass.
         self.route_dropped_files();
         // The pass that actually received the injected events has already dispatched their widget

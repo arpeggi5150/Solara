@@ -76,6 +76,50 @@ pub(crate) fn show(splash: &mut Splash, uptime: f64, ctx: &egui::Context) {
     ctx.request_repaint_after(std::time::Duration::from_millis(100));
 }
 
+/// Bring the window to the front at launch. Windows can open a new window behind others
+/// (seen on R7-Win11), so the first frames ask for focus; if the window still is not focused a
+/// second later, it asks for attention instead (the taskbar button flashes). Off unless the host
+/// turns it on with [`crate::SoundApp::set_bring_to_front`].
+#[derive(Default)]
+pub(crate) struct Raise {
+    on: bool,
+    asked_at: Option<f64>,
+    asks: u8,
+}
+
+/// Focus requests at start-up, a frame apart, before giving up on focus.
+const RAISE_ASKS: u8 = 3;
+/// How long to wait for focus before asking for attention instead, in seconds.
+const RAISE_WAIT: f64 = 1.0;
+
+impl Raise {
+    pub(crate) fn set(&mut self, on: bool) {
+        self.on = on;
+    }
+}
+
+/// Run the start-up raise for one frame.
+pub(crate) fn raise(r: &mut Raise, uptime: f64, ctx: &egui::Context) {
+    if !r.on {
+        return;
+    }
+    if ctx.input(|i| i.viewport().focused) == Some(true) && r.asks > 0 {
+        r.on = false;
+        return;
+    }
+    let asked_at = *r.asked_at.get_or_insert(uptime);
+    if r.asks < RAISE_ASKS {
+        r.asks = r.asks.saturating_add(1);
+        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        ctx.request_repaint_after(std::time::Duration::from_millis(50));
+    } else if uptime - asked_at >= RAISE_WAIT {
+        r.on = false;
+        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(egui::UserAttentionType::Informational));
+    } else {
+        ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +153,43 @@ mod tests {
         assert!(s.on && s.texture.is_some());
         frame(&ctx, &mut s, 1.0 + SHOW_SECONDS);
         assert!(!s.on && s.texture.is_none());
+    }
+
+    /// The viewport commands one frame of `raise` sends, with the window focused or not.
+    fn raise_frame(ctx: &egui::Context, r: &mut Raise, uptime: f64, focused: bool) -> Vec<egui::ViewportCommand> {
+        let mut input = egui::RawInput::default();
+        if let Some(v) = input.viewports.get_mut(&egui::ViewportId::ROOT) {
+            v.focused = Some(focused);
+        }
+        let mut out = ctx.run_ui(input, |ui| raise(r, uptime, ui.ctx()));
+        out.textures_delta.clear();
+        // Only the raise's own commands: egui adds others (such as the theme) on a first frame.
+        let ours = |c: &egui::ViewportCommand| matches!(c, egui::ViewportCommand::Focus | egui::ViewportCommand::RequestUserAttention(_));
+        out.viewport_output.get(&egui::ViewportId::ROOT).map(|v| v.commands.iter().filter(|c| ours(c)).cloned().collect()).unwrap_or_default()
+    }
+
+    #[test]
+    fn the_window_asks_for_focus_at_launch_then_for_attention_if_still_behind() {
+        let ctx = egui::Context::default();
+        let mut r = Raise::default();
+        assert!(raise_frame(&ctx, &mut r, 0.0, false).is_empty(), "off unless the host turns it on");
+        r.set(true);
+        for t in [0.0, 0.05, 0.1] {
+            assert_eq!(raise_frame(&ctx, &mut r, t, false), [egui::ViewportCommand::Focus]);
+        }
+        assert!(raise_frame(&ctx, &mut r, 0.5, false).is_empty(), "waits a moment for focus");
+        let flash = egui::ViewportCommand::RequestUserAttention(egui::UserAttentionType::Informational);
+        assert_eq!(raise_frame(&ctx, &mut r, 1.2, false), [flash]);
+        assert!(raise_frame(&ctx, &mut r, 2.0, false).is_empty(), "asks once, then leaves the window alone");
+    }
+
+    #[test]
+    fn a_focused_window_stops_asking() {
+        let ctx = egui::Context::default();
+        let mut r = Raise::default();
+        r.set(true);
+        assert_eq!(raise_frame(&ctx, &mut r, 0.0, false), [egui::ViewportCommand::Focus]);
+        assert!(raise_frame(&ctx, &mut r, 0.05, true).is_empty());
+        assert!(raise_frame(&ctx, &mut r, 2.0, false).is_empty(), "done once it was focused");
     }
 }
