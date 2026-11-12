@@ -13,6 +13,7 @@ pub(crate) fn structure_fingerprint(s: &Session) -> usize {
         t.inactive.hash(&mut h);
         t.mixer.inserts.len().hash(&mut h);
         t.mixer.input.hash(&mut h);
+        t.mixer.receive.hash(&mut h);
         t.mixer.output.hash(&mut h);
         for i in &t.mixer.inserts {
             i.as_ref().map(|x| x.plugin.as_str()).hash(&mut h);
@@ -34,12 +35,28 @@ pub(crate) fn structure_fingerprint(s: &Session) -> usize {
     h.finish() as usize
 }
 
+/// The bus a track reads: an aux's or folder's input, or another track's receive.
+pub(crate) fn reads_bus(t: &Track) -> Option<BusId> {
+    match t.kind {
+        TrackKind::Aux | TrackKind::Folder => match &t.mixer.input {
+            Route::Bus(b) => Some(*b),
+            _ => None,
+        },
+        TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi => t.mixer.receive,
+        _ => None,
+    }
+}
+
+/// Tracks that wait for buses: every aux and folder, and any track with a receive. They render
+/// after the independent tracks, in dependency order, the way auxes always have.
+pub(crate) fn is_bus_reader(t: &Track) -> bool {
+    matches!(t.kind, TrackKind::Aux | TrackKind::Folder) || reads_bus(t).is_some()
+}
+
 /// Audio/instrument tracks first, then auxes ordered so bus producers come before consumers.
 pub(crate) fn processing_order(s: &Session) -> Vec<usize> {
-    let mut order: Vec<usize> =
-        (0..s.tracks.len()).filter(|&i| s.tracks.get(i).is_some_and(|t| !matches!(t.kind, TrackKind::Aux | TrackKind::Folder))).collect();
-    let mut auxes: Vec<usize> =
-        (0..s.tracks.len()).filter(|&i| s.tracks.get(i).is_some_and(|t| matches!(t.kind, TrackKind::Aux | TrackKind::Folder))).collect();
+    let mut order: Vec<usize> = (0..s.tracks.len()).filter(|&i| s.tracks.get(i).is_some_and(|t| !is_bus_reader(t))).collect();
+    let mut auxes: Vec<usize> = (0..s.tracks.len()).filter(|&i| s.tracks.get(i).is_some_and(is_bus_reader)).collect();
     if let Some(depths) = acyclic_aux_depths(s, &auxes) {
         // Stable sorting preserves session order among auxes at the same longest-path depth.
         auxes.sort_by_key(|&i| depths.get(i).copied().unwrap_or(0));
@@ -78,8 +95,8 @@ fn acyclic_aux_depths(s: &Session, auxes: &[usize]) -> Option<Vec<usize>> {
     let mut depths = vec![0usize; s.tracks.len()];
     let mut ready = Vec::with_capacity(auxes.len());
     for &i in auxes {
-        if let Route::Bus(bus) = &s.tracks.get(i)?.mixer.input {
-            let dependency = busses.entry(*bus).or_default();
+        if let Some(bus) = reads_bus(s.tracks.get(i)?) {
+            let dependency = busses.entry(bus).or_default();
             dependency.consumers.push(i);
             if dependency.remaining > 0 {
                 continue;
@@ -125,7 +142,7 @@ const MAX_BOUNDED_DEPTH: usize = 8;
 /// writes, so the cost is linear in the routing, not a fresh feeder search per track per
 /// sort comparison.
 fn bounded_aux_depths(s: &Session) -> Vec<usize> {
-    let is_aux = |t: &Track| matches!(t.kind, TrackKind::Aux | TrackKind::Folder);
+    let is_aux = is_bus_reader;
     // Tracks with a feeder chain of the current length ending at them (length 0: every aux).
     let mut reached: Vec<bool> = s.tracks.iter().map(is_aux).collect();
     let mut depths = vec![0usize; s.tracks.len()];
@@ -137,7 +154,7 @@ fn bounded_aux_depths(s: &Session) -> Vec<usize> {
         }
         let mut any = false;
         for ((t, r), d) in s.tracks.iter().zip(reached.iter_mut()).zip(depths.iter_mut()) {
-            *r = matches!(&t.mixer.input, Route::Bus(b) if fed.contains(b));
+            *r = reads_bus(t).is_some_and(|b| fed.contains(&b));
             if *r {
                 *d = hop;
                 any = true;
@@ -152,7 +169,8 @@ fn bounded_aux_depths(s: &Session) -> Vec<usize> {
 
 /// Implicit solo: an aux is not muted when a soloed track feeds its input bus.
 pub(crate) fn receives_solo(s: &Session, t: &Track) -> bool {
-    let Route::Bus(b) = &t.mixer.input else { return false };
+    let Some(bus) = reads_bus(t) else { return false };
+    let b = &bus;
     s.tracks
         .iter()
         .any(|o| o.mixer.solo && (o.mixer.output == Route::Bus(*b) || o.mixer.sends.iter().flatten().any(|sn| sn.target == Route::Bus(*b))))

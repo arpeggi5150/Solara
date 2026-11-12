@@ -10,14 +10,14 @@ pub struct PaletteState {
     pub selected: usize,
 }
 
-struct Entry {
-    id: String,
-    label: String,
-    path: String,
-    shortcut: String,
+pub(crate) struct Entry {
+    pub(crate) id: String,
+    pub(crate) label: String,
+    pub(crate) path: String,
+    pub(crate) shortcut: String,
 }
 
-fn entries() -> Vec<Entry> {
+pub(crate) fn entries() -> Vec<Entry> {
     let mut v: Vec<Entry> = soundcraft_engine::command_specs()
         .iter()
         .map(|c| Entry {
@@ -31,7 +31,7 @@ fn entries() -> Vec<Entry> {
 }
 
 /// Subsequence match score (higher is better), or None.
-fn score(hay: &str, needle: &str) -> Option<i32> {
+pub(crate) fn score(hay: &str, needle: &str) -> Option<i32> {
     if needle.is_empty() {
         return Some(0);
     }

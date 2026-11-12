@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use soundcraft_model::{Route, TrackId, TrackKind};
 
-/// The layout presets the switcher offers. Only NEW and Classic exist in 0.1.0; the others are
+/// The layout presets the switcher offers. NEW, Classic and Reaper are built; the others are
 /// listed and refused until they are built.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,7 +55,7 @@ impl LayoutPreset {
 
     /// Whether this preset is built yet.
     pub fn available(self) -> bool {
-        matches!(self, Self::New | Self::Classic)
+        matches!(self, Self::New | Self::Classic | Self::Reaper)
     }
 }
 
@@ -101,8 +101,10 @@ pub fn command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<Value, 
     Some(match id {
         "ui.layout" => layout_command(app, p),
         "ui.mixer" => {
-            app.ui.new_mixer_open = p.get("value").and_then(Value::as_bool).unwrap_or(!app.ui.new_mixer_open);
-            Ok(json!({"value": app.ui.new_mixer_open}))
+            // Each layout keeps its own mixer state: NEW starts collapsed, Reaper's MCP starts open.
+            let open = if app.ui.layout == LayoutPreset::Reaper { &mut app.ui.reaper_mixer_open } else { &mut app.ui.new_mixer_open };
+            *open = p.get("value").and_then(Value::as_bool).unwrap_or(!*open);
+            Ok(json!({"value": *open}))
         }
         "ui.editor" => match p.get("view").and_then(Value::as_str) {
             None => Ok(json!({"view": app.ui.new_editor.id()})),
@@ -134,29 +136,33 @@ fn layout_command(app: &mut SoundApp, p: &Value) -> Result<Value, String> {
     Ok(json!({"preset": preset.id()}))
 }
 
-/// The NEW layout's own keys, unmodified (Ctrl+D is the registry's Duplicate). Returns whether the
-/// key was taken. Space, Ctrl+D and the rest fall through to the shared shortcuts.
+/// The NEW layout's own keys: chord, command, parameters (JSON). Unmodified keys only; Space,
+/// Ctrl+D and the rest fall through to the shared shortcuts. The Action List reads this table, and
+/// a key assigned there wins over it.
+pub const NEW_KEYS: &[(&str, &str, &str)] = &[
+    ("R", "transport.record", "{}"),
+    ("L", "options.loop_playback", "{}"),
+    ("M", "ui.mixer", "{}"),
+    ("B", "ui.editor", r#"{"view":"steps"}"#),
+    ("P", "ui.editor", r#"{"view":"piano"}"#),
+    ("1", "ui.layout", r#"{"preset":"new"}"#),
+    ("2", "ui.layout", r#"{"preset":"flStyle"}"#),
+    ("3", "ui.layout", r#"{"preset":"classic"}"#),
+    ("4", "ui.layout", r#"{"preset":"reaper"}"#),
+    ("5", "ui.layout", r#"{"preset":"abletonStyle"}"#),
+];
+
+/// The NEW layout's own keys ([`NEW_KEYS`]). Returns whether the key was taken.
 pub fn keys(app: &mut SoundApp, key: Key, mods: Modifiers) -> bool {
     if mods.any() {
         return false;
     }
-    let run = |app: &mut SoundApp, id: &str, p: Value| {
-        if let Err(e) = app.run(id, p) {
-            app.ui.status = e;
-        }
+    let Some((_, id, params)) = NEW_KEYS.iter().find(|(c, _, _)| crate::shortcuts::parse(c).is_some_and(|(m, k)| k == key && !m.any())) else {
+        return false;
     };
-    match key {
-        Key::R => run(app, "transport.record", json!({})),
-        Key::L => run(app, "options.loop_playback", json!({})),
-        Key::M => run(app, "ui.mixer", json!({})),
-        Key::B => run(app, "ui.editor", json!({"view": "steps"})),
-        Key::P => run(app, "ui.editor", json!({"view": "piano"})),
-        Key::Num1 | Key::Num2 | Key::Num3 | Key::Num4 | Key::Num5 => {
-            let index = [Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5].iter().position(|k| *k == key).unwrap_or(0);
-            let preset = LayoutPreset::ALL.get(index).copied().unwrap_or_default();
-            run(app, "ui.layout", json!({"preset": preset.id()}));
-        }
-        _ => return false,
+    let params = serde_json::from_str(params).unwrap_or_else(|_| json!({}));
+    if let Err(e) = app.run(id, params) {
+        app.ui.status = e;
     }
     true
 }
@@ -337,8 +343,8 @@ fn readout(ui: &mut Ui, label: &str, value: impl FnOnce(&mut Ui)) {
     });
 }
 
-/// The layout switcher: NEW and Classic switch; the others are named and greyed until built.
-fn switcher(app: &mut SoundApp, ui: &mut Ui) {
+/// The layout switcher: NEW, Classic and Reaper switch; the others are named and greyed until built.
+pub fn switcher(app: &mut SoundApp, ui: &mut Ui) {
     let t = Tokens::current();
     for (index, preset) in LayoutPreset::ALL.into_iter().enumerate() {
         let on = app.ui.layout == preset;
@@ -669,7 +675,7 @@ mod tests {
         let mut app = app();
         assert_eq!(app.run("ui.layout", json!({"preset": "classic"})), Ok(json!({"preset": "classic"})));
         assert_eq!(app.ui.layout, LayoutPreset::Classic);
-        assert!(app.run("ui.layout", json!({"preset": "reaper"})).is_err());
+        assert!(app.run("ui.layout", json!({"preset": "abletonStyle"})).is_err());
         assert_eq!(app.ui.layout, LayoutPreset::Classic);
         assert!(app.run("ui.layout", json!({"preset": "nope"})).is_err());
         assert_eq!(app.run("ui.layout", json!({"preset": "new"})), Ok(json!({"preset": "new"})));

@@ -292,6 +292,9 @@ fn unroute_bus(s: &mut Session, bid: BusId) {
         if t.mixer.output == Route::Bus(bid) {
             t.mixer.output = Route::None;
         }
+        if t.mixer.receive == Some(bid) {
+            t.mixer.receive = None;
+        }
         for slot in &mut t.mixer.sends {
             if slot.as_ref().is_some_and(|x| x.target == Route::Bus(bid)) {
                 *slot = None;

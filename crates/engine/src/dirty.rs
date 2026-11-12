@@ -93,8 +93,9 @@ fn mixer_values(mixer: &Mixer) -> impl PartialEq + '_ {
         trim_db,
         vca,
         surround,
+        receive,
     } = mixer;
-    ((volume_db, pan, mute, solo, solo_safe, phase_invert, input, output, inserts, sends, automation_mode), (trim_db, vca, surround))
+    ((volume_db, pan, mute, solo, solo_safe, phase_invert, input, output, inserts, sends, automation_mode), (trim_db, vca, surround, receive))
 }
 
 /// Borrow edit settings while normalizing transient navigation to the saved values.

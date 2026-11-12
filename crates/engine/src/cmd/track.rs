@@ -736,6 +736,9 @@ fn reroute_deleted_bus(s: &mut Session, bus: soundcraft_model::BusId, replacemen
         if track.mixer.output == Route::Bus(bus) {
             track.mixer.output = replacement.clone();
         }
+        if track.mixer.receive == Some(bus) {
+            track.mixer.receive = None;
+        }
         for send in &mut track.mixer.sends {
             if send.as_ref().is_some_and(|send| send.target == Route::Bus(bus)) {
                 *send = None;

@@ -13,6 +13,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     ..craft_update::suite::SOUNDCRAFT
 };
 
+pub mod action_list;
 pub mod appearance;
 pub mod bounce;
 pub mod control;
@@ -23,12 +24,15 @@ pub mod edit_window;
 pub mod fonts;
 pub mod icons;
 pub mod import;
+pub mod keymap;
 pub mod menus;
 pub mod mix_window;
 pub mod new_layout;
 pub mod palette;
 pub mod panels;
 pub mod preferences;
+pub mod reaper_layout;
+pub mod routing_matrix;
 pub mod shortcuts;
 mod splash;
 pub mod step_seq;
@@ -159,6 +163,13 @@ pub struct UiState {
     pub new_mixer_open: bool,
     /// What the NEW layout's Editor shows (`ui.editor`, B and P).
     pub new_editor: new_layout::EditorView,
+    /// The Reaper-style layout's mixer (MCP) at the bottom (`ui.mixer`, Ctrl+M). Open by default.
+    pub reaper_mixer_open: bool,
+    /// Keys people assigned in the Action List (`ui.keymap`), per key set.
+    pub key_overrides: keymap::Overrides,
+    /// Window › Action List and View › Routing Matrix.
+    pub show_action_list: bool,
+    pub show_routing_matrix: bool,
 }
 
 impl Default for UiState {
@@ -228,6 +239,10 @@ impl Default for UiState {
             layout: new_layout::LayoutPreset::New,
             new_mixer_open: false,
             new_editor: new_layout::EditorView::Auto,
+            reaper_mixer_open: true,
+            key_overrides: keymap::Overrides::new(),
+            show_action_list: false,
+            show_routing_matrix: false,
         }
     }
 }
@@ -322,6 +337,12 @@ pub struct SoundApp {
     raise: splash::Raise,
     /// The NEW layout Browser's search text.
     browser_search: String,
+    /// The Action List's search text, and the command waiting for a key (its next press).
+    pub(crate) action_search: String,
+    pub(crate) keymap_capture: Option<String>,
+    pub(crate) action_selected: Option<String>,
+    /// Escape just canceled a key assignment, so it must not also close the Action List.
+    pub(crate) escape_taken: bool,
     pub meters: HashMap<TrackId, MeterDisplay>,
     pub main_meter: MeterDisplay,
     /// Reused meter snapshot, taken from the player at an adaptive rate by `logic`: the highest
