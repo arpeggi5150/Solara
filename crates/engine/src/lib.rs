@@ -360,6 +360,7 @@ impl Engine {
         let cur = std::mem::replace(&mut self.doc, h.doc);
         self.keep_edit_mode(&cur);
         self.keep_runtime_track_states(&cur);
+        self.keep_launches(&cur);
         self.redo.push(HistoryEntry { label: h.label, doc: cur });
         self.revision = self.revision.wrapping_add(1);
         self.dirty = true;
@@ -372,6 +373,7 @@ impl Engine {
         let cur = std::mem::replace(&mut self.doc, h.doc);
         self.keep_edit_mode(&cur);
         self.keep_runtime_track_states(&cur);
+        self.keep_launches(&cur);
         self.undo.push(HistoryEntry { label: h.label, doc: cur });
         self.revision = self.revision.wrapping_add(1);
         self.dirty = true;
@@ -408,6 +410,17 @@ impl Engine {
         }
         for track in &mut Arc::make_mut(&mut self.doc).tracks {
             (track.mixer.record_arm, track.mixer.input_monitor) = state(track.id);
+        }
+    }
+
+    /// Undo and Redo leave the launched Session View clips playing (those whose slot still holds a
+    /// clip): launching is not an edit.
+    fn keep_launches(&mut self, from: &Session) {
+        let doc = &self.doc;
+        let kept: Vec<_> =
+            from.launch.iter().copied().filter(|l| l.slot == usize::MAX || doc.track(l.track).is_some_and(|t| t.slot(l.slot).is_some())).collect();
+        if doc.launch != kept {
+            Arc::make_mut(&mut self.doc).launch = kept;
         }
     }
 
@@ -472,6 +485,10 @@ impl Engine {
                 if !Arc::ptr_eq(&before, &self.doc) {
                     // Places of one pattern that held the same notes stay the same (FL-style Playlist).
                     cmd::playlist::sync_links(self, &before);
+                    // Warped audio and Session View clips follow a tempo change.
+                    if before.tempo != self.doc.tempo {
+                        cmd::launcher::follow_tempo(self, &before);
+                    }
                 }
                 cmd::remember_selection(self, &before);
                 if spec.undoable && !Arc::ptr_eq(&before, &self.doc) {

@@ -380,6 +380,15 @@ pub struct Session {
     /// Automation clips (FL-style Playlist), each on one lane of one track.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auto_clips: Vec<crate::AutoClip>,
+    /// Session View rows (Ableton-style layout); each track has one clip slot per scene.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scenes: Vec<crate::Scene>,
+    /// The Groove Pool: grooves saved to drop on clips.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grooves: Vec<crate::GroovePreset>,
+    /// Session View clips launched (live, never saved, compared or undone).
+    #[serde(skip)]
+    pub launch: Vec<crate::Launch>,
     #[serde(skip)]
     pub pool: SourcePool,
     /// The folder relative source paths point into: where the session was opened or last saved.
@@ -419,6 +428,9 @@ impl Session {
             comments: String::new(),
             midi_originals: std::collections::BTreeMap::new(),
             auto_clips: Vec::new(),
+            scenes: Vec::new(),
+            grooves: Vec::new(),
+            launch: Vec::new(),
             pool: SourcePool::default(),
             folder: None,
         };
@@ -471,17 +483,29 @@ impl Session {
     }
 
     /// Find a clip anywhere (active playlists).
+    /// A clip on a track's active playlist, else in a Session View slot.
     pub fn find_clip(&self, id: ClipId) -> Option<(TrackId, &Clip)> {
-        self.tracks.iter().find_map(|t| t.clips().iter().find(|c| c.id == id).map(|c| (t.id, c)))
+        self.tracks
+            .iter()
+            .find_map(|t| t.clips().iter().find(|c| c.id == id).map(|c| (t.id, c)))
+            .or_else(|| self.find_slot_clip(id).and_then(|(t, i)| self.track(t).and_then(|tr| tr.slot(i)).map(|c| (t, c))))
     }
 
     pub fn find_clip_mut(&mut self, id: ClipId) -> Option<&mut Clip> {
-        self.tracks.iter_mut().find_map(|t| t.playlist_mut().and_then(|p| p.clip_mut(id)))
+        if self.tracks.iter().any(|t| t.clips().iter().any(|c| c.id == id)) {
+            return self.tracks.iter_mut().find_map(|t| t.playlist_mut().and_then(|p| p.clip_mut(id)));
+        }
+        self.tracks.iter_mut().find_map(|t| t.slots.iter_mut().flatten().find(|c| c.id == id))
     }
 
-    /// Clips on every playlist, alternates included.
+    /// The track and slot of a Session View clip.
+    pub fn find_slot_clip(&self, id: ClipId) -> Option<(TrackId, usize)> {
+        self.tracks.iter().find_map(|t| t.slots.iter().position(|c| c.as_ref().is_some_and(|c| c.id == id)).map(|i| (t.id, i)))
+    }
+
+    /// Clips on every playlist, alternates included, and in every Session View slot.
     pub fn all_clips(&self) -> impl Iterator<Item = &Clip> {
-        self.tracks.iter().flat_map(|t| t.playlists.iter().flat_map(|p| &p.clips))
+        self.tracks.iter().flat_map(|t| t.playlists.iter().flat_map(|p| &p.clips).chain(t.slots.iter().flatten()))
     }
 
     pub fn clips_using(&self, src: SourceId) -> impl Iterator<Item = &Clip> {
@@ -777,6 +801,9 @@ impl Session {
             .chain(self.markers.iter().map(|m| m.id.0))
             .chain(self.groups.iter().map(|g| g.id.0))
             .chain(self.auto_clips.iter().map(|c| c.id))
+            .chain(self.tracks.iter().flat_map(|t| t.slots.iter().flatten().map(|c| c.id.0)))
+            .chain(self.scenes.iter().map(|s| s.id))
+            .chain(self.grooves.iter().map(|g| g.id))
             .max()
             .unwrap_or(0);
         self.next_id = self.next_id.max(max_id.saturating_add(1));
@@ -854,8 +881,7 @@ impl Session {
         self.groups.iter_mut().for_each(|g| truncate_chars(&mut g.name, MAX_NAME_CHARS));
         self.sources.iter_mut().for_each(|s| truncate_chars(&mut s.name, MAX_NAME_CHARS));
         // Drop performances whose clip no longer exists anywhere (any playlist).
-        let clip_ids: std::collections::BTreeSet<u64> =
-            self.tracks.iter().flat_map(|t| t.playlists.iter().flat_map(|p| p.clips.iter().map(|c| c.id.0))).collect();
+        let clip_ids: std::collections::BTreeSet<u64> = self.all_clips().map(|c| c.id.0).collect();
         self.midi_originals.retain(|id, _| clip_ids.contains(id));
         self.prune_auto_names();
         self.auto_names.values_mut().for_each(crate::AutoName::sanitize);
@@ -866,6 +892,7 @@ impl Session {
             self.sample_rate = SampleRate::default();
         }
         self.tempo.sanitize();
+        self.sanitize_launcher();
     }
 
     /// Reject a document whose ids are ambiguous or exhausted, run after [`Session::sanitize`] on
@@ -878,7 +905,7 @@ impl Session {
             return Err(SessionError::Invalid("the session id space is exhausted".into()));
         }
         distinct("track", self.tracks.iter().map(|t| t.id.0))?;
-        distinct("clip", self.tracks.iter().flat_map(|t| t.playlists.iter().flat_map(|p| p.clips.iter().map(|c| c.id.0))))?;
+        distinct("clip", self.all_clips().map(|c| c.id.0))?;
         distinct("source", self.sources.iter().map(|s| s.id.0))?;
         distinct("video", self.videos.iter().map(|v| v.id.0))?;
         distinct("bus", self.busses.iter().map(|b| b.id.0))?;

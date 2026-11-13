@@ -1404,3 +1404,41 @@ fn swing_delays_every_second_step_and_humanize_is_repeatable() {
     assert_eq!(human, groove_hits(Some(soundcraft_model::Groove { swing: 0.0, humanize: 1.0 })), "and plays the same every time");
     assert!(human.iter().all(|(at, v)| *at >= 0 && (76..=124).contains(v)), "{human:?}");
 }
+
+#[test]
+fn a_launched_slot_clip_plays_instead_of_the_arrangement_and_loops() {
+    // An Arrangement clip of DC 0.5 and a 1000-sample Session View clip of DC 0.25 on the same track.
+    let (mut s, t) = session_with_dc(0.5, 9600);
+    let buf = AudioBuffer { sample_rate: 48_000, channels: vec![vec![0.25; 1000]] };
+    s.pool.insert(SourceId(901), Arc::new(SourceAudio::new(buf)));
+    let id = s.new_clip_id();
+    s.scenes.push(soundcraft_model::Scene { id: 7, name: "1".into() });
+    s.track_mut(t).unwrap().slots = vec![Some(Clip::audio(id, "loop", SourceId(901), 0, 0, 1000))];
+    s.launch.push(soundcraft_model::Launch { track: t, slot: 0, at: 2000 });
+    let out = render_range(&s, Range::new(0, 9600), 512);
+    let g = std::f32::consts::FRAC_1_SQRT_2;
+    assert!(out[0][100].abs() < 1e-6, "the Arrangement is silent while something is launched");
+    assert!((out[0][2500] - 0.25 * g).abs() < 1e-3, "{}", out[0][2500]);
+    assert!((out[0][3500] - 0.25 * g).abs() < 1e-3, "the clip loops: {}", out[0][3500]);
+    assert!((out[0][9000] - 0.25 * g).abs() < 1e-3);
+    s.launch.clear();
+    let out = render_range(&s, Range::new(0, 9600), 512);
+    assert!((out[0][3500] - 0.5 * g).abs() < 1e-3, "stopped: the Arrangement plays again");
+}
+
+#[test]
+fn a_launched_midi_clip_plays_its_notes_from_the_launch() {
+    let mut s = synth_session(-6.0);
+    let t = s.tracks[0].id;
+    let clip = s.tracks[0].clips()[0].clone();
+    s.tracks[0].playlist_mut().unwrap().clips.clear();
+    s.scenes.push(soundcraft_model::Scene { id: 7, name: "1".into() });
+    s.tracks[0].slots = vec![Some(clip)];
+    let silent = render_range(&s, Range::new(0, 24_000), 512);
+    assert!(silent[0].iter().all(|x| x.abs() < 1e-6), "nothing launched, nothing plays");
+    s.launch.push(soundcraft_model::Launch { track: t, slot: 0, at: 12_000 });
+    let out = render_range(&s, Range::new(0, 24_000), 512);
+    let before = out[0][..12_000].iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    let after = out[0][13_000..].iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    assert!(before < 1e-6 && after > 0.01, "{before} {after}");
+}
