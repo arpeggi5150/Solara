@@ -62,6 +62,13 @@ if (-not $SkipBuild) {
   [Environment]::SetEnvironmentVariable($flagVar, '-C target-feature=+crt-static')
   # Fail the build (rather than warn) if the icon/VERSIONINFO can't be embedded.
   $env:SOUNDCRAFT_REQUIRE_WINRES = '1'
+  # The low-latency driver host (azo, x64 only) generates its Windows bindings at build time with
+  # windows-bindgen, which formats them with rustfmt and fails with an unhelpful panic without it.
+  if ($Arch -eq 'x64') {
+    $fmtOk = $false
+    try { $null = & rustfmt --version 2>$null; $fmtOk = ($LASTEXITCODE -eq 0) } catch { $fmtOk = $false }
+    if (-not $fmtOk) { throw 'rustfmt is needed to build for x64 (azo generates its bindings with it): run `rustup component add rustfmt`' }
+  }
   Invoke-Native "cargo build ($Target)" { cargo build --release --locked -p soundcraft -p soundcraft-cli --target $Target }
 }
 
