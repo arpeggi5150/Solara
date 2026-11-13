@@ -1,6 +1,6 @@
 # Where Solara falls short of Pro Tools
 
-> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-10-25 · **Change:** trivial (G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-11-13 · **Change:** trivial (G-01: ASIO output via azo; previously G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Every known shortfall, one entry each, ranked by how much it stops a Pro Tools user from doing
 real work in Solara. This is the work list: pick from the top. Rows marked **alpha blocker**
@@ -15,7 +15,7 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
 
 | # | Gap | Dimension | Doc | Est. (h) |
 |---|---|---|---|---:|
-| G-01 | **Alpha blocker.** No channel routing or duplex low-latency path (device, rate and buffer choice done; ASIO opt-in) | Hardware | [hardware-parity.md](hardware-parity.md) | 15–25 |
+| G-01 | **Alpha blocker.** No channel routing or duplex low-latency path (device, rate and buffer choice done; ASIO output done) | Hardware | [hardware-parity.md](hardware-parity.md) | 15–25 |
 | G-02 | **Alpha blocker.** No MIDI device input or output | Hardware / MIDI | [hardware-parity.md](hardware-parity.md) | 20–35 |
 | G-03 | **Alpha blocker.** Cannot exchange sessions with Pro Tools (no AAF/OMF, no `.ptx`) | File formats | [file-format-parity.md](file-format-parity.md) | 50–90 |
 | G-04 | Open correctness bugs in features counted as done (~25 issues) | Stability | this file | 25–40 |
@@ -44,8 +44,12 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
 
 - **Done (2026-10-12):** Setup › Playback Engine chooses the audio system, output and input
   device, sample rate and device buffer size (kept with the preferences, per machine; `ui.audio_device`
-  for agents); f32 and 16/32-bit integer devices; ASIO behind the opt-in `asio` build feature
-  (verified on Windows with an SSL 2+ at 128 samples).
+  for agents); f32 and 16/32-bit integer devices.
+- **Done (2026-11-13):** output through ASIO drivers on Windows x64 in every build, through the MIT
+  `azo` crate (no Steinberg SDK; cpal's `asio` feature is gone). Setup › Playback Engine lists them
+  as “Low-latency driver” with the buffer sizes each offers, and shows the health counters. 128
+  samples at 48 kHz played 60 s with 0 late blocks, 0 gaps and 0 xruns on an Apogee Duet and a
+  Focusrite USB interface. A driver that will not open falls back to WASAPI.
 - **Done (2026-10-25):** `setup.playback_engine` and `setup.hardware` apply `device` (the output
   name) and `buffer_size` in the desktop app on the same path as the Playback Engine window
   (`ui.audio_device`) and return the open device. `buffer_size` is any integer 16..=8192 and is
@@ -53,14 +57,14 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
   and returns `applied: false`, with `buffer_size` null when unset; playback does not read those
   session values.
 - **Missing:** routing to physical channels (I/O Setup), one duplex stream on one clock (input and
-  output are still separate cpal streams), latency reporting and record-offset compensation, ASIO
-  in official builds (owner decision: Steinberg's SDK is proprietary or GPLv3), JACK, and
+  output are still separate cpal streams), input through the ASIO driver (input stays on WASAPI),
+  latency reporting and record-offset compensation, JACK, and
   verification on macOS and Linux. The mix still runs in fixed 512-sample blocks.
 - **Evidence:** code above; Playback Engine window says "Mix block size: 512 samples"; issue #42
   (no input device selection, forced monitoring feedback with virtual routing).
 - **Impact:** blocks tracking with any multichannel interface; latency makes overdubs hard.
 - **Estimate:** ≈ 25–40 h (device enumeration and selection, buffer size, duplex stream with one
-  clock, ASIO feature build, per-channel I/O mapping into I/O Setup, latency reporting and
+  clock, ASIO input, per-channel I/O mapping into I/O Setup, latency reporting and
   record-offset compensation). Needs hands-on hardware testing.
 
 ### G-02. MIDI devices
@@ -239,6 +243,7 @@ missing. Out of scope unless the owner decides otherwise.
 | 2026-10-16 | trivial | G-04: failed aux/folder/master inserts excluded from latency compensation after containment; estimates unchanged |
 | 2026-10-16 | trivial | G-04: Split into Mono channel preservation fixed and regression-tested; estimates unchanged |
 | 2026-10-16 | minor | G-16: capture current hosted-plugin state before saving a track preset (#661); broader preset work remains (#639) |
+| 2026-11-13 | trivial | G-01 shrunk: ASIO output on Windows x64 via azo (no Steinberg SDK) |
 | 2026-10-12 | minor | G-01 shrunk: audio device, rate and buffer choice; opt-in ASIO |
 | 2026-10-10 | minor | Marked the alpha blockers (G-01, G-02, G-03; parts of G-05 and G-06) from the core-workflow gate |
 | 2026-10-10 | major | Created from the full re-measure against Pro Tools Ultimate 2026.4.1: 22 ranked gaps with evidence and estimates |
