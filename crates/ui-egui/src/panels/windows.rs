@@ -562,6 +562,24 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
                 }
             }));
             ui.end_row();
+            // How cleanly the output is fed, counted on the audio thread (Setup › Playback Engine
+            // is where a buffer that is too small shows).
+            if let Some(p) = app.player.as_ref().filter(|p| !p.silent) {
+                let h = p.health();
+                ui.label("Health");
+                let text = format!("{} late · {} gaps · {} xruns · worst block {:.2} ms", h.late, h.gaps, h.xruns, h.worst_render_us as f64 / 1000.0);
+                let color = if h.clean() { t.text } else { t.meter_yellow };
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(text).color(color)).on_hover_text(
+                        "Late: a block took longer to make than it plays. Gap: the device waited too long between blocks. \
+                         Xrun: the audio system reported a dropout. Counted since the device opened or the counters were reset.",
+                    );
+                    if ui.small_button("Reset").clicked() {
+                        p.reset_health();
+                    }
+                });
+                ui.end_row();
+            }
             ui.label("Input");
             ui.label(app.recorder.as_ref().map_or("opened on first record or monitor".to_string(), |r| {
                 format!("{} · {} Hz · {} ch", r.device_name, r.sample_rate, r.channels)
