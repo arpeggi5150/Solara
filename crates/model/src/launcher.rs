@@ -288,8 +288,8 @@ impl Session {
 
     /// Fold what has played up to `pos` into the launches: each track keeps the clip playing at
     /// `pos` (launched where its current run began) and the launches still to come; a track that
-    /// has stopped keeps only those to come. Returns whether anything changed.
-    pub fn settle_launches(&mut self, pos: Samples) -> bool {
+    /// has stopped keeps only those to come. `None` when nothing would change.
+    pub fn settled_launches(&self, pos: Samples) -> Option<Vec<Launch>> {
         let mut out: Vec<Launch> = Vec::with_capacity(self.launch.len());
         let mut tracks: Vec<TrackId> = Vec::new();
         for l in &self.launch {
@@ -303,19 +303,25 @@ impl Session {
                 out.push(Launch { track: id, slot, at: run });
             }
             for l in self.launch.iter().filter(|l| l.track == id && l.at > pos) {
-                if !out.iter().any(|m| m.track == id && m.at == l.at) {
-                    out.push(*l);
-                } else if let Some(m) = out.iter_mut().find(|m| m.track == id && m.at == l.at) {
-                    *m = *l;
+                match out.iter_mut().find(|m| m.track == id && m.at == l.at) {
+                    Some(m) => *m = *l,
+                    None => out.push(*l),
                 }
             }
         }
         out.truncate(MAX_LAUNCHES);
-        if out == self.launch {
-            return false;
+        (out != self.launch).then_some(out)
+    }
+
+    /// [`Session::settled_launches`], applied. Returns whether anything changed.
+    pub fn settle_launches(&mut self, pos: Samples) -> bool {
+        match self.settled_launches(pos) {
+            Some(v) => {
+                self.launch = v;
+                true
+            }
+            None => false,
         }
-        self.launch = out;
-        true
     }
 
     /// Repair the Session View after loading untrusted data: bounded scenes, every track with one

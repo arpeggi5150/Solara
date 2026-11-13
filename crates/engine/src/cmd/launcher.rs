@@ -54,7 +54,7 @@ pub fn specs() -> Vec<CommandSpec> {
         ),
         cmd!("slot.clear", "Delete Slot Clip", [], None, "{track, scene: index}", always, clear_slot),
         cmd!("slot.move", "Move Slot Clip", [], None, "{track, scene, to_track?, to_scene, copy?: false}", always, move_slot),
-        cmd!(noundo "launcher.settle", "Settle Launched Clips", [], None, "{at?: position (default: the transport)}: fold the clips played so far into what is launched", always, settle),
+        cmd!(query "launcher.settle", "Settle Launched Clips", [], None, "{at?: position (default: the transport)}: fold the clips played so far into what is launched", always, settle),
         cmd!(
             "clip.follow",
             "Follow Action",
@@ -266,13 +266,10 @@ fn stop_track(e: &mut Engine, p: &Value) -> Result<Value> {
 
 fn settle(e: &mut Engine, p: &Value) -> Result<Value> {
     let at = super::position_param(e, "launcher.settle", p, "at")?.unwrap_or(e.transport.position);
-    if e.session().launch.is_empty() {
-        return Ok(json!({"changed": false}));
-    }
-    let mut s = e.session().clone();
-    let changed = s.settle_launches(at);
-    if changed {
-        e.runtime_session_mut().launch = s.launch;
+    let settled = e.session().settled_launches(at);
+    let changed = settled.is_some();
+    if let Some(v) = settled {
+        e.runtime_session_mut().launch = v;
     }
     Ok(json!({"changed": changed}))
 }
