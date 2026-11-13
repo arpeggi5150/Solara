@@ -7,23 +7,76 @@ use std::f32::consts::TAU;
 
 use super::synth::{EventKind, EventQueue, MAX_EVENTS};
 use crate::biquad::{Biquad, FilterType};
-use crate::params::{Params, lin, log, param_plumbing};
+use crate::params::{Params, choice, lin, log};
 use crate::util::{Rng, Smoother, frames_in, ms_to_samples, sane_channels, sane_sr};
 use crate::{Category, ParamInfo, Plugin, PluginInfo, Unit, db_to_gain};
 
-static DRUM_PARAMS: [ParamInfo; 11] = [
-    lin("level", "Level", -48.0, 6.0, -6.0, Unit::Db),
-    lin("kick_tune", "Kick Tune", -12.0, 12.0, 0.0, Unit::Semitones),
-    log("kick_decay", "Kick Decay", 50.0, 2000.0, 450.0, Unit::Ms),
-    lin("snare_tune", "Snare Tune", -12.0, 12.0, 0.0, Unit::Semitones),
-    lin("snare_snappy", "Snare Snappy", 0.0, 100.0, 60.0, Unit::Percent),
-    log("snare_decay", "Snare Decay", 50.0, 1000.0, 220.0, Unit::Ms),
-    log("hat_decay", "Closed Hat Decay", 20.0, 500.0, 80.0, Unit::Ms),
-    log("open_hat_decay", "Open Hat Decay", 100.0, 3000.0, 600.0, Unit::Ms),
-    lin("tom_tune", "Tom Tune", -12.0, 12.0, 0.0, Unit::Semitones),
-    log("tom_decay", "Tom Decay", 50.0, 2000.0, 500.0, Unit::Ms),
-    log("cymbal_decay", "Cymbal Decay", 200.0, 6000.0, 2000.0, Unit::Ms),
-];
+/// The kit's parameters, then (Drum Rack) each pad's sound, tune and level. The kit's come first
+/// in both tables: the voices read them by index.
+macro_rules! kit {
+    ($(($n:literal, $sound:expr, $tune:expr)),* $(,)?) => {
+        [
+            lin("level", "Level", -48.0, 6.0, -6.0, Unit::Db),
+            lin("kick_tune", "Kick Tune", -12.0, 12.0, 0.0, Unit::Semitones),
+            log("kick_decay", "Kick Decay", 50.0, 2000.0, 450.0, Unit::Ms),
+            lin("snare_tune", "Snare Tune", -12.0, 12.0, 0.0, Unit::Semitones),
+            lin("snare_snappy", "Snare Snappy", 0.0, 100.0, 60.0, Unit::Percent),
+            log("snare_decay", "Snare Decay", 50.0, 1000.0, 220.0, Unit::Ms),
+            log("hat_decay", "Closed Hat Decay", 20.0, 500.0, 80.0, Unit::Ms),
+            log("open_hat_decay", "Open Hat Decay", 100.0, 3000.0, 600.0, Unit::Ms),
+            lin("tom_tune", "Tom Tune", -12.0, 12.0, 0.0, Unit::Semitones),
+            log("tom_decay", "Tom Decay", 50.0, 2000.0, 500.0, Unit::Ms),
+            log("cymbal_decay", "Cymbal Decay", 200.0, 6000.0, 2000.0, Unit::Ms),
+            $(
+                choice(concat!("p", $n, "_sound"), concat!("Pad ", $n, " Sound"), &PAD_SOUNDS, $sound),
+                lin(concat!("p", $n, "_tune"), concat!("Pad ", $n, " Tune"), -24.0, 24.0, $tune, Unit::Semitones),
+                lin(concat!("p", $n, "_level"), concat!("Pad ", $n, " Level"), -48.0, 6.0, 0.0, Unit::Db),
+            )*
+        ]
+    };
+}
+
+/// Parameters shared by the kit (`level` to `cymbal_decay`).
+const KIT_PARAMS: usize = 11;
+/// Pads on a Drum Rack: notes 36 to 51, one sound each.
+pub const PADS: usize = 16;
+/// The first pad's note.
+pub const FIRST_PAD_NOTE: u8 = 36;
+/// The sounds a Drum Rack pad can play; the value of `pN_sound` is the index.
+pub const PAD_SOUNDS: [&str; 11] = ["Off", "Kick", "Snare", "Clap", "Closed Hat", "Open Hat", "Low Tom", "Mid Tom", "High Tom", "Crash", "Ride"];
+
+static DRUM_PARAMS: [ParamInfo; KIT_PARAMS] = kit!();
+
+static DRUM_RACK_PARAMS: [ParamInfo; KIT_PARAMS + 3 * PADS] = kit!(
+    (1, 1, 0.0),
+    (2, 2, 0.0),
+    (3, 3, 0.0),
+    (4, 4, 0.0),
+    (5, 5, 0.0),
+    (6, 6, 0.0),
+    (7, 7, 0.0),
+    (8, 8, 0.0),
+    (9, 9, 0.0),
+    (10, 10, 0.0),
+    (11, 1, -5.0),
+    (12, 2, 4.0),
+    (13, 3, -3.0),
+    (14, 4, 6.0),
+    (15, 5, -4.0),
+    (16, 10, 3.0),
+);
+
+/// Drum Rack: sixteen pads, one sound each, on notes 36 to 51. The same synthesized kit as the
+/// Drum Synth; each pad picks its sound and tunes and levels it.
+pub static DRUM_RACK_INFO: PluginInfo = PluginInfo {
+    id: "drum_rack",
+    name: "Drum Rack",
+    short_name: "Rack",
+    category: Category::Instrument,
+    params: &DRUM_RACK_PARAMS,
+    is_instrument: true,
+    audiosuite: false,
+};
 
 pub static DRUM_INFO: PluginInfo = PluginInfo {
     id: "drum_synth",
@@ -60,6 +113,23 @@ fn kind_for(note: u8) -> Option<Kind> {
         50 => Kind::Tom(196.0),
         49 | 57 => Kind::Crash,
         51 | 59 => Kind::Ride,
+        _ => return None,
+    })
+}
+
+/// The kind a Drum Rack pad's sound index plays.
+fn pad_kind(sound: usize) -> Option<Kind> {
+    Some(match sound {
+        1 => Kind::Kick,
+        2 => Kind::Snare,
+        3 => Kind::Clap,
+        4 => Kind::ClosedHat,
+        5 => Kind::OpenHat,
+        6 => Kind::Tom(110.0),
+        7 => Kind::Tom(147.0),
+        8 => Kind::Tom(196.0),
+        9 => Kind::Crash,
+        10 => Kind::Ride,
         _ => return None,
     })
 }
@@ -121,6 +191,8 @@ fn decay60(ms: f32, sr: f32) -> f32 {
 
 pub struct DrumSynth {
     p: Params,
+    /// `DRUM_INFO`, or `DRUM_RACK_INFO` for a Drum Rack (pads on notes 36 to 51).
+    info: &'static PluginInfo,
     sr: f32,
     ch: usize,
     voices: [DrumVoice; VOICES],
@@ -200,10 +272,42 @@ impl DrumSynth {
         for (i, v) in voices.iter_mut().enumerate() {
             *v = DrumVoice::new(0xBEEF + i as u32 * 977);
         }
-        let mut d =
-            Self { p: Params::new(&DRUM_PARAMS), sr: 48_000.0, ch: 0, voices, events: EventQueue::new(), counter: 0, level: Smoother::new(0.5) };
+        let mut d = Self {
+            p: Params::new(&DRUM_PARAMS),
+            info: &DRUM_INFO,
+            sr: 48_000.0,
+            ch: 0,
+            voices,
+            events: EventQueue::new(),
+            counter: 0,
+            level: Smoother::new(0.5),
+        };
         d.update();
         d
+    }
+
+    /// A Drum Rack: the kit on sixteen pads.
+    pub fn rack() -> Self {
+        let mut d = Self::new();
+        d.p = Params::new(&DRUM_RACK_PARAMS);
+        d.info = &DRUM_RACK_INFO;
+        d.update();
+        d
+    }
+
+    /// What `note` plays: the kit's General MIDI map, or on a Drum Rack the pad's sound with its
+    /// tune (as a frequency ratio) and level (as a gain).
+    fn voice_for(&self, note: u8) -> Option<(Kind, f32, f32)> {
+        if !std::ptr::eq(self.info, &DRUM_RACK_INFO) {
+            return kind_for(note).map(|k| (k, 1.0, 1.0));
+        }
+        let pad = usize::from(note.checked_sub(FIRST_PAD_NOTE)?);
+        if pad >= PADS {
+            return None;
+        }
+        let base = KIT_PARAMS + 3 * pad;
+        let kind = pad_kind(self.p.choice(base))?;
+        Some((kind, 2f32.powf(self.p.v(base + 1) / 12.0), db_to_gain(self.p.v(base + 2))))
     }
 
     fn update(&mut self) {
@@ -211,7 +315,7 @@ impl DrumSynth {
     }
 
     fn trigger(&mut self, note: u8, vel: u8) {
-        let Some(kind) = kind_for(note) else { return };
+        let Some((kind, tune, gain)) = self.voice_for(note) else { return };
         if vel == 0 {
             return;
         }
@@ -296,6 +400,9 @@ impl DrumSynth {
                 dv.filt = Biquad::design(FilterType::LowPass, 4000.0, 0.7, 0.0, sr);
             }
         }
+        dv.f_start *= tune;
+        dv.f_end *= tune;
+        dv.vel *= gain;
     }
 
     #[inline]
@@ -321,7 +428,22 @@ impl DrumSynth {
 }
 
 impl Plugin for DrumSynth {
-    param_plumbing!(DRUM_INFO);
+    fn info(&self) -> &'static PluginInfo {
+        self.info
+    }
+
+    fn set_param(&mut self, id: &str, value: f32) -> bool {
+        if self.p.set(id, value).is_some() {
+            self.update();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn param(&self, id: &str) -> Option<f32> {
+        self.p.get(id)
+    }
 
     fn prepare(&mut self, sample_rate: f32, _max_block: usize, channels: usize) {
         self.sr = sane_sr(sample_rate);

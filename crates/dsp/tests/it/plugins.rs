@@ -503,6 +503,41 @@ fn drum_kit_notes_sound_and_end() {
 }
 
 #[test]
+fn drum_rack_pads_play_their_own_sounds() {
+    // Every default pad sounds and ends; a pad set to Off is silent; notes off the pads are silent.
+    for note in 36..52u8 {
+        let mut p = prepared("drum_rack");
+        p.note_on(0, note, 120);
+        let out = run(p.as_mut(), &[vec![0.0; 48_000 * 7]]);
+        assert!(peak(&out[0][..4800]) > 0.01, "pad {note} silent");
+        assert!(peak(&out[0][48_000 * 6..]) < 1e-6, "pad {note} rings forever");
+    }
+    let mut p = prepared("drum_rack");
+    assert!(p.set_param("p1_sound", 0.0));
+    p.note_on(0, 36, 120);
+    p.note_on(0, 60, 120);
+    let out = run(p.as_mut(), &[vec![0.0; 4800]]);
+    assert_eq!(peak(&out[0]), 0.0, "an Off pad and a note off the pads are silent");
+    // A pad's tune moves its sound: a kick a fifth up has its energy higher.
+    let low_energy = |tune: f32| {
+        let mut p = prepared("drum_rack");
+        p.set_param("p1_tune", tune);
+        p.note_on(0, 36, 120);
+        let out = run(p.as_mut(), &[vec![0.0; 8192]]);
+        tone_level(&out[0], 46.875)
+    };
+    assert!(low_energy(-12.0) > low_energy(12.0), "a lower tune is lower");
+    // A pad's level scales it.
+    let level = |db: f32| {
+        let mut p = prepared("drum_rack");
+        p.set_param("p2_level", db);
+        p.note_on(0, 37, 120);
+        peak(&run(p.as_mut(), &[vec![0.0; 4800]])[0])
+    };
+    assert!((level(-6.0) / level(0.0) - 0.5).abs() < 0.05);
+}
+
+#[test]
 fn saturator_adds_harmonics_and_stays_bounded() {
     let mut p = prepared("saturator");
     p.set_param("drive", 30.0);
