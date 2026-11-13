@@ -79,9 +79,18 @@ fn audio_to_midi(e: &mut Engine, p: &Value) -> Result<Value> {
     let detected: Vec<soundcraft_dsp::pitch_detect::DetectedNote> = match mode {
         "harmony" => soundcraft_dsp::pitch_detect::audio_to_chords(&mono, sr),
         "drums" => {
-            let hits = soundcraft_dsp::offline::detect_transients(std::slice::from_ref(&mono), sr, 0.5);
+            let mut hits = soundcraft_dsp::offline::detect_transients(std::slice::from_ref(&mono), sr, 0.5);
             let sixteenth = s.tempo.tick_to_samples(TICKS_PER_SIXTEENTH, s.sample_rate).max(1) as usize;
+            // A hit must be louder than what came just before it: the end of a ringing drum cut short
+            // looks like an onset to the detector, but nothing gets louder there.
+            let level = |a: usize, b: usize| mono.get(a..b.min(mono.len())).unwrap_or(&[]).iter().map(|x| x * x).sum::<f32>();
+            // The detector compares each frame with the one before, so a hit right at the clip's start
+            // (louder than -60 dB) is added here.
+            if hits.first().is_none_or(|&h| h >= 2048) && level(0, 2048) > 2048.0 * 1.0e-6 {
+                hits.insert(0, 0);
+            }
             hits.iter()
+                .filter(|&&at| level(at, at.saturating_add(2048)) > 2.0 * level(at.saturating_sub(2048), at))
                 .map(|&at| {
                     let hit = mono.get(at..(at + 2048).min(mono.len())).unwrap_or(&[]);
                     let peak = hit.iter().fold(0.0f32, |m, x| m.max(x.abs()));
