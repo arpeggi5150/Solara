@@ -19,6 +19,7 @@ mod edit_more;
 mod event;
 mod event_more;
 mod file;
+mod groove_pool;
 mod health;
 mod instrument;
 pub(crate) mod launcher;
@@ -31,6 +32,7 @@ pub mod piano_roll;
 pub mod playlist;
 mod plugin_state;
 mod query;
+mod rack;
 mod receive;
 pub(crate) mod sampler;
 mod setup_more;
@@ -174,6 +176,8 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(piano_roll::specs());
         v.extend(auto_clip::specs());
         v.extend(launcher::specs());
+        v.extend(groove_pool::specs());
+        v.extend(rack::specs());
         #[cfg(test)]
         v.extend(panic_probe::specs());
         v
