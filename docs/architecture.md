@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-13 · **Change:** trivial (delay compensation includes the master faders' inserts (#351); previously minor: bounces stream to disk) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-13 · **Change:** minor (asio-host: low-latency drivers on 64-bit Windows; previously trivial: delay compensation includes the master faders' inserts (#351)) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Solara is a Cargo workspace of small crates with enforced layering (`cargo xtask layers`).
 Nothing below the UI knows about egui, so the interface can be replaced.
@@ -14,8 +14,10 @@ requires Rust 1.95 or later without raising the core workspace's Rust 1.90 decla
 
 ```
 L0  time        audio-io        midi        video   (standalone: no workspace deps)
-L1  dsp         clap-host   vst3-host   au-host     (plugins; the three hosts are the only crates
-                                                     allowed `unsafe`, confined to their FFI modules)
+    asio-host                                   (low-latency drivers, 64-bit Windows)
+L1  dsp         clap-host   vst3-host   au-host     (plugins; these three hosts and asio-host are
+                                                     the only crates allowed `unsafe`, confined to
+                                                     their FFI modules)
 L2  model                                       (the session document)
 L3  mix                                         (the mix engine)
 L4  engine      playback                        (commands, undo, I/O · audio devices)
@@ -52,10 +54,12 @@ bounces offline (`RangeRender`, streamed to the file block by block) and realtim
 (`soundcraft_playback::Player`, which owns it on the audio thread and receives new session
 snapshots through a channel).
 
-Device I/O today is the system's *default* output and *default* input device, opened as two
-separate cpal streams; the mix renders 512-sample blocks and resamples to the device rate when
-they differ. There is no device or buffer-size selection, no ASIO, and no MIDI device layer yet
-(see [`hardware-parity.md`](hardware-parity.md)). Sources are decoded whole into the `SourcePool`
+Device I/O is the output and input device chosen in Setup › Playback Engine (else the system
+defaults), opened as two separate cpal streams; the mix renders blocks the size the device asks
+for (at most 512 samples) and resamples to the device rate when they differ. On 64-bit Windows the
+output can instead go through an interface's own low-latency driver (`asio-host`, built on the MIT
+`azo` crate, no Steinberg SDK), with the same callback and health counters; input then stays on
+the default system. There is no MIDI device layer yet (see [`hardware-parity.md`](hardware-parity.md)). Sources are decoded whole into the `SourcePool`
 and recordings are captured in memory until stop.
 
 `soundcraft-video` holds our own H.264, ProRes and Motion JPEG decoders and the ISO-BMFF demuxer
@@ -78,6 +82,7 @@ app as an MCP server. See `control-protocol.md` and `mcp.md`.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-13 | minor | asio-host in the layer diagram; device I/O paragraph brought up to date (device choice, low-latency drivers) |
 | 2026-10-13 | trivial | delay compensation includes the master faders' inserts (#351) |
 | 2026-10-10 | minor | Added video, vst3-host and au-host to the layer diagram; documented device I/O limits and in-memory media |
 | 2026-10-05 | major | First architecture overview |
