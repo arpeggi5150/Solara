@@ -487,7 +487,12 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
         return;
     }
     let draft_id = egui::Id::unique("audio_draft");
-    let mut draft = ctx.data(|d| d.get_temp::<AudioConfig>(draft_id)).unwrap_or_else(|| app.ui.audio.clone());
+    // The draft starts from the applied settings, and starts again from them when they change from
+    // outside the window (`ui.audio_device`, Reconnect), so it never shows a device that is not open.
+    let base_id = egui::Id::unique("audio_draft_base");
+    let base = ctx.data(|d| d.get_temp::<AudioConfig>(base_id));
+    let mut draft =
+        ctx.data(|d| d.get_temp::<AudioConfig>(draft_id)).filter(|_| base.as_ref() == Some(&app.ui.audio)).unwrap_or_else(|| app.ui.audio.clone());
     let mut refresh = false;
     let mut apply = false;
     let systems = audio_systems(ctx, false);
@@ -611,11 +616,16 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
         app.ui.status = e;
     }
     if open {
-        ctx.data_mut(|d| d.insert_temp(draft_id, draft));
+        let applied = app.ui.audio.clone();
+        ctx.data_mut(|d| {
+            d.insert_temp(draft_id, draft);
+            d.insert_temp(base_id, applied);
+        });
     } else {
         // Closing discards unapplied edits and the device list (re-read on the next open).
         ctx.data_mut(|d| {
             d.remove_temp::<AudioConfig>(draft_id);
+            d.remove_temp::<AudioConfig>(base_id);
             d.remove_temp::<Arc<Vec<AudioSystem>>>(egui::Id::unique("audio_systems"));
         });
     }
