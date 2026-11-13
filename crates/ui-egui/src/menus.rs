@@ -90,6 +90,9 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("ui.roll_slide", "Slide Selected Notes", "", None),
     ("ui.roll_strum", "Strum Selected Notes", "", None),
     ("ui.roll_arpeggiate", "Arpeggiate Selected Notes", "", None),
+    ("ui.session_view", "Show/Hide Session View", "", None),
+    ("ui.device_view", "Show/Hide Device View", "", None),
+    ("ui.launch_scene", "Launch Selected Scene", "", None),
     ("ui.reduce_visual_effects", "Reduce Visual Effects", "", None),
     ("ui.undo_levels", "Levels of Undo", "", None),
 ];
@@ -619,6 +622,9 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
         return Some(crate::docking::command(app, id, p));
     }
     if let Some(r) = crate::new_layout::command(app, id, p) {
+        return Some(r);
+    }
+    if let Some(r) = crate::abl_layout::command(app, id, p) {
         return Some(r);
     }
     if let Some(r) = crate::fl_layout::command(app, id, p) {

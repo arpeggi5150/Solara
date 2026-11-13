@@ -10,6 +10,7 @@ mod automation;
 pub mod b64;
 mod clip;
 mod ids;
+mod launcher;
 mod markers;
 mod mixer;
 mod session;
@@ -20,6 +21,10 @@ pub use auto_clip::{AutoClip, MAX_AUTO_CLIPS};
 pub use automation::{AutoParam, AutomationLane, AutomationMode, AutomationPoint};
 pub use clip::{Clip, ClipContent, Fade, FadeShape, Groove};
 pub use ids::{BusId, ClipId, GroupId, MarkerId, SourceId, TrackId};
+pub use launcher::{
+    Follow, FollowAction, GroovePreset, Launch, MACROS, MAX_FOLLOW_PLAYS, MAX_GROOVES, MAX_LAUNCHES, MAX_MACRO_TARGETS, MAX_SCENES, Macro,
+    MacroTarget, Pass, Rack, Scene,
+};
 pub use markers::{Group, MarkerKind, MemoryLocation};
 pub use mixer::{
     Bus, ChannelFormat, INSERT_SLOTS, Insert, Mixer, OutputPath, Route, SEND_SLOTS, SendSlot, Speaker, SurroundPan, fader_db_to_pos, fader_pos_to_db,

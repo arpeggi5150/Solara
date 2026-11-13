@@ -46,6 +46,7 @@ pub(crate) static REGISTRY: &[&PluginInfo] = &[
     &utility::DITHER_INFO,
     &synth::SYNTH_INFO,
     &drums::DRUM_INFO,
+    &drums::DRUM_RACK_INFO,
     &sampler::SAMPLER_INFO,
 ];
 
@@ -81,6 +82,7 @@ pub(crate) fn instantiate(id: &str) -> Option<Box<dyn Plugin>> {
         "dither" => Box::new(utility::Dither::new()),
         "subtractive_synth" => Box::new(synth::SubtractiveSynth::new()),
         "drum_synth" => Box::new(drums::DrumSynth::new()),
+        "drum_rack" => Box::new(drums::DrumSynth::rack()),
         "sampler" => Box::new(sampler::Sampler::new()),
         _ => return None,
     })

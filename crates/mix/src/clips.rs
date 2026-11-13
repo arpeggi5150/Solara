@@ -126,9 +126,16 @@ impl ClipFx {
 }
 
 pub(crate) fn render_clip(s: &Session, clip: &Clip, pos: Samples, frames: usize, buf: &mut [Vec<f32>], _scratch: &mut [f32]) {
+    render_clip_at(s, clip, clip.start, clip.range(), pos, frames, buf);
+}
+
+/// Mix `clip`, playing from `at` (a Session View pass, or its own start), into `buf` for the block
+/// at `pos`, only where it meets `win`.
+pub(crate) fn render_clip_at(s: &Session, clip: &Clip, at: Samples, win: Range, pos: Samples, frames: usize, buf: &mut [Vec<f32>]) {
     let ClipContent::Audio { source, offset } = clip.content else { return };
     let block = Range { start: pos, end: pos.saturating_add(frames as i64) };
-    let Some(isect) = clip.range().intersect(&block) else { return };
+    let here = Range { start: at, end: at.saturating_add(clip.length) };
+    let Some(isect) = here.intersect(&win).and_then(|r| r.intersect(&block)) else { return };
     let Some(audio) = s.pool.get(source) else { return };
     let nsrc = audio.buffer.channels.len();
     if nsrc == 0 {
@@ -144,15 +151,15 @@ pub(crate) fn render_clip(s: &Session, clip: &Clip, pos: Samples, frames: usize,
         let mut i = i0;
         while i < i1 {
             let seg_end = (i + STEP).min(i1);
-            let rel0 = pos.saturating_add(i as i64).saturating_sub(clip.start);
+            let rel0 = pos.saturating_add(i as i64).saturating_sub(at);
             // The last sample of this step, not the first sample of the next one, so a breakpoint
             // on the boundary does not ramp the audio before it.
-            let rel1 = pos.saturating_add(seg_end.saturating_sub(1) as i64).saturating_sub(clip.start);
+            let rel1 = pos.saturating_add(seg_end.saturating_sub(1) as i64).saturating_sub(at);
             let g0 = clip.gain_at(rel0);
             let g1 = clip.gain_at(rel1.min(clip.length));
             let n = (seg_end - i).saturating_sub(1).max(1) as f32;
             for k in i..seg_end {
-                let rel = pos.saturating_add(k as i64).saturating_sub(clip.start);
+                let rel = pos.saturating_add(k as i64).saturating_sub(at);
                 let v = if (stretch - 1.0).abs() < 1e-9 {
                     usize::try_from(offset.saturating_add(rel)).ok().and_then(|x| src.get(x)).copied().unwrap_or(0.0)
                 } else {

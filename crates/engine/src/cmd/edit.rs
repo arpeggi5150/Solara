@@ -481,6 +481,10 @@ fn select_clip_ids(s: &Session, ed: &mut soundcraft_model::EditState, c: Vec<Cli
     let mut range: Option<soundcraft_time::Range> = None;
     let mut trs = Vec::new();
     for id in &c {
+        // A Session View clip has no place on the timeline: selecting it leaves the selection be.
+        if s.find_slot_clip(*id).is_some() {
+            continue;
+        }
         if let Some((tid, clip)) = s.find_clip(*id) {
             range = Some(range.map_or(clip.range(), |r| soundcraft_time::Range::new(r.start.min(clip.start), r.end.max(clip.end()))));
             if !trs.contains(&tid) {

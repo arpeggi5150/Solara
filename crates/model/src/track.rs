@@ -76,6 +76,10 @@ impl TrackKind {
     pub fn is_midi(self) -> bool {
         matches!(self, TrackKind::Midi | TrackKind::Instrument)
     }
+    /// Track kinds with Session View clip slots.
+    pub fn has_slots(self) -> bool {
+        matches!(self, TrackKind::Audio | TrackKind::Midi | TrackKind::Instrument)
+    }
     /// Kinds that pass audio through the mixer.
     pub fn is_audio_path(self) -> bool {
         matches!(self, TrackKind::Audio | TrackKind::Aux | TrackKind::Master | TrackKind::Instrument | TrackKind::Folder)
@@ -309,6 +313,12 @@ pub struct Track {
     /// Pinned to top in the Edit window.
     #[serde(default)]
     pub pinned: bool,
+    /// Session View clip slots, one per scene ([`crate::Session::scenes`]). Slot clips start at 0.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slots: Vec<Option<Clip>>,
+    /// The Instrument Rack's macros around the track's instrument.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rack: Option<crate::Rack>,
 }
 
 fn yes() -> bool {
@@ -348,6 +358,8 @@ impl Track {
             ticks_timebase: kind.is_midi(),
             elastic: None,
             pinned: false,
+            slots: Vec::new(),
+            rack: None,
         }
     }
 

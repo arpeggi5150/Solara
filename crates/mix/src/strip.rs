@@ -1,5 +1,5 @@
 use super::automation::{GainRamp, transport_at, volume_db_at};
-use super::clips::{ClipFx, clip_fx_params, render_clip};
+use super::clips::{ClipFx, clip_fx_params, render_clip, render_clip_at};
 use super::instances::{INSTRUMENT_SLOT, PluginFailures, PreparedInstance, create_instance_for, is_third_party};
 use super::midi::{chase_controllers, schedule_notes};
 use super::pan::{PanSpec, apply_matrix, build_matrix, identity_matrix};
@@ -41,6 +41,9 @@ pub(crate) struct Strip {
     pub(crate) sample: Option<Arc<SourceAudio>>,
     /// MIDI notes currently sounding on the instrument (pitch), for note-offs at stops/seek.
     pub(crate) held: Vec<u8>,
+    /// Whether Session View clips were launched on the track last block: when that changes, the
+    /// notes the other side left held are let go.
+    pub(crate) launched: bool,
     /// The instrument's next block starts somewhere new: send it the controllers in effect there.
     pub(crate) chase: bool,
     pub(crate) muted: bool,
@@ -140,6 +143,7 @@ impl Strip {
             instrument: None,
             sample: None,
             held: Vec::new(),
+            launched: false,
             chase: true,
             muted: false,
             gr: 0.0,
@@ -245,6 +249,15 @@ fn monitor_input(t: &Track, strip: &mut Strip, live: &LiveInput<'_>, frames: usi
 fn render_audio_clips(s: &Session, t: &Track, strip: &mut Strip, blk: Block) {
     let Block { pos, frames, .. } = blk;
     let block = Range { start: pos, end: pos.saturating_add(frames as i64) };
+    // Clips launched from the Session View play instead of the Arrangement's.
+    if s.launched(t.id) {
+        s.launch_passes(t, block, |p| {
+            if !p.clip.muted {
+                render_clip_at(s, p.clip, p.start, p.window, pos, frames, &mut strip.buf);
+            }
+        });
+        return;
+    }
     for clip in t.clips() {
         if clip.muted || !clip.is_audio() || !clip.range().overlaps(&block) {
             continue;
@@ -309,6 +322,12 @@ fn render_instrument(s: &Session, t: &Track, strip: &mut Strip, blk: Block, tran
         inst.plugin.set_transport(transport);
         if std::mem::take(&mut strip.chase) {
             chase_controllers(s, t, pos, inst);
+        }
+        let launched = s.launched(t.id);
+        if launched != std::mem::replace(&mut strip.launched, launched) {
+            for p in strip.held.drain(..) {
+                inst.plugin.note_off(0, p);
+            }
         }
         schedule_notes(s, t, pos, frames, inst, &mut strip.held);
         if strip.buf.len() >= 2 {

@@ -147,6 +147,15 @@ pub struct Clip {
     /// notes stay the same when one of them is edited.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pattern_link: Option<u64>,
+    /// What the clip does when it ends in the Session View (Ableton-style layout).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow: Option<crate::Follow>,
+    /// Warped: the audio follows the tempo, so a tempo change stretches it to stay in time.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub warp: bool,
+    /// The Groove Pool groove the clip uses ([`crate::GroovePreset`] id); `groove` holds its copy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub groove_pool: Option<u64>,
 }
 
 /// Swing and humanize for a pattern, both 0..=1. Swing delays every second sixteenth by up to
@@ -202,6 +211,9 @@ impl Clip {
             loop_id: None,
             groove: None,
             pattern_link: None,
+            follow: None,
+            warp: false,
+            groove_pool: None,
         }
     }
 

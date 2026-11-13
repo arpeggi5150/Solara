@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use soundcraft_model::{Route, TrackId, TrackKind};
 
-/// The layout presets the switcher offers. NEW, FL-style, Classic, Reaper and Pro Tools-style are
-/// built; the others are listed and refused until they are built.
+/// The layout presets the switcher offers, all built.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LayoutPreset {
@@ -37,7 +36,7 @@ impl LayoutPreset {
             Self::Classic => "Classic",
             Self::Reaper => "Reaper",
             Self::ProToolsStyle => crate::pt_layout::LABEL,
-            Self::AbletonStyle => "Ableton-style",
+            Self::AbletonStyle => crate::abl_layout::LABEL,
         }
     }
 
@@ -58,7 +57,7 @@ impl LayoutPreset {
 
     /// Whether this preset is built yet.
     pub fn available(self) -> bool {
-        matches!(self, Self::New | Self::FlStyle | Self::Classic | Self::Reaper | Self::ProToolsStyle)
+        matches!(self, Self::New | Self::FlStyle | Self::Classic | Self::Reaper | Self::ProToolsStyle | Self::AbletonStyle)
     }
 }
 
@@ -682,13 +681,12 @@ mod tests {
     }
 
     #[test]
-    fn the_layout_switches_between_new_and_classic_and_refuses_unbuilt_ones() {
+    fn the_layout_switches_between_new_and_classic_and_refuses_unknown_ones() {
         let mut app = app();
         assert_eq!(app.run("ui.layout", json!({"preset": "classic"})), Ok(json!({"preset": "classic"})));
         assert_eq!(app.ui.layout, LayoutPreset::Classic);
-        assert!(app.run("ui.layout", json!({"preset": "abletonStyle"})).is_err());
-        assert_eq!(app.ui.layout, LayoutPreset::Classic);
         assert!(app.run("ui.layout", json!({"preset": "nope"})).is_err());
+        assert_eq!(app.ui.layout, LayoutPreset::Classic);
         assert_eq!(app.run("ui.layout", json!({"preset": "new"})), Ok(json!({"preset": "new"})));
         assert_eq!(app.run("ui.layout", json!({})), Ok(json!({"preset": "new"})));
     }
@@ -726,10 +724,10 @@ mod tests {
         assert!(keys(&mut app, Key::Num5, Modifiers::NONE));
         assert_eq!(app.ui.layout, LayoutPreset::ProToolsStyle);
         app.ui.layout = LayoutPreset::New;
-        // An unbuilt layout's key leaves NEW in place and says why.
+        app.ui.layout = LayoutPreset::New;
+        // 6 is the Ableton-style layout.
         assert!(keys(&mut app, Key::Num6, Modifiers::NONE));
-        assert_eq!(app.ui.layout, LayoutPreset::New);
-        assert!(app.ui.status.contains("not built yet"));
+        assert_eq!(app.ui.layout, LayoutPreset::AbletonStyle);
         // Modified keys belong to the shared shortcuts (Ctrl+D is Duplicate).
         assert!(!keys(&mut app, Key::D, Modifiers::COMMAND));
         assert!(!keys(&mut app, Key::M, Modifiers::SHIFT));

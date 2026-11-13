@@ -19,76 +19,98 @@ fn midi_offset(s: &Session, t: &Track) -> i64 {
 
 /// Send note on/offs and controllers for MIDI clips overlapping the block.
 pub(crate) fn schedule_notes(s: &Session, t: &Track, pos: Samples, frames: usize, inst: &mut PluginSlot, held: &mut Vec<u8>) {
-    let sr = s.sample_rate;
     // MIDI Track Offsets: the track's notes sound `offset` samples later (earlier if negative), so
     // the block looks that far back into the clips.
     let offset = midi_offset(s, t);
     let pos = pos.saturating_sub(offset);
     let end = pos.saturating_add(frames as i64);
+    // Clips launched from the Session View play instead of the Arrangement's.
+    if s.launched(t.id) {
+        s.launch_passes(t, Range { start: pos, end }, |p| schedule_clip(s, t, p.clip, p.start, p.window, pos, end, inst, held));
+        return;
+    }
     for clip in t.clips() {
-        if clip.muted {
+        if clip.range().overlaps(&Range { start: pos, end }) {
+            schedule_clip(s, t, clip, clip.start, clip.range(), pos, end, inst, held);
+        }
+    }
+}
+
+/// Send the events of `clip`, playing from `at`, that fall in the block `pos..end` and in `win`.
+#[allow(clippy::too_many_arguments)]
+fn schedule_clip(
+    s: &Session,
+    t: &Track,
+    clip: &soundcraft_model::Clip,
+    at: Samples,
+    win: Range,
+    pos: Samples,
+    end: Samples,
+    inst: &mut PluginSlot,
+    held: &mut Vec<u8>,
+) {
+    let sr = s.sample_rate;
+    if clip.muted {
+        return;
+    }
+    let ClipContent::Midi { sequence } = &clip.content else { return };
+    // Where this play of the clip stops sounding.
+    let clip_end = at.saturating_add(clip.length).min(win.end);
+    let base = s.tempo.samples_to_ticks(at, sr);
+    // MIDI Real-Time Properties (non-destructive velocity/transpose/duration/delay).
+    let rtp = |name: &str, d: f64| Key::new(format_args!("rtp.{}.{name}", t.id.0)).map_or(d, |k| s.edit.value(k.as_str(), d));
+    let (dv, dp, dur, delay) = if s.edit.values.is_empty() {
+        (0i64, 0i64, 1.0f64, 0i64)
+    } else {
+        (
+            rtp("velocity", 0.0).clamp(-127.0, 127.0) as i64,
+            rtp("transpose", 0.0).clamp(-127.0, 127.0) as i64,
+            rtp("duration", 100.0).clamp(1.0, 1000.0) / 100.0,
+            rtp("delay", 0.0).clamp(-1e7, 1e7) as i64,
+        )
+    };
+    // The block in clip ticks, one tick wider on each side so rounding never drops an event.
+    let near = s.tempo.samples_to_ticks(pos, sr).saturating_sub(base).saturating_sub(1)
+        ..=s.tempo.samples_to_ticks(end, sr).saturating_sub(base).saturating_add(1);
+    // Swing and humanize (FL-style Channel Rack), when the clip has any.
+    let groove = clip.groove.filter(|g| !g.is_straight());
+    for n0 in &sequence.notes {
+        let mut n = *n0;
+        let (gt, gv) = groove.map_or((0, 0), |g| groove_shift(&g, n0));
+        n.velocity = (i64::from(n.velocity) + dv + gv).clamp(1, 127) as u8;
+        n.pitch = (i64::from(n.pitch) + dp).clamp(0, 127) as u8;
+        n.length = ((n.length as f64 * dur) as i64).max(1);
+        n.start = n.start.saturating_add(delay).saturating_add(gt).max(0);
+        // A note whose on and off both fall outside the block sends nothing: skip it before
+        // converting its positions, so a long sequence costs a comparison per note per block.
+        if n.start > *near.end() || n.start.saturating_add(n.length) < *near.start() {
             continue;
         }
-        let ClipContent::Midi { sequence } = &clip.content else { continue };
-        if !clip.range().overlaps(&Range { start: pos, end }) {
+        let on = s.tempo.tick_to_samples(base.saturating_add(n.start), sr);
+        let off = s.tempo.tick_to_samples(base.saturating_add(n.start).saturating_add(n.length), sr).min(clip_end);
+        if on >= clip_end || on < win.start {
             continue;
         }
-        let base = s.tempo.samples_to_ticks(clip.start, sr);
-        // MIDI Real-Time Properties (non-destructive velocity/transpose/duration/delay).
-        let rtp = |name: &str, d: f64| Key::new(format_args!("rtp.{}.{name}", t.id.0)).map_or(d, |k| s.edit.value(k.as_str(), d));
-        let (dv, dp, dur, delay) = if s.edit.values.is_empty() {
-            (0i64, 0i64, 1.0f64, 0i64)
-        } else {
-            (
-                rtp("velocity", 0.0).clamp(-127.0, 127.0) as i64,
-                rtp("transpose", 0.0).clamp(-127.0, 127.0) as i64,
-                rtp("duration", 100.0).clamp(1.0, 1000.0) / 100.0,
-                rtp("delay", 0.0).clamp(-1e7, 1e7) as i64,
-            )
-        };
-        // The block in clip ticks, one tick wider on each side so rounding never drops an event.
-        let near = s.tempo.samples_to_ticks(pos, sr).saturating_sub(base).saturating_sub(1)
-            ..=s.tempo.samples_to_ticks(end, sr).saturating_sub(base).saturating_add(1);
-        // Swing and humanize (FL-style Channel Rack), when the clip has any.
-        let groove = clip.groove.filter(|g| !g.is_straight());
-        for n0 in &sequence.notes {
-            let mut n = *n0;
-            let (gt, gv) = groove.map_or((0, 0), |g| groove_shift(&g, n0));
-            n.velocity = (i64::from(n.velocity) + dv + gv).clamp(1, 127) as u8;
-            n.pitch = (i64::from(n.pitch) + dp).clamp(0, 127) as u8;
-            n.length = ((n.length as f64 * dur) as i64).max(1);
-            n.start = n.start.saturating_add(delay).saturating_add(gt).max(0);
-            // A note whose on and off both fall outside the block sends nothing: skip it before
-            // converting its positions, so a long sequence costs a comparison per note per block.
-            if n.start > *near.end() || n.start.saturating_add(n.length) < *near.start() {
-                continue;
-            }
-            let on = s.tempo.tick_to_samples(base.saturating_add(n.start), sr);
-            let off = s.tempo.tick_to_samples(base.saturating_add(n.start).saturating_add(n.length), sr).min(clip.end());
-            if on >= clip.end() {
-                continue;
-            }
-            if on >= pos && on < end {
-                inst.plugin.note_on(usize::try_from(on - pos).unwrap_or(0), n.pitch, n.velocity);
-                if !held.contains(&n.pitch) && held.len() < 128 {
-                    held.push(n.pitch);
-                }
-            }
-            if off >= pos && off < end {
-                inst.plugin.note_off(usize::try_from(off - pos).unwrap_or(0), n.pitch);
-                held.retain(|p| *p != n.pitch);
+        if on >= pos && on < end {
+            inst.plugin.note_on(usize::try_from(on - pos).unwrap_or(0), n.pitch, n.velocity);
+            if !held.contains(&n.pitch) && held.len() < 128 {
+                held.push(n.pitch);
             }
         }
-        // Events before tick 0 are what a start trim hid: they don't play.
-        for c in sequence.ctrls.iter().filter(|c| c.tick >= 0) {
-            let tick = c.tick.saturating_add(delay).max(0);
-            if !near.contains(&tick) {
-                continue;
-            }
-            let at = s.tempo.tick_to_samples(base.saturating_add(tick), sr);
-            if at >= pos && at < end && at < clip.end() {
-                inst.plugin.midi(usize::try_from(at - pos).unwrap_or(0), ctrl_message(c.kind, c.value, dp));
-            }
+        if off >= pos && off < end {
+            inst.plugin.note_off(usize::try_from(off - pos).unwrap_or(0), n.pitch);
+            held.retain(|p| *p != n.pitch);
+        }
+    }
+    // Events before tick 0 are what a start trim hid: they don't play.
+    for c in sequence.ctrls.iter().filter(|c| c.tick >= 0) {
+        let tick = c.tick.saturating_add(delay).max(0);
+        if !near.contains(&tick) {
+            continue;
+        }
+        let at = s.tempo.tick_to_samples(base.saturating_add(tick), sr);
+        if at >= pos && at < end && at < clip_end && at >= win.start {
+            inst.plugin.midi(usize::try_from(at - pos).unwrap_or(0), ctrl_message(c.kind, c.value, dp));
         }
     }
 }
