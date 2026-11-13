@@ -7,14 +7,12 @@ license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 
-[dependencies]
-log.workspace = true
-
 # azo talks to the drivers' COM objects directly (MIT, no Steinberg SDK). Only on 64-bit Windows:
 # azo declares its calls `extern "system"`, which matches the drivers' calling convention there but
 # not on 32-bit x86. Elsewhere this crate is a safe stub that lists no drivers.
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 azo = { version = "0.6.1", default-features = false }
+log.workspace = true
 
 # An isolated unsafe helper crate, like soundcraft-clap-host: this crate opts out of the workspace
 # `unsafe_code = "forbid"` for itself only. It denies unsafe everywhere and allows it solely on the

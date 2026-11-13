@@ -143,11 +143,21 @@ fn driver_system() -> Option<AudioSystem> {
     }
     let outputs = names
         .iter()
-        .filter_map(|n| match soundcraft_asio_host::probe(n) {
-            Ok(c) => Some(driver_info(&c)),
+        .map(|n| match soundcraft_asio_host::probe(n) {
+            Ok(c) => driver_info(&c),
+            // Still listed (its interface may be unplugged, or another driver playing): choosing
+            // it tries it, and plays through the default system if it will not open.
             Err(e) => {
                 log::info!("low-latency driver: {e}");
-                None
+                DeviceInfo {
+                    name: n.clone(),
+                    is_default: false,
+                    max_channels: 0,
+                    sample_rates: Vec::new(),
+                    buffer_min: None,
+                    buffer_max: None,
+                    buffers: Vec::new(),
+                }
             }
         })
         .collect();
