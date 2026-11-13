@@ -293,4 +293,23 @@ mod tests {
         }
         assert_eq!([stops[1], stops[3], stops[5]], [on, off, at(4.0)]);
     }
+
+    #[test]
+    fn tab_to_transient_on_the_demo_kick_stops_only_at_kicks() {
+        let mut e = crate::demo::demo_engine();
+        let s = e.session();
+        let kick = s.track_by_name("Kick").unwrap();
+        let clip = kick.clips().first().unwrap().range();
+        let beat = 60.0 / 104.0;
+        // Each demo kick's tail is cut off at 0.45 s; Tab used to stop there too.
+        let kicks: Vec<i64> = (0..2).flat_map(|bar| [0.0, 2.5, 3.0].map(|pos| clip.start + at(beat * (4.0 * f64::from(bar) + pos)))).collect();
+        let t = kick.id.0;
+        e.execute("options.tab_to_transient", &json!({"value": true})).unwrap();
+        e.execute("edit.select", &json!({"tracks": [t], "start": clip.start})).unwrap();
+        let stops: Vec<i64> = (0..5).map(|_| tab(&mut e, false, false).0).collect();
+        assert_eq!(stops.len(), kicks.len() - 1);
+        for (found, want) in stops.iter().zip(&kicks[1..]) {
+            assert!((found - want).abs() < 256, "{stops:?} vs {kicks:?}");
+        }
+    }
 }

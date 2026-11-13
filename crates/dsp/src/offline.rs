@@ -643,12 +643,27 @@ pub fn detect_transients(ch: &[Vec<f32>], sample_rate: f32, sensitivity: f32) ->
         if contrast < std::f64::consts::LN_2 && !grows {
             continue;
         }
+        // Where a sound is cut off mid-tail, the step is a click with a sharp edge and new high
+        // partials, but the sound gets quieter there. A hit always adds sound.
+        if !louder_after(&ch, at, sr) {
+            continue;
+        }
         last = Some(m);
         if out.last().is_none_or(|&p| at > p) {
             out.push(at);
         }
     }
     out
+}
+
+/// Whether there is more sound in the 10 ms from `at` than in the 10 ms before it, summed over the
+/// channels. False where a sound stops, true at any attack, even one over a louder sound's decay.
+fn louder_after(ch: &[Vec<f32>], at: usize, sr: f32) -> bool {
+    let w = ((sr * 0.01) as usize).max(1);
+    let sum = |from: usize, to: usize| -> f64 {
+        ch.iter().map(|x| x.get(from..to.min(x.len())).map_or(0.0, |s| s.iter().map(|v| f64::from(*v) * f64::from(*v)).sum())).sum()
+    };
+    sum(at, at + w) > sum(at.saturating_sub(w), at)
 }
 
 /// Triangular filters 24 to the octave from 30 Hz to 20 kHz over the bins of an `n`-point FFT, without

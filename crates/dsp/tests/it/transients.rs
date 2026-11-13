@@ -147,3 +147,37 @@ fn channels_that_cancel_when_mixed_still_show_their_transients() {
     let found = detect_transients(&[left, right], SR, 0.5);
     assert!(near(&found, &onsets, at(0.001)), "{found:?} vs {onsets:?}");
 }
+
+/// A kick drawn like the demo session's: a falling sine whose tail is cut off at 0.45 s, still around
+/// -29 dB. The cut is a click, but the sound gets quieter there, so it is not a hit.
+fn cut_kick(vel: f32) -> Vec<f32> {
+    let mut phase = 0.0f32;
+    (0..at(0.45))
+        .map(|i| {
+            let t = i as f32 / SR;
+            phase += TAU * (48.0 + 110.0 * (-t * 28.0).exp()) / SR;
+            let click = if i < 64 { (64 - i) as f32 / 64.0 * 0.3 } else { 0.0 };
+            (phase.sin() * (-t * 7.5).exp() + click) * vel * 0.9
+        })
+        .collect()
+}
+
+#[test]
+fn where_a_cut_off_tail_stops_is_not_a_transient() {
+    let beat = 60.0 / 104.0;
+    let mut x = vec![0.0; at(0.3 + beat * 4.0 * 4.0)];
+    let mut starts = Vec::new();
+    for bar in 0..4 {
+        for (pos, vel) in [(0.0, 1.0), (2.5, 0.8), (3.0, 0.6)] {
+            let s = at(0.3 + beat * (bar as f32 * 4.0 + pos));
+            for (i, v) in cut_kick(vel).iter().enumerate() {
+                if let Some(o) = x.get_mut(s + i) {
+                    *o += v;
+                }
+            }
+            starts.push(s);
+        }
+    }
+    let found = detect_transients(&[x], SR, 0.5);
+    assert!(near(&found, &starts, at(0.002)), "{found:?} vs {starts:?}");
+}
