@@ -100,20 +100,24 @@ a portal answer it uses Dark. Manual Light and Dark stay fixed when the OS appea
 An offscreen render without `--system-theme` supplies no OS appearance and therefore resolves
 System to Dark, or on Linux to the desktop's portal setting when one is available.
 
-Layouts: the app opens in the NEW layout. `ui.layout {"preset":"new"|"flStyle"|"classic"|"reaper"}`
-switches between NEW, the FL-style layout (Browser and Channel Rack on the left, Playlist in the
-centre, Piano Roll and Mixer along the bottom), Classic (the Edit and Mix windows) and the
-Reaper-style layout (transport on top, track list and arrange view in the centre, mixer along the
-bottom) without touching the session; with no `preset` it returns the current one.
-`abletonStyle` is named but refused until it is built. `ui.mixer {"value"?: bool}` expands or
-collapses the bottom mixer of NEW (M), the FL-style layout (F9) or the Reaper-style layout
-(Ctrl+M); each keeps its own state. The FL-style layout's panels are `ui.channel_rack`,
+Layouts: the app opens in the NEW layout.
+`ui.layout {"preset":"new"|"flStyle"|"classic"|"reaper"|"proToolsStyle"}` switches between NEW,
+the FL-style layout (Browser and Channel Rack on the left, Playlist in the centre, Piano Roll and
+Mixer along the bottom), Classic (the Edit and Mix windows), the Reaper-style layout (transport on
+top, track list and arrange view in the centre, mixer along the bottom) and the Pro Tools-style
+layout (the Edit window with the Mix docked under it) without touching the session; with no
+`preset` it returns the current one. `abletonStyle` is named but refused until it is built.
+`ui.mixer {"value"?: bool}` expands or collapses the bottom mixer of NEW (M), the FL-style layout
+(F9), the Reaper-style layout (Ctrl+M) or the Pro Tools-style layout (Ctrl+=, where
+`window.toggle_mix_edit` shows or hides the docked Mix instead of swapping windows); each keeps its
+own state. The Pro Tools-style layout always shows an audio clip's gain line, and the Smart,
+Grabber or Trim tool drags it up and down (`clip.gain`). The FL-style layout's panels are `ui.channel_rack`,
 `ui.piano_roll` and `ui.browser` (`{"value"?: bool}`), and `ui.roll_slide`, `ui.roll_strum` and
 `ui.roll_arpeggiate` apply to the notes selected in its piano roll. In NEW,
 `ui.editor {"view": "auto"|"steps"|"piano"}` picks what the bottom Editor shows (B and P).
 
 Each layout brings its own key set: NEW's single-letter keys, Classic's shortcuts, the
-FL-style keys (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer, R record, Ctrl+B
+Pro Tools-style keys (Classic's shortcuts, with Ctrl+= for the docked Mix), the FL-style keys (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer, R record, Ctrl+B
 duplicate, Delete clear, Alt+S strum, Alt+A arpeggiate) and the
 Reaper-style keys (Ctrl+R record, R repeat, S split, Ctrl+T new track, Ctrl+M mixer, Alt+R
 Routing Matrix, ? Action List, Home/End, Delete, = and - zoom). The shared shortcuts (Space,

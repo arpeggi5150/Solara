@@ -1,5 +1,5 @@
 use super::automation::{automation_id, breakpoint_at, plugin_range, shown_automation};
-use super::clips::{clip_name_height, fade_control_position};
+use super::clips::{clip_name_height, fade_control_position, gain_line_body, gain_line_db_per_point, gain_line_shown, gain_line_y};
 use super::drag::{drag_snap, fade_curve_drag_value, fade_drag_range, spot_or_run};
 use super::layout::{sample_at, x_of};
 use super::{
@@ -120,6 +120,8 @@ struct LaneCtx<'a> {
     eff: Tool,
     fade_corner: Option<bool>,
     selector_press: bool,
+    /// The audio clip whose gain line a press is on (Smart, Grabber and Trim tools).
+    gain_line: Option<Clip>,
 }
 
 /// The lane's response, with its clip context menu and the drops it accepts.
@@ -261,6 +263,15 @@ fn start_gesture(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::
         && let Some((param, at)) = &point_hit
     {
         app.gesture = Some(Gesture::Breakpoint { track: track.id, param: param.clone(), at: *at });
+    } else if resp.drag_started()
+        && let Some(c) = &c.gain_line
+    {
+        // `clip.gain` refuses to run with nothing selected.
+        if s.edit.selected_tracks.is_empty() && s.edit.selected_clips.is_empty() {
+            let _ = app.engine.execute("edit.select", &json!({"clips": [c.id.0]}));
+        }
+        app.gesture =
+            Some(Gesture::GainLine { clip: c.id, track: track.id, from_db: c.gain_db, anchor_y: origin.y, fine: mods.command || mods.ctrl });
     } else if let Some(c) = gain_drag {
         // `clip.gain` refuses to run with nothing selected.
         if s.edit.selected_tracks.is_empty() && s.edit.selected_clips.is_empty() {
@@ -309,6 +320,34 @@ fn start_gesture(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::
             Tool::Pencil => Some(Gesture::Pencil { track: track.id, points: Vec::new() }),
             Tool::Zoom => Some(Gesture::ZoomBox { start: origin.x }),
         };
+    }
+}
+
+/// While the clip gain line is dragged, the clip's gain follows the pointer up and down.
+fn drag_gain_line(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::Response) {
+    let (track, s, p, mods) = (c.inp.track, c.inp.s, c.p, c.mods);
+    if let Some(Gesture::GainLine { clip, track: t, from_db, anchor_y, fine }) = &mut app.gesture
+        && *t == track.id
+        && resp.dragged()
+    {
+        // Ctrl (Cmd) switches to fine steps from where the pointer is, without a jump.
+        if *fine != (mods.command || mods.ctrl) {
+            *from_db = (*from_db + (*anchor_y - p.y) * gain_line_db_per_point(*fine)).clamp(-144.0, 36.0);
+            *anchor_y = p.y;
+            *fine = !*fine;
+        }
+        let clip = *clip;
+        let db = (*from_db + (*anchor_y - p.y) * gain_line_db_per_point(*fine)).clamp(-144.0, 36.0);
+        if db.is_finite() && s.find_clip(clip).is_some_and(|(_, c)| (c.gain_db - db).abs() > 0.001) {
+            let _ = app.engine.execute_merged("clip.gain", &json!({"clips": [clip.0], "db": db}), &format!("clip_gain:{}", clip.0));
+        }
+        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+        let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("gain_line_db")));
+        let t = Tokens::current();
+        let g = painter.layout_no_wrap(format!("Clip Gain {db:+.1} dB"), regular(11.0), t.text);
+        let r = Rect::from_min_size(pos2(p.x + 14.0, p.y - 26.0), g.size() + vec2(12.0, 6.0));
+        painter.rect(r, 3.0, t.panel_bg2, Stroke::new(1.0, t.border), StrokeKind::Inside);
+        painter.galley(r.min + vec2(6.0, 3.0), g, t.text);
     }
 }
 
@@ -451,13 +490,35 @@ pub(super) fn lane_interaction(app: &mut SoundApp, ui: &mut Ui, track: &Track, l
     if resp.hovered() && gain_icon_at(p).is_some() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
     }
-    let selector_press = eff == Tool::Selector && fade_corner.is_none() && curve_handle.is_none() && gain_icon_at(origin).is_none();
+    // The clip gain line, where it shows, is dragged up and down by the tools that grab or trim;
+    // clip edges (trim) and fade corners keep their own gestures.
+    let gain_line_at = |q: Pos2| {
+        if !matches!(tool, Tool::Smart | Tool::Grabber | Tool::Trim) || inp.auto_view.is_some() || fade_corner.is_some() || curve_handle.is_some() {
+            return None;
+        }
+        let c = clip_at(track, sample_at(&s, tl, q.x).max(0)).filter(|c| matches!(c.content, ClipContent::Audio { .. }))?;
+        let near_edge = (q.x - x_of(&s, tl, c.start)).abs() < 6.0 || (q.x - x_of(&s, tl, c.end())).abs() < 6.0;
+        if near_edge || !gain_line_shown(app, &s, track, c) {
+            return None;
+        }
+        let body = gain_line_body(&s, lane);
+        let rel = sample_at(&s, tl, q.x).max(0) - c.start;
+        let y = gain_line_y(body, c.gain_db + c.env_db_at(rel));
+        (body.height() > 12.0 && (q.y - y).abs() <= 4.0).then(|| c.clone())
+    };
+    let gain_line = if resp.drag_started() { gain_line_at(origin) } else { None };
+    if resp.hovered() && gain_line_at(p).is_some() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+    }
+    let selector_press =
+        eff == Tool::Selector && fade_corner.is_none() && curve_handle.is_none() && gain_icon_at(origin).is_none() && gain_line_at(origin).is_none();
     if selector_press && resp.is_pointer_button_down_on() && ui.input(|i| i.pointer.primary_pressed()) {
         place_insertion(app, ui, &s, track.id, at, mods.shift);
     }
     let gain_drag = if resp.drag_started() { gain_icon_at(origin) } else { None };
-    let cx = LaneCtx { inp, hits, mods, p, at, eff, fade_corner, selector_press };
+    let cx = LaneCtx { inp, hits, mods, p, at, eff, fade_corner, selector_press, gain_line };
     start_gesture(app, ui, &cx, &resp, gain_drag);
+    drag_gain_line(app, ui, &cx, &resp);
     drag_clip_gain(app, ui, &cx, &resp);
     lane_click(app, ui, &cx, &resp);
 }

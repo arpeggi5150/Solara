@@ -23,6 +23,7 @@ pub fn set_id(layout: LayoutPreset) -> &'static str {
         LayoutPreset::Reaper => "reaper",
         LayoutPreset::FlStyle => "fl",
         LayoutPreset::Classic => "classic",
+        LayoutPreset::ProToolsStyle => "proTools",
         _ => "new",
     }
 }
@@ -33,6 +34,7 @@ pub fn set_label(id: &str) -> &'static str {
         "reaper" => "Reaper",
         "fl" => "FL-style",
         "classic" => "Classic",
+        "proTools" => crate::pt_layout::LABEL,
         _ => "NEW",
     }
 }
@@ -76,6 +78,7 @@ pub const FL_KEYS: &[(&str, &str)] = &[
 pub fn default_chord(set: &str, id: &str) -> Option<&'static str> {
     match set {
         "reaper" => REAPER_KEYS.iter().find(|(_, c)| *c == id).map(|(k, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
+        "proTools" => crate::pt_layout::PT_KEYS.iter().find(|(_, c)| *c == id).map(|(k, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
         "fl" => FL_KEYS.iter().find(|(_, c)| *c == id).map(|(k, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
         "new" => crate::new_layout::NEW_KEYS.iter().find(|(_, c, _)| *c == id).map(|(k, _, _)| *k).or_else(|| crate::menus::shortcut_for(id)),
         _ => crate::menus::shortcut_for(id),
@@ -146,8 +149,12 @@ pub fn dispatch(app: &mut SoundApp, key: Key, m: Modifiers, mac: bool) -> bool {
     match app.ui.layout {
         // Over the piano roll, Delete deletes notes there, not the Playlist selection.
         LayoutPreset::FlStyle if key == Key::Delete && app.fl.roll_hovered => false,
-        LayoutPreset::Reaper | LayoutPreset::FlStyle => {
-            let keys = if app.ui.layout == LayoutPreset::Reaper { REAPER_KEYS } else { FL_KEYS };
+        LayoutPreset::Reaper | LayoutPreset::FlStyle | LayoutPreset::ProToolsStyle => {
+            let keys = match app.ui.layout {
+                LayoutPreset::Reaper => REAPER_KEYS,
+                LayoutPreset::FlStyle => FL_KEYS,
+                _ => crate::pt_layout::PT_KEYS,
+            };
             match keys.iter().find(|(c, _)| pressed(c, key, m, mac)) {
                 Some((_, id)) => {
                     crate::menus::invoke_menu(app, id, "");
@@ -247,7 +254,7 @@ mod tests {
 
     #[test]
     fn every_layout_key_names_a_real_command_and_a_real_key() {
-        for (c, id) in REAPER_KEYS.iter().chain(FL_KEYS) {
+        for (c, id) in REAPER_KEYS.iter().chain(FL_KEYS).chain(crate::pt_layout::PT_KEYS) {
             assert!(known(id), "{id}");
             assert!(crate::shortcuts::parse(c).is_some(), "{c}");
         }
@@ -313,6 +320,24 @@ mod tests {
         }
         app.ui.layout = LayoutPreset::Reaper;
         assert_eq!(chord_for(&app, "ui.mixer").as_deref(), Some("Cmd+M"));
+    }
+
+    #[test]
+    fn pro_tools_keys_work_in_the_pro_tools_layout_only() {
+        let mut app = app(LayoutPreset::ProToolsStyle);
+        assert_eq!(set_label(set_id(app.ui.layout)), crate::pt_layout::LABEL);
+        assert!(app.ui.pt_mix_open);
+        assert!(dispatch(&mut app, Key::Equals, Modifiers::COMMAND, false));
+        assert!(!app.ui.pt_mix_open, "Cmd+= shows or hides the Mix under Edit");
+        assert_eq!(app.ui.window, crate::MainWindow::Edit);
+        assert_eq!(chord_for(&app, "window.toggle_mix_edit").as_deref(), Some("Cmd+="));
+        // The other layouts' own keys stay theirs: F6 is FL's, Cmd+M Reaper's, B NEW's.
+        for (key, m) in [(Key::F6, Modifiers::NONE), (Key::M, Modifiers::COMMAND), (Key::B, Modifiers::NONE)] {
+            assert!(!dispatch(&mut app, key, m, false), "{key:?}");
+        }
+        // And Cmd+= is not a layout key elsewhere: Classic's falls through to the shared toggle.
+        app.ui.layout = LayoutPreset::Classic;
+        assert!(!dispatch(&mut app, Key::Equals, Modifiers::COMMAND, false));
     }
 
     #[test]

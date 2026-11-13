@@ -12,6 +12,8 @@ pub struct OpsState {
     pub beat_sensitivity: f32,
     pub beat_separate: bool,
     pub beat_set_tempo: bool,
+    /// Conform fills the gaps it leaves (Beat Analysis window).
+    pub beat_smooth: bool,
     pub beat_result: String,
     pub tempo_curve: String,
     pub tempo_start: f64,
@@ -43,6 +45,7 @@ impl Default for OpsState {
             beat_sensitivity: 0.5,
             beat_separate: true,
             beat_set_tempo: false,
+            beat_smooth: true,
             beat_result: String::new(),
             tempo_curve: "linear".into(),
             tempo_start: 100.0,
@@ -88,7 +91,8 @@ pub fn show(app: &mut SoundApp, ctx: &egui::Context) {
     rtp(app, ctx);
 }
 
-/// Beat Analysis window: sensitivity, separate and set-tempo options, Analyze and Apply results, and Identify Beat.
+/// Beat Analysis window: sensitivity, separate and set-tempo options, Analyze and Apply results,
+/// Conform to Grid, and Identify Beat.
 fn beat_detective(app: &mut SoundApp, ctx: &egui::Context) {
     let mut open = app.ui.show_beat_detective;
     if !open {
@@ -111,6 +115,16 @@ fn beat_detective(app: &mut SoundApp, ctx: &egui::Context) {
                 );
                 app.ops.beat_result = r.map_or_else(|e| e, |v| v.to_string());
             }
+        });
+        ui.separator();
+        // Conform: cut at the beats and move each piece to the nearest Grid line.
+        ui.horizontal(|ui| {
+            if ui.button("Conform to Grid").on_hover_text("Separate at the detected beats and move each piece to the nearest Grid line").clicked() {
+                let r =
+                    app.run("event.beat_detective", json!({"sensitivity": app.ops.beat_sensitivity, "conform": true, "smooth": app.ops.beat_smooth}));
+                app.ops.beat_result = r.map_or_else(|e| e, |v| v.to_string());
+            }
+            crate::widgets::checkbox(ui, &mut app.ops.beat_smooth, "Fill gaps");
         });
         ui.separator();
         ui.horizontal(|ui| {

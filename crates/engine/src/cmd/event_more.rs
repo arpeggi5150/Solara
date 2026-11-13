@@ -131,7 +131,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Beat Analysis",
             ["Event"],
             None,
-            "{tracks?, start?, end?, sensitivity?: 0.5, separate?: false, set_tempo?: false}",
+            "{tracks?, start?, end?, sensitivity?: 0.5, separate?: false, set_tempo?: false, conform?: false (separate at the beats and move each piece to the nearest grid line), smooth?: true (with conform: fill the gaps it leaves)}",
             has_range,
             beat_detective
         ),
@@ -707,7 +707,9 @@ fn beat_detective(e: &mut Engine, p: &Value) -> Result<Value> {
         }
         (b * 100.0).round() / 100.0
     });
-    let separate = bool_or(p, "separate", false);
+    let conform = bool_or(p, "conform", false);
+    let separate = conform || bool_or(p, "separate", false);
+    let smooth = bool_or(p, "smooth", true);
     let set_tempo = bool_or(p, "set_tempo", false);
     let s = e.session_mut();
     let mut separated = 0;
@@ -718,12 +720,68 @@ fn beat_detective(e: &mut Engine, p: &Value) -> Result<Value> {
             }
         }
     }
+    let mut conformed = 0;
+    if conform {
+        for t in &tracks {
+            conformed += conform_to_grid(s, *t, r, smooth);
+        }
+    }
     if set_tempo && let Some(b) = bpm {
         let tick = s.tempo.samples_to_ticks(r.start, sr);
         s.tempo.set_tempo(tick, b).map_err(|err| bad(id, err.to_string()))?;
     }
     let shown: Vec<Samples> = beats.iter().take(2000).copied().collect();
-    Ok(json!({"beats": shown, "count": beats.len(), "bpm": bpm, "separated": separated}))
+    Ok(json!({"beats": shown, "count": beats.len(), "bpm": bpm, "separated": separated, "conformed": conformed}))
+}
+
+/// Move each audio clip that starts inside `r` on track `t` to the nearest grid line (Edit window
+/// grid), in time order, without leaving the stretch those clips cover; a later clip covers the
+/// tail of an earlier one it lands on. A clip whose
+/// grid line is not after the previous clip's stays put, so close hits are never swallowed.
+/// `smooth` then lengthens each clip, as far as its file allows, to meet the next one, so the
+/// moves leave no gaps of silence. Returns how many clips moved.
+fn conform_to_grid(s: &mut Session, t: TrackId, r: Range, smooth: bool) -> usize {
+    let Some(track) = s.track(t) else { return 0 };
+    let mut pieces: Vec<Clip> = track
+        .clips()
+        .iter()
+        .filter(|c| matches!(c.content, ClipContent::Audio { .. }) && !crate::edit::locked(c) && r.contains(c.start))
+        .cloned()
+        .collect();
+    pieces.sort_by_key(|c| c.start);
+    let ids: Vec<ClipId> = pieces.iter().map(|c| c.id).collect();
+    if let Some(pl) = s.track_mut(t).and_then(|t| t.playlist_mut()) {
+        pl.clips.retain(|c| !ids.contains(&c.id));
+    }
+    // The pieces stay between the selection start and the end of the last one, so nothing outside
+    // the selection is overwritten: a piece that would start before it stays put, one that would
+    // run past the last piece's end is shortened.
+    let (lo, Some(hi)) = (r.start, pieces.iter().map(Clip::end).max()) else { return 0 };
+    let mut moved = 0;
+    let mut last: Option<Samples> = None;
+    for mut c in pieces {
+        let to = s.snap_to_grid(c.start).max(lo);
+        if to != c.start && to < hi && last.is_none_or(|l| to > l) {
+            c.start = to;
+            moved += 1;
+        }
+        if c.end() > hi {
+            c.trim_end_to(hi);
+        }
+        last = Some(c.start);
+        crate::edit::place_clip(s, t, c);
+    }
+    if smooth {
+        let mut order: Vec<(Samples, ClipId)> =
+            s.track(t).map(|tr| tr.clips().iter().filter(|c| ids.contains(&c.id)).map(|c| (c.start, c.id)).collect()).unwrap_or_default();
+        order.sort_unstable();
+        for w in order.windows(2) {
+            if let [(_, a), (next, _)] = *w {
+                crate::edit::trim_clip(s, a, None, Some(next), false);
+            }
+        }
+    }
+    moved
 }
 
 fn identify_beat(e: &mut Engine, p: &Value) -> Result<Value> {
@@ -994,6 +1052,68 @@ mod tests {
         let r = e.execute("event.beat_detective", &json!({"tracks": [kick.id.0], "start": c.start, "end": c.start + 48_000 * 8})).unwrap();
         assert!(r["count"].as_u64().unwrap() > 4, "{r}");
         assert!(r["bpm"].as_f64().is_some());
+    }
+
+    /// A mono take with a hit at each of `times` (seconds), `secs` long.
+    fn drum_take(e: &mut Engine, times: &[f64], secs: f64) -> TrackId {
+        let at = |t: f64| (t * 48_000.0) as usize;
+        let mut v = vec![0.0f32; at(secs)];
+        let mut seed = 7u32;
+        for &t in times {
+            for i in 0..at(0.2) {
+                seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let noise = (seed >> 8) as f32 / (1u32 << 24) as f32 - 0.5;
+                if let Some(x) = v.get_mut(at(t) + i) {
+                    *x = if i == 0 { 0.9 } else { noise * (-(i as f32) / 1500.0).exp() };
+                }
+            }
+        }
+        let s = e.session_mut();
+        let buf = soundcraft_audio_io::AudioBuffer { sample_rate: 48_000, channels: vec![v] };
+        let src = crate::io::add_source(s, "Drums", buf, None, soundcraft_audio_io::FileFormat::Wav);
+        let t = s.add_track(TrackKind::Audio, ChannelFormat::Mono, Some("Drums"));
+        let id = s.new_clip_id();
+        crate::edit::place_clip(s, t, Clip::audio(id, "Drums", src, 0, 0, at(secs) as Samples));
+        t
+    }
+
+    #[test]
+    fn beat_analysis_conform_cuts_a_loose_take_onto_the_grid() {
+        let mut e = Engine::default();
+        let t = drum_take(&mut e, &[0.52, 1.03, 1.47, 1.97], 3.0);
+        // The take is cut at 2.5 s, where its last piece runs into the clip after it.
+        crate::edit::separate_at(e.session_mut(), t, 120_000);
+        let after = e.session().track(t).unwrap().clips().iter().find(|c| c.start == 120_000).cloned().unwrap();
+        let s = e.session_mut();
+        s.tempo.set_tempo(0, 120.0).unwrap();
+        s.edit.grid = soundcraft_time::GridValue::Note { value: soundcraft_time::NoteValue::Quarter, dotted: false, triplet: false };
+        s.edit.grid_clips_markers = false;
+        let r = e.execute("event.beat_detective", &json!({"tracks": [t.0], "start": 12_000, "end": 110_000, "conform": true})).unwrap();
+        assert_eq!(r["count"], 4, "{r}");
+        assert_eq!(r["conformed"], 4, "{r}");
+        // The clip after the selection is untouched, though the last piece moved later.
+        let clips = e.session().track(t).unwrap().clips().to_vec();
+        assert!(clips.contains(&after), "{clips:?}");
+        let clips: Vec<Clip> = clips.into_iter().filter(|c| c.id != after.id).collect();
+        let starts: Vec<Samples> = clips.iter().map(|c| c.start).collect();
+        for beat in [24_000, 48_000, 72_000, 96_000] {
+            assert!(starts.contains(&beat), "a piece starts on the quarter at {beat}: {starts:?}");
+        }
+        // Each moved hit still starts its piece: the audio moved with the cut.
+        for c in clips.iter().filter(|c| c.start >= 24_000) {
+            let off = c.source_offset();
+            assert!((c.start - off).abs() < 48_000 / 20, "piece at {} plays its hit from {off}", c.start);
+        }
+        // Smoothing leaves no gaps between the pieces.
+        let mut sorted = clips.clone();
+        sorted.sort_by_key(|c| c.start);
+        for w in sorted.windows(2) {
+            assert_eq!(w[0].end(), w[1].start, "{sorted:?}");
+        }
+        assert_eq!(sorted.last().map(Clip::end), Some(after.start));
+        // One undo puts the take back as it was.
+        e.execute("edit.undo", &json!({})).unwrap();
+        assert_eq!(e.session().track(t).unwrap().clips().len(), 2);
     }
 
     #[test]

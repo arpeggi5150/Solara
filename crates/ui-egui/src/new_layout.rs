@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use soundcraft_model::{Route, TrackId, TrackKind};
 
-/// The layout presets the switcher offers. NEW, FL-style, Classic and Reaper are built; the others are
-/// listed and refused until they are built.
+/// The layout presets the switcher offers. NEW, FL-style, Classic, Reaper and Pro Tools-style are
+/// built; the others are listed and refused until they are built.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LayoutPreset {
@@ -22,12 +22,13 @@ pub enum LayoutPreset {
     FlStyle,
     Classic,
     Reaper,
+    ProToolsStyle,
     AbletonStyle,
 }
 
 impl LayoutPreset {
-    /// In switcher order; keys 1 to 5 pick them.
-    pub const ALL: [Self; 5] = [Self::New, Self::FlStyle, Self::Classic, Self::Reaper, Self::AbletonStyle];
+    /// In switcher order; keys 1 to 6 pick them.
+    pub const ALL: [Self; 6] = [Self::New, Self::FlStyle, Self::Classic, Self::Reaper, Self::ProToolsStyle, Self::AbletonStyle];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -35,6 +36,7 @@ impl LayoutPreset {
             Self::FlStyle => "FL-style",
             Self::Classic => "Classic",
             Self::Reaper => "Reaper",
+            Self::ProToolsStyle => crate::pt_layout::LABEL,
             Self::AbletonStyle => "Ableton-style",
         }
     }
@@ -45,6 +47,7 @@ impl LayoutPreset {
             Self::FlStyle => "flStyle",
             Self::Classic => "classic",
             Self::Reaper => "reaper",
+            Self::ProToolsStyle => "proToolsStyle",
             Self::AbletonStyle => "abletonStyle",
         }
     }
@@ -55,7 +58,7 @@ impl LayoutPreset {
 
     /// Whether this preset is built yet.
     pub fn available(self) -> bool {
-        matches!(self, Self::New | Self::FlStyle | Self::Classic | Self::Reaper)
+        matches!(self, Self::New | Self::FlStyle | Self::Classic | Self::Reaper | Self::ProToolsStyle)
     }
 }
 
@@ -105,6 +108,7 @@ pub fn command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<Value, 
             let open = match app.ui.layout {
                 LayoutPreset::Reaper => &mut app.ui.reaper_mixer_open,
                 LayoutPreset::FlStyle => &mut app.ui.fl_mixer_open,
+                LayoutPreset::ProToolsStyle => &mut app.ui.pt_mix_open,
                 _ => &mut app.ui.new_mixer_open,
             };
             *open = p.get("value").and_then(Value::as_bool).unwrap_or(!*open);
@@ -128,13 +132,15 @@ fn layout_command(app: &mut SoundApp, p: &Value) -> Result<Value, String> {
     let Some(name) = p.get("preset").and_then(Value::as_str) else {
         return Ok(json!({"preset": app.ui.layout.id()}));
     };
-    let preset = LayoutPreset::parse(name).ok_or_else(|| format!("unknown layout `{name}` (new, flStyle, classic, reaper or abletonStyle)"))?;
+    let preset =
+        LayoutPreset::parse(name).ok_or_else(|| format!("unknown layout `{name}` (new, flStyle, classic, reaper, proToolsStyle or abletonStyle)"))?;
     if !preset.available() {
         return Err(format!("the {} layout is not built yet", preset.label()));
     }
     app.ui.layout = preset;
-    if preset == LayoutPreset::Classic {
-        // Classic shows its Edit window; Mix stays one shortcut away as before.
+    if matches!(preset, LayoutPreset::Classic | LayoutPreset::ProToolsStyle) {
+        // Classic shows its Edit window, Mix one shortcut away as before; Pro Tools-style shows
+        // Edit with Mix under it.
         app.ui.window = crate::MainWindow::Edit;
     }
     Ok(json!({"preset": preset.id()}))
@@ -153,7 +159,8 @@ pub const NEW_KEYS: &[(&str, &str, &str)] = &[
     ("2", "ui.layout", r#"{"preset":"flStyle"}"#),
     ("3", "ui.layout", r#"{"preset":"classic"}"#),
     ("4", "ui.layout", r#"{"preset":"reaper"}"#),
-    ("5", "ui.layout", r#"{"preset":"abletonStyle"}"#),
+    ("5", "ui.layout", r#"{"preset":"proToolsStyle"}"#),
+    ("6", "ui.layout", r#"{"preset":"abletonStyle"}"#),
 ];
 
 /// The NEW layout's own keys ([`NEW_KEYS`]). Returns whether the key was taken.
@@ -715,8 +722,12 @@ mod tests {
         assert!(keys(&mut app, Key::Num2, Modifiers::NONE));
         assert_eq!(app.ui.layout, LayoutPreset::FlStyle);
         app.ui.layout = LayoutPreset::New;
-        // An unbuilt layout's key leaves NEW in place and says why.
+        // 5 is the Pro Tools-style layout.
         assert!(keys(&mut app, Key::Num5, Modifiers::NONE));
+        assert_eq!(app.ui.layout, LayoutPreset::ProToolsStyle);
+        app.ui.layout = LayoutPreset::New;
+        // An unbuilt layout's key leaves NEW in place and says why.
+        assert!(keys(&mut app, Key::Num6, Modifiers::NONE));
         assert_eq!(app.ui.layout, LayoutPreset::New);
         assert!(app.ui.status.contains("not built yet"));
         // Modified keys belong to the shared shortcuts (Ctrl+D is Duplicate).

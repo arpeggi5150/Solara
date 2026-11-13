@@ -1622,3 +1622,43 @@ fn short_track_name_is_centered_and_long_name_is_left_aligned() {
     let first_center_x = first_pos.x + first_size.x * 0.5;
     assert!((first_center_x - (r0.min.x + 64.5)).abs() <= 0.1, "short name should be centered (center was at {first_center_x})");
 }
+
+/// The Pro Tools-style layout always shows an audio clip's gain line; dragging it up raises the
+/// clip's gain (before the fader), and the edit is one undo step.
+#[test]
+fn the_clip_gain_line_drags_the_clip_gain_in_the_pro_tools_layout() {
+    let mut engine = soundcraft_engine::demo::demo_engine();
+    engine.execute("edit.tool", &json!({"tool": "smart"})).unwrap();
+    engine.execute("edit.mode", &json!({"mode": "slip"})).unwrap();
+    let mut app = SoundApp::new(engine, None, crate::Services::default());
+    app.run("ui.layout", json!({"preset": "proToolsStyle"})).unwrap();
+    let mut h = Harness::builder().with_size(vec2(1400.0, 1100.0)).with_step_dt(1.0 / 60.0).build_ui_state(
+        |ui, app: &mut SoundApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(4);
+    let tl = timeline(&h);
+    let (clip, lane) = clip_on_screen(&h, |xs, xe| xs > tl.min.x + 30.0 && xe < tl.max.x - 30.0 && xe - xs > 120.0);
+    assert!(matches!(clip.content, ClipContent::Audio { .. }));
+    assert_eq!(clip.gain_db, 0.0);
+    let s = h.state().engine.session().clone();
+    let body = super::clips::gain_line_body(&s, lane);
+    let x = (x_of(&s, tl, clip.start) + x_of(&s, tl, clip.end())) * 0.5;
+    let on_line = pos2(x, super::clips::gain_line_y(body, 0.0));
+    let undo = h.state().engine.undo_history().len();
+    drag(&mut h, on_line, on_line - vec2(0.0, 30.0));
+    let after = h.state().engine.session().find_clip(clip.id).unwrap().1.gain_db;
+    assert!((after - 7.5).abs() < 1.0, "a quarter dB a point: 30 points up is about +7.5 dB, got {after}");
+    assert_eq!(h.state().engine.undo_history().len(), undo + 1, "one undo step");
+    assert_eq!(h.state().engine.session().find_clip(clip.id).unwrap().1.start, clip.start, "the line drag does not move the clip");
+    // Classic shows no line at 0 dB, so the same press is the Smart tool's selector/grabber again.
+    h.state_mut().engine.execute("clip.gain", &json!({"clips": [clip.id.0], "db": 0.0})).unwrap();
+    h.state_mut().run("ui.layout", json!({"preset": "classic"})).unwrap();
+    h.run_steps(2);
+    drag(&mut h, on_line, on_line - vec2(0.0, 30.0));
+    assert_eq!(h.state().engine.session().find_clip(clip.id).unwrap().1.gain_db, 0.0);
+}
