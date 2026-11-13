@@ -87,6 +87,7 @@ impl SoundApp {
             edit_layout: edit_window::EditLayout::default(),
             midi: midi_editor::MidiEditorState::default(),
             fl: crate::fl_layout::FlState::default(),
+            abl: crate::abl_layout::AblState::default(),
             ops: ops_windows::OpsState::default(),
             extra: extra_windows::ExtraState::default(),
             palette: palette::PaletteState::default(),
@@ -222,6 +223,8 @@ impl SoundApp {
         self.watch_input();
         // Stop the old playback before sending a replacement session to the audio thread.
         self.handle_transport(dt);
+        // Launched Session View clips follow the song and stop with it, in every layout.
+        crate::abl_layout::tick(self);
         if self.engine.revision != self.last_rev {
             self.last_rev = self.engine.revision;
             if let Some(p) = &self.player {
@@ -362,6 +365,8 @@ impl SoundApp {
             crate::fl_layout::show(self, ui);
         } else if crate::pt_layout::active(self) {
             crate::pt_layout::show(self, ui);
+        } else if crate::abl_layout::active(self) {
+            crate::abl_layout::show(self, ui);
         } else {
             match if self.ui.mix_separate { MainWindow::Edit } else { self.ui.window } {
                 MainWindow::Edit => edit_window::show(self, ui),

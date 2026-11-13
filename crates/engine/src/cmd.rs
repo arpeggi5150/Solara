@@ -19,7 +19,7 @@ mod edit_more;
 mod event;
 mod event_more;
 mod file;
-mod groove_pool;
+pub mod groove_pool;
 mod health;
 mod instrument;
 pub(crate) mod launcher;

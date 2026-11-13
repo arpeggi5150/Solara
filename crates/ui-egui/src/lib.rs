@@ -13,6 +13,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     ..craft_update::suite::SOUNDCRAFT
 };
 
+pub mod abl_layout;
 pub mod action_list;
 pub mod appearance;
 pub mod bounce;
@@ -181,6 +182,11 @@ pub struct UiState {
     pub fl_ghost_notes: bool,
     /// The Pro Tools-style layout's Mix under the Edit window (`ui.mixer`, Cmd+=). Open by default.
     pub pt_mix_open: bool,
+    /// The Ableton-style layout's panels: Browser (Cmd+Alt+B), Session View (Tab) and Device View
+    /// (Cmd+Alt+L). All open by default.
+    pub abl_browser_open: bool,
+    pub abl_session_open: bool,
+    pub abl_device_open: bool,
 }
 
 impl Default for UiState {
@@ -260,6 +266,9 @@ impl Default for UiState {
             fl_mixer_open: false,
             fl_ghost_notes: true,
             pt_mix_open: true,
+            abl_browser_open: true,
+            abl_session_open: true,
+            abl_device_open: true,
         }
     }
 }
@@ -436,6 +445,8 @@ pub struct SoundApp {
     pub midi: midi_editor::MidiEditorState,
     /// The FL-style layout's own frame-to-frame state.
     pub fl: fl_layout::FlState,
+    /// The Ableton-style layout's own frame-to-frame state.
+    pub abl: abl_layout::AblState,
     pub ops: ops_windows::OpsState,
     pub extra: extra_windows::ExtraState,
     pub palette: palette::PaletteState,
