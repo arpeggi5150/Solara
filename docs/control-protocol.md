@@ -101,12 +101,15 @@ An offscreen render without `--system-theme` supplies no OS appearance and there
 System to Dark, or on Linux to the desktop's portal setting when one is available.
 
 Layouts: the app opens in the NEW layout.
-`ui.layout {"preset":"new"|"flStyle"|"classic"|"reaper"|"proToolsStyle"}` switches between NEW,
+`ui.layout {"preset":"new"|"flStyle"|"classic"|"reaper"|"proToolsStyle"|"abletonStyle"}` switches between NEW,
 the FL-style layout (Browser and Channel Rack on the left, Playlist in the centre, Piano Roll and
 Mixer along the bottom), Classic (the Edit and Mix windows), the Reaper-style layout (transport on
 top, track list and arrange view in the centre, mixer along the bottom) and the Pro Tools-style
-layout (the Edit window with the Mix docked under it) without touching the session; with no
-`preset` it returns the current one. `abletonStyle` is named but refused until it is built.
+layout (the Edit window with the Mix docked under it) and the Ableton-style layout (Browser and
+Session View on the left, Arrangement in the centre, Device View along the bottom) without
+touching the session; with no `preset` it returns the current one. The Ableton-style layout's
+panels are `ui.browser`, `ui.session_view` and `ui.device_view` (`{"value"?: bool}`), and
+`ui.launch_scene` launches the scene selected in its Session View.
 `ui.mixer {"value"?: bool}` expands or collapses the bottom mixer of NEW (M), the FL-style layout
 (F9), the Reaper-style layout (Ctrl+M) or the Pro Tools-style layout (Ctrl+=, where
 `window.toggle_mix_edit` shows or hides the docked Mix instead of swapping windows); each keeps its
@@ -117,7 +120,10 @@ Grabber or Trim tool drags it up and down (`clip.gain`). The FL-style layout's p
 `ui.editor {"view": "auto"|"steps"|"piano"}` picks what the bottom Editor shows (B and P).
 
 Each layout brings its own key set: NEW's single-letter keys, Classic's shortcuts, the
-Pro Tools-style keys (Classic's shortcuts, with Ctrl+= for the docked Mix), the FL-style keys (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer, R record, Ctrl+B
+Pro Tools-style keys (Classic's shortcuts, with Ctrl+= for the docked Mix), the Ableton-style
+keys (Tab Session View, Ctrl+Alt+B Browser, Ctrl+Alt+L Device View, Enter launch scene, Ctrl+I
+insert scene, Ctrl+E split, Ctrl+J consolidate, Ctrl+D duplicate, Ctrl+U quantize, Ctrl+T new
+track, F9 record, Ctrl+L loop, Delete clear), the FL-style keys (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer, R record, Ctrl+B
 duplicate, Delete clear, Alt+S strum, Alt+A arpeggiate) and the
 Reaper-style keys (Ctrl+R record, R repeat, S split, Ctrl+T new track, Ctrl+M mixer, Alt+R
 Routing Matrix, ? Action List, Home/End, Delete, = and - zoom). The shared shortcuts (Space,
@@ -130,6 +136,35 @@ follows the layout: in the Reaper-style layout every track can, through
 `mix.receive {"track", "value"?: bool}`, which gives an audio, instrument or MIDI track a
 receive bus the mix engine adds in ahead of its inserts; in the other layouts sends go to aux,
 folder and bus tracks only.
+
+Session View, Ableton-style: scenes are rows of clip slots, one slot per audio, instrument and
+MIDI track. `scene.new {name?, at?}`, `scene.rename {scene, name}`, `scene.move {scene, to}` and
+`scene.delete {scene}` edit the rows; `slot.set {track, scene, clip? | bars? | source?}` fills a
+slot with a copy of a clip, a new empty MIDI clip of `bars` bars or an audio file,
+`slot.clear {track, scene}` empties it and `slot.move {track, scene, to_track?, to_scene, copy?}`
+moves or copies it. `slot.launch {track, scene, quantize?: "bar"|"beat"|"none"}` plays a slot
+from the next bar, `scene.launch {scene, quantize?}` plays the whole row (tracks with an empty
+slot stop), `slot.stop {track}` stops one track and `launcher.stop_all {}` every track; a track
+with a launched clip leaves its Arrangement clips silent until it stops. Launching is not an
+edit: it is not undone and does not dirty the session. `clip.follow {clips?, action:
+"again"|"next"|"random"|"stop"|"none", plays?}` sets what a slot clip does after it has played
+`plays` times. `clip.warp {clips?, value?}` makes audio follow the tempo: a tempo change
+re-stretches warped Arrangement audio from its original (pitch kept) so it stays on its bars.
+`launcher.settle {at?}` reports what is playing on each track at a position.
+
+Groove Pool: `groove.add {name?, swing?, humanize?, starter?, from_clip?}` saves a groove (swing
+and humanize 0..1; starters Swing 25, Swing 50, Swing 75, Loose, Lazy and Shuffle),
+`groove.edit {groove, name?, swing?, humanize?}` changes it for every clip that uses it,
+`groove.apply {clips?, groove | null}` gives MIDI clips a pool groove and `groove.delete {groove}`
+removes it (its clips keep their feel). Instrument Rack: `rack.create {track}` puts eight macros
+around an instrument track's instrument, mapped to its first eight continuous parameters;
+`rack.macro {track, macro, value: 0..1}` turns one, `rack.map {track, macro, param, min?, max?}`
+and `rack.unmap {track, macro, param}` change what it moves, `rack.rename {track, macro, name}`
+names it and `rack.remove {track}` takes the rack off (the instrument stays as it is). The Drum
+Rack (`drum_rack`) is an instrument with sixteen pads from MIDI note 36, each with a sound, tune
+and level (`pN_sound`, `pN_tune`, `pN_level`). `clip.audio_to_midi {clip, mode:
+"melody"|"harmony"|"drums"}` writes the notes it hears in an audio clip to a new instrument track
+beside it (a Drum Rack for drums), at the same place or in the same scene slot.
 
 Patterns, FL-style: `playlist.place {"clip", "at", "track"?}` places the pattern a MIDI clip
 holds; the places stay one pattern, so a step or note edited in one place reaches every place
