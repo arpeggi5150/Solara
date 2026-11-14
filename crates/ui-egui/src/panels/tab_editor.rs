@@ -71,7 +71,7 @@ pub fn show(app: &mut SoundApp, ctx: &egui::Context) {
         let width = (len_ticks as f32 * PX_PER_TICK + LEFT + 40.0).max(ui.available_width());
         let base = s.tempo.samples_to_ticks(clip.start, s.sample_rate);
         egui::ScrollArea::horizontal().show(ui, |ui| {
-            let notation_h = if setup.view.shows_notation() { 110.0 } else { 0.0 };
+            let notation_h = match setup.view { TabView::Notation => 160.0, v if v.shows_notation() => 120.0, _ => 0.0 };
             let tab_h = if setup.view.shows_tab() { 18.0 * tuning.strings.len() as f32 + 8.0 } else { 0.0 };
             let roll_h = 120.0;
             let (r, resp) = ui.allocate_exact_size(vec2(width, notation_h + tab_h + roll_h + 24.0), Sense::click());

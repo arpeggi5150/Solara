@@ -105,10 +105,16 @@ pub fn bass_clef(tuning: &Tuning) -> bool {
 /// treble clef for guitars, bass clef for basses), stems and flags by length, ledger lines and
 /// sharps. `hot` marks a note.
 pub fn draw_notation(p: &Painter, r: Rect, bass: bool, notes: &[Drawn], ink: Color32, hot: Option<usize>) {
-    let step_h = (r.height() / 16.0).clamp(2.0, 6.0);
     // Middle line: B4 (treble, step 6) or D3 (bass, step -6).
     let middle = if bass { -6 } else { 6 };
-    let y_of = |step: i32| r.center().y - (step - middle) as f32 * step_h;
+    let (top, bottom) = (middle + 4, middle - 4);
+    // Written an octave above the sound.
+    let step_of = |d: &Drawn| diatonic(i32::from(d.pitch) + 12);
+    // Fit the staff and every note's ledger lines into `r`, centred on their span.
+    let (lo, hi) = notes.iter().map(|d| step_of(d).0).fold((bottom - 2, top + 2), |(lo, hi), st| (lo.min(st - 1), hi.max(st + 1)));
+    let step_h = (r.height() / ((hi - lo) as f32 + 2.0)).clamp(1.5, 6.0);
+    let mid = (hi + lo) as f32 * 0.5;
+    let y_of = |step: i32| r.center().y - (step as f32 - mid) * step_h;
     let stroke = Stroke::new(1.0, ink.gamma_multiply(0.8));
     for k in [-4, -2, 0, 2, 4] {
         let y = y_of(middle + k);
@@ -116,45 +122,63 @@ pub fn draw_notation(p: &Painter, r: Rect, bass: bool, notes: &[Drawn], ink: Col
     }
     draw_clef(p, pos2(r.min.x + 12.0, y_of(middle)), step_h, bass, ink);
     let head = vec2(step_h * 2.6, step_h * 1.9);
-    for d in notes {
-        let written = i32::from(d.pitch) + 12;
-        let (step, sharp) = diatonic(written);
-        let x = d.x0 + head.x * 0.5 + 1.0;
-        let y = y_of(step);
-        let color = if hot == Some(d.note) { Color32::from_rgb(230, 120, 0) } else { ink };
-        // Ledger lines above and below the staff.
-        let (top, bottom) = (middle + 4, middle - 4);
-        let mut l = top + 2;
-        while l <= step {
-            p.line_segment([pos2(x - head.x, y_of(l)), pos2(x + head.x, y_of(l))], stroke);
-            l += 2;
+    // Notes that start together are one chord: one stem and one set of flags.
+    let mut order: Vec<&Drawn> = notes.iter().collect();
+    order.sort_by(|a, b| a.x0.total_cmp(&b.x0));
+    let mut i = 0;
+    while let Some(first) = order.get(i) {
+        let mut j = i + 1;
+        while order.get(j).is_some_and(|d| (d.x0 - first.x0).abs() < 0.5) {
+            j += 1;
         }
-        let mut l = bottom - 2;
-        while l >= step {
-            p.line_segment([pos2(x - head.x, y_of(l)), pos2(x + head.x, y_of(l))], stroke);
-            l -= 2;
-        }
-        let q = d.ticks as f32 / TICKS_PER_QUARTER as f32;
-        if q >= 1.75 {
-            p.add(Shape::ellipse_stroke(pos2(x, y), head * 0.5, Stroke::new(1.4, color)));
-        } else {
-            p.add(Shape::ellipse_filled(pos2(x, y), head * 0.5, color));
-        }
-        if sharp {
-            let cx = x - head.x - 3.0;
-            let h = step_h * 1.6;
-            for dx in [-1.6, 1.2] {
-                p.line_segment([pos2(cx + dx - 0.6, y - h), pos2(cx + dx + 0.6, y + h)], Stroke::new(1.0, color));
+        let chord = order.get(i..j).unwrap_or_default();
+        i = j;
+        let x = first.x0 + head.x * 0.5 + 1.0;
+        let mut steps = Vec::with_capacity(chord.len());
+        let mut chord_color = ink;
+        for d in chord {
+            let (step, sharp) = step_of(d);
+            steps.push(step);
+            let y = y_of(step);
+            let color = if hot == Some(d.note) { Color32::from_rgb(230, 120, 0) } else { ink };
+            if color != ink {
+                chord_color = color;
             }
-            for dy in [-0.6, 0.6] {
-                p.line_segment([pos2(cx - 3.2, y + dy * h), pos2(cx + 3.2, y + dy * h - 0.8)], Stroke::new(1.0, color));
+            let mut l = top + 2;
+            while l <= step {
+                p.line_segment([pos2(x - head.x, y_of(l)), pos2(x + head.x, y_of(l))], stroke);
+                l += 2;
+            }
+            let mut l = bottom - 2;
+            while l >= step {
+                p.line_segment([pos2(x - head.x, y_of(l)), pos2(x + head.x, y_of(l))], stroke);
+                l -= 2;
+            }
+            let q = d.ticks as f32 / TICKS_PER_QUARTER as f32;
+            if q >= 1.75 {
+                p.add(Shape::ellipse_stroke(pos2(x, y), head * 0.5, Stroke::new(1.4, color)));
+            } else {
+                p.add(Shape::ellipse_filled(pos2(x, y), head * 0.5, color));
+            }
+            if sharp {
+                let cx = x - head.x - 3.0;
+                let h = step_h * 1.6;
+                for dx in [-1.6, 1.2] {
+                    p.line_segment([pos2(cx + dx - 0.6, y - h), pos2(cx + dx + 0.6, y + h)], Stroke::new(1.0, color));
+                }
+                for dy in [-0.6, 0.6] {
+                    p.line_segment([pos2(cx - 3.2, y + dy * h), pos2(cx + 3.2, y + dy * h - 0.8)], Stroke::new(1.0, color));
+                }
             }
         }
+        let (Some(low), Some(high)) = (steps.iter().min().copied(), steps.iter().max().copied()) else { continue };
+        let q = first.ticks as f32 / TICKS_PER_QUARTER as f32;
         if q < 3.5 {
-            let up = step < middle;
+            let up = (low + high) < middle * 2;
             let len = step_h * 7.0;
-            let (sx, sy1) = if up { (x + head.x * 0.45, y - len) } else { (x - head.x * 0.45, y + len) };
-            p.line_segment([pos2(sx, y), pos2(sx, sy1)], Stroke::new(1.1, color));
+            // The stem runs from the far notehead through the chord and on past the near one.
+            let (sx, sy0, sy1) = if up { (x + head.x * 0.45, y_of(low), y_of(high) - len) } else { (x - head.x * 0.45, y_of(high), y_of(low) + len) };
+            p.line_segment([pos2(sx, sy0), pos2(sx, sy1)], Stroke::new(1.1, chord_color));
             let flags = if q <= 0.3 {
                 2
             } else if q <= 0.6 {
@@ -164,7 +188,10 @@ pub fn draw_notation(p: &Painter, r: Rect, bass: bool, notes: &[Drawn], ink: Col
             };
             for f in 0..flags {
                 let fy = sy1 + if up { f as f32 * step_h * 1.5 } else { -(f as f32) * step_h * 1.5 };
-                p.line_segment([pos2(sx, fy), pos2(sx + step_h * 2.0, fy + if up { step_h * 2.5 } else { -step_h * 2.5 })], Stroke::new(1.4, color));
+                p.line_segment(
+                    [pos2(sx, fy), pos2(sx + step_h * 2.0, fy + if up { step_h * 2.5 } else { -step_h * 2.5 })],
+                    Stroke::new(1.4, chord_color),
+                );
             }
         }
     }
