@@ -24,7 +24,8 @@ pub(crate) fn format_rank(f: cpal::SampleFormat) -> Option<usize> {
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct AudioConfig {
-    /// Audio system (cpal host name: "WASAPI", "ASIO", "CoreAudio", "ALSA", "JACK", ...).
+    /// Audio system (cpal host name: "WASAPI", "CoreAudio", "ALSA", "JACK", ..., or
+    /// [`soundcraft_asio_host::SYSTEM`] for the low-latency drivers on 64-bit Windows).
     pub system: Option<String>,
     pub output: Option<String>,
     pub input: Option<String>,
@@ -46,11 +47,19 @@ pub struct DeviceInfo {
     /// Buffer range the device reports (`None` when it does not say).
     pub buffer_min: Option<u32>,
     pub buffer_max: Option<u32>,
+    /// The exact sizes the device offers, when it lists them (low-latency drivers do); empty when
+    /// it only gives a range.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub buffers: Vec<u32>,
 }
 
 impl DeviceInfo {
-    /// Standard buffer sizes inside the device's range (all of them when the range is unknown).
+    /// The sizes the device lists, else the standard buffer sizes inside its range (all of them
+    /// when the range is unknown).
     pub fn buffer_sizes(&self) -> Vec<u32> {
+        if !self.buffers.is_empty() {
+            return self.buffers.clone();
+        }
         STANDARD_BUFFERS.iter().copied().filter(|b| self.buffer_min.is_none_or(|m| *b >= m) && self.buffer_max.is_none_or(|m| *b <= m)).collect()
     }
 }
@@ -89,7 +98,15 @@ fn describe(d: &cpal::Device, default_name: Option<&str>, output: bool) -> Optio
             buffer_max = Some(buffer_max.map_or(*max, |m| m.max(*max)));
         }
     }
-    Some(DeviceInfo { is_default: default_name == Some(name.as_str()), name, max_channels, sample_rates, buffer_min, buffer_max })
+    Some(DeviceInfo {
+        is_default: default_name == Some(name.as_str()),
+        name,
+        max_channels,
+        sample_rates,
+        buffer_min,
+        buffer_max,
+        buffers: Vec::new(),
+    })
 }
 
 /// Every audio system on this machine with its devices. Enumerating can take a moment (some
@@ -106,7 +123,63 @@ pub fn audio_systems() -> Vec<AudioSystem> {
             let inputs = host.input_devices().map(|ds| ds.filter_map(|d| describe(&d, def_in.as_deref(), false)).collect()).unwrap_or_default();
             Some(AudioSystem { name: id.name().to_string(), is_default: id == default_id, outputs, inputs })
         })
+        .chain(driver_system())
         .collect()
+}
+
+/// Whether `cfg` chooses the low-latency drivers (also under the name cpal's old ASIO host had,
+/// which earlier settings may hold).
+pub fn is_driver_system(cfg: &AudioConfig) -> bool {
+    cfg.system.as_deref().is_some_and(|s| s.eq_ignore_ascii_case(soundcraft_asio_host::SYSTEM) || s.eq_ignore_ascii_case("ASIO"))
+}
+
+/// The low-latency drivers as one more audio system, when any is installed: each with the rates
+/// and the exact buffer sizes it offers. Output only; input stays on the default system.
+#[cfg(not(target_arch = "wasm32"))]
+fn driver_system() -> Option<AudioSystem> {
+    let names = soundcraft_asio_host::drivers();
+    if names.is_empty() {
+        return None;
+    }
+    let outputs = names
+        .iter()
+        .map(|n| match soundcraft_asio_host::probe(n) {
+            Ok(c) => driver_info(&c),
+            // Still listed (its interface may be unplugged, or another driver playing): choosing
+            // it tries it, and plays through the default system if it will not open.
+            Err(e) => {
+                log::info!("low-latency driver: {e}");
+                DeviceInfo {
+                    name: n.clone(),
+                    is_default: false,
+                    max_channels: 0,
+                    sample_rates: Vec::new(),
+                    buffer_min: None,
+                    buffer_max: None,
+                    buffers: Vec::new(),
+                }
+            }
+        })
+        .collect();
+    Some(AudioSystem { name: soundcraft_asio_host::SYSTEM.to_string(), is_default: false, outputs, inputs: Vec::new() })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn driver_system() -> Option<AudioSystem> {
+    None
+}
+
+/// A driver as the settings list it.
+pub(crate) fn driver_info(c: &soundcraft_asio_host::DriverCaps) -> DeviceInfo {
+    DeviceInfo {
+        name: c.name.clone(),
+        is_default: false,
+        max_channels: c.outputs,
+        sample_rates: if c.rates.is_empty() { vec![c.rate] } else { c.rates.clone() },
+        buffer_min: c.buffers.first().copied(),
+        buffer_max: c.buffers.last().copied(),
+        buffers: c.buffers.clone(),
+    }
 }
 
 /// True when a cpal error means the stream is dead and only a rebuild can restore audio. cpal 0.18
@@ -148,8 +221,12 @@ pub(crate) fn supported_format_config(
     best.and_then(|(_, c)| c.try_with_sample_rate(sample_rate))
 }
 
-/// The chosen audio system, else the default one.
+/// The chosen audio system, else the default one. With the low-latency drivers chosen (output
+/// only), input uses the default system.
 pub(crate) fn host(cfg: &AudioConfig) -> cpal::Host {
+    if is_driver_system(cfg) {
+        return cpal::default_host();
+    }
     cfg.system
         .as_deref()
         .and_then(|want| cpal::available_hosts().into_iter().find(|id| id.name().eq_ignore_ascii_case(want)))
@@ -278,10 +355,39 @@ mod tests {
             sample_rates: vec![48_000],
             buffer_min: Some(64),
             buffer_max: Some(1024),
+            buffers: Vec::new(),
         };
         assert_eq!(d.buffer_sizes(), [64, 128, 256, 512, 1024]);
-        let open = DeviceInfo { buffer_min: None, buffer_max: None, ..d };
+        let open = DeviceInfo { buffer_min: None, buffer_max: None, ..d.clone() };
         assert_eq!(open.buffer_sizes().len(), STANDARD_BUFFERS.len());
+        // A driver that lists its sizes offers exactly those.
+        let listed = DeviceInfo { buffers: vec![48, 96, 144], ..d };
+        assert_eq!(listed.buffer_sizes(), [48, 96, 144]);
+    }
+
+    #[test]
+    fn the_driver_system_is_chosen_by_its_name_or_the_old_one() {
+        let with = |s: &str| AudioConfig { system: Some(s.into()), ..Default::default() };
+        assert!(is_driver_system(&with(soundcraft_asio_host::SYSTEM)));
+        assert!(is_driver_system(&with("asio")), "settings saved with the old name");
+        assert!(!is_driver_system(&with("WASAPI")));
+        assert!(!is_driver_system(&AudioConfig::default()));
+        // Input with the drivers chosen comes from the default system.
+        assert_eq!(host(&with(soundcraft_asio_host::SYSTEM)).id(), cpal::default_host().id());
+        let caps = soundcraft_asio_host::DriverCaps {
+            name: "Interface".into(),
+            outputs: 4,
+            inputs: 2,
+            rate: 48_000,
+            rates: vec![44_100, 48_000],
+            buffers: vec![32, 64, 128, 256],
+            preferred_buffer: 256,
+            format: None,
+        };
+        let d = driver_info(&caps);
+        assert_eq!((d.max_channels, d.buffer_min, d.buffer_max), (4, Some(32), Some(256)));
+        assert_eq!(d.buffer_sizes(), [32, 64, 128, 256]);
+        assert_eq!(d.sample_rates, [44_100, 48_000]);
     }
 
     #[test]

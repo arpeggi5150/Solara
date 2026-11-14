@@ -1,0 +1,29 @@
+[package]
+name = "soundcraft-asio-host"
+description = "Solara low-latency audio driver host: plays the mix through ASIO drivers on 64-bit Windows via the azo crate (an isolated unsafe FFI crate; no Steinberg SDK)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+# azo talks to the drivers' COM objects directly (MIT, no Steinberg SDK). Only on 64-bit Windows:
+# azo declares its calls `extern "system"`, which matches the drivers' calling convention there but
+# not on 32-bit x86. Elsewhere this crate is a safe stub that lists no drivers.
+[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
+azo = { version = "0.6.1", default-features = false }
+log.workspace = true
+
+# An isolated unsafe helper crate, like soundcraft-clap-host: this crate opts out of the workspace
+# `unsafe_code = "forbid"` for itself only. It denies unsafe everywhere and allows it solely on the
+# FFI module (`src/ffi.rs`). The rest mirrors `[workspace.lints]`.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+cognitive_complexity = "deny"
+wildcard_imports = "deny"
+dbg_macro = "warn"
+todo = "warn"
+too_many_arguments = "deny"
+type_complexity = "allow"

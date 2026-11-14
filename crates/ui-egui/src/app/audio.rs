@@ -26,6 +26,10 @@ impl SoundApp {
         // The input reopens on the next record or monitor with the new choice.
         self.recorder = None;
         self.recorder_failed = false;
+        // One low-latency driver can be open at a time: let the old one go first.
+        if self.player.as_ref().is_some_and(Player::uses_driver) {
+            self.player = None;
+        }
         let player = soundcraft_playback::Player::with_config(self.engine.session_arc(), &self.ui.audio);
         player.locate(at);
         self.player = Some(player);
@@ -121,6 +125,9 @@ impl SoundApp {
         }
         self.recorder = None;
         self.recorder_failed = false;
+        if self.player.as_ref().is_some_and(Player::uses_driver) {
+            self.player = None;
+        }
         self.player = Some(Player::with_config(self.engine.session_arc(), &self.ui.audio));
     }
 }

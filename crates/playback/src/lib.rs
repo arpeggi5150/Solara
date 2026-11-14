@@ -47,6 +47,8 @@ const OLD_SESSIONS: usize = 16;
 pub use soundcraft_mix::{mark_audio_thread, on_audio_thread};
 
 mod callback;
+#[cfg(not(target_arch = "wasm32"))]
+mod driver_out;
 mod stream;
 
 use callback::{AudioState, Fault, Side, take_meter_snapshot};
@@ -163,6 +165,9 @@ pub struct Player {
     _stream: Option<cpal::Stream>,
     #[cfg(target_arch = "wasm32")]
     _stream: Option<cpal::Stream>,
+    /// The low-latency driver stream, when one plays instead of a cpal stream.
+    #[cfg(not(target_arch = "wasm32"))]
+    _driver: Option<soundcraft_asio_host::Stream>,
     pub device_name: String,
     pub device_rate: u32,
     /// Output channels the device was opened with (0 for the silent clock).
@@ -208,6 +213,15 @@ impl Player {
         self.fault.health.snapshot()
     }
 
+    /// Whether a low-latency driver plays (only one can be open at a time, so the player must be
+    /// dropped before another is opened).
+    pub fn uses_driver(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self._driver.is_some();
+        #[cfg(target_arch = "wasm32")]
+        false
+    }
+
     /// Start counting [`Player::health`] afresh.
     pub fn reset_health(&self) {
         self.fault.reset_health();
@@ -234,6 +248,38 @@ impl Player {
             let mut side = Side::new(side_rate, garbage);
             side.gone_tracks(&session);
             Mutex::new(side)
+        };
+        // A low-latency driver when one is chosen; if it will not open, the default audio system
+        // (the shared Windows path) as before, so a missing or busy driver never means silence.
+        #[cfg(not(target_arch = "wasm32"))]
+        let fallback;
+        #[cfg(not(target_arch = "wasm32"))]
+        let cfg = if devices::is_driver_system(cfg) {
+            match driver_out::open(&session, &shared, want, want_ch, cfg) {
+                Ok(d) => {
+                    return Player {
+                        shared,
+                        fault: d.fault,
+                        watch: Mutex::new(None),
+                        tx: d.tx,
+                        side: new_side(d.grx),
+                        _stream: None,
+                        _driver: Some(d.stream),
+                        device_name: d.name,
+                        device_rate: d.rate,
+                        device_channels: d.channels,
+                        device_buffer: Some(d.buffer),
+                        silent: false,
+                    };
+                }
+                Err(e) => {
+                    log::warn!("low-latency driver: {e}; using the default audio system");
+                    fallback = AudioConfig { system: None, output: None, input: None, ..cfg.clone() };
+                    &fallback
+                }
+            }
+        } else {
+            cfg
         };
         match open_device(want, want_ch, cfg) {
             Ok((device, config, format, name)) => {
@@ -285,6 +331,8 @@ impl Player {
                             tx,
                             side: new_side(grx),
                             _stream: Some(stream),
+                            #[cfg(not(target_arch = "wasm32"))]
+                            _driver: None,
                             device_name: name,
                             device_rate: rate,
                             device_channels: config.channels,
@@ -362,6 +410,7 @@ impl Player {
             tx,
             side,
             _stream: None,
+            _driver: None,
             device_name: "No audio device (silent)".into(),
             device_rate: rate,
             device_channels: 0,

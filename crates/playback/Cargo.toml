@@ -15,17 +15,14 @@ soundcraft-mix.workspace = true
 soundcraft-dsp.workspace = true
 log.workspace = true
 serde.workspace = true
+# Low-latency drivers on 64-bit Windows (a stub elsewhere).
+soundcraft-asio-host.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 cpal = { workspace = true, features = ["wasm-bindgen"] }
-
-[features]
-# ASIO on Windows (cpal's ASIO host). Off by default: building it downloads Steinberg's ASIO SDK
-# (its own licence) and needs LLVM (libclang) for the bindings. `cargo build -p soundcraft --features asio`.
-asio = ["cpal/asio"]
 
 [dev-dependencies]
 serde_json.workspace = true

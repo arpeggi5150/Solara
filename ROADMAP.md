@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~5% and ~110–180 h away (the alpha gate's three failing workflows)
 
-> **Last reviewed:** 2026-10-24 · **Last updated:** 2026-11-13 · **Change:** trivial (Ableton-style layout, Session View, Drum Rack, Instrument Rack, Groove Pool, Audio to MIDI, Pro Tools-style layout, Beat Analysis conform, FL-style layout, Reaper-style layout, Action List, Routing Matrix, Cancel Zoom Toggle, side panels in dock columns, Auto Pan stereo balance, Clip List Auto Rename, Strip Silence rectangles, Strip Silence Rename, Strip Silence Extract and Separate, Clip Looping dialog, AudioSuite Vari-Fi speed ramps, Auto Pan plugin, Subharmonic plugin, Ring Modulator plugin, Float32 file headroom) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-24 · **Last updated:** 2026-11-13 · **Change:** trivial (ASIO output via azo, Ableton-style layout, Session View, Drum Rack, Instrument Rack, Groove Pool, Audio to MIDI, Pro Tools-style layout, Beat Analysis conform, FL-style layout, Reaper-style layout, Action List, Routing Matrix, Cancel Zoom Toggle, side panels in dock columns, Auto Pan stereo balance, Clip List Auto Rename, Strip Silence rectangles, Strip Silence Rename, Strip Silence Extract and Separate, Clip Looping dialog, AudioSuite Vari-Fi speed ramps, Auto Pan plugin, Subharmonic plugin, Ring Modulator plugin, Float32 file headroom) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Solara is a clean-room, pure-Rust digital audio workstation that aims at full parity with
 Avid Pro Tools, and then beyond it: faster, open, scriptable and agent-controllable. This page is
@@ -15,6 +15,7 @@ menu checklist).
 
 | Number | Value | Kind |
 |---|---|---|
+| 2026-11-13 | trivial | Progress log: ASIO output via azo; readiness estimates unchanged |
 | 2026-11-13 | trivial | Progress log: Ableton-style layout, Session View, Drum Rack, Instrument Rack, Groove Pool, Audio to MIDI; readiness estimates unchanged |
 | Menu breadth | **482 / 512 Pro Tools menu leaves (94.1 %)**; engine alone 397 / 512 | measured (`cargo xtask parity` + UI-layer aliases) |
 | Feature breadth | **~70 %** | estimated (menus plus plugins, hardware, formats, immersive, cloud) |
@@ -123,6 +124,7 @@ mutated and truncated movies. Field reports from the first public week are track
 
 ## Progress log
 
+- **2026-11-13:** Low-latency output on Windows: Setup › Playback Engine lists the interface's ASIO drivers as “Low-latency driver”, with the buffer sizes each driver offers and the output's health counters. Built on the MIT `azo` crate, with no Steinberg SDK (cpal's opt-in `asio` feature is gone). 128 samples at 48 kHz (2.7 ms) played 60 s with 0 late blocks, 0 gaps and 0 xruns on an Apogee Duet and a Focusrite USB interface. WASAPI stays the default and the fallback. No readiness percentage change.
 - **2026-11-13:** An Ableton-style layout preset joins the switcher (key 6): Browser and Session View on the left, Arrangement in the centre, Device View along the bottom, and the Ableton key set. The Session View holds scenes of clip slots: a click plays a clip or a whole scene from the next bar, and scenes can be named, moved and stopped. Clips get follow actions (again, next, random, stop), warped audio follows tempo changes, and a Groove Pool holds grooves that MIDI clips share. A Drum Rack instrument gives sixteen pads with their own sound, tune and level; an Instrument Rack puts eight macro knobs around any instrument. Audio to MIDI turns an audio clip's melody, chords or drums into a MIDI clip. Link is not in this step. No readiness percentage change.
 - **2026-11-12:** A Pro Tools-style layout preset joins the switcher (key 5): the Edit window with the Mix docked under it, Ctrl+= showing or hiding the Mix, and Classic's keys. Its audio clips always show the clip gain line, which the Smart, Grabber and Trim tools drag up and down. Beat Analysis can conform a take: it separates at the detected beats, moves each piece to the nearest Grid line and fills the gaps. No readiness percentage change.
 - **2026-11-12:** An FL-style layout preset joins the switcher: Browser and Channel Rack on the left, Playlist in the centre, Piano Roll and Mixer along the bottom, and the FL key set (F6, F7, Alt+F8, F9). Patterns get swing and humanize, and placed patterns stay one pattern; the piano roll gets chord stamps, slide notes (the Subtractive Synth follows portamento), strum, arpeggiate and ghost notes; automation clips can be moved and copied and drive the parameter where they land. No readiness percentage change.

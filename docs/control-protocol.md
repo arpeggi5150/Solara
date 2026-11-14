@@ -39,8 +39,12 @@ lists audio systems and devices (`list`), sets the device choice, and returns th
 its `buffer_size` (null = the device default) and `health` since it opened or since `reset_health`:
 `blocks`, `late` (filled slower than real time), `gaps` (a wait between blocks long enough for the
 device to run dry), `xruns`, `worst_render_us`, `worst_gap_us`, `period_us` (the block the device
-actually asks for, as measured) and `clean`. On Windows the build uses WASAPI shared mode, where
-the device asks for the system's period (usually 10 ms) whatever buffer is requested.
+actually asks for, as measured) and `clean`. On Windows WASAPI runs in shared mode, where
+the device asks for the system's period (usually 10 ms) whatever buffer is requested. On Windows
+x64 the system `"Low-latency driver"` lists the installed ASIO drivers (by the names they
+register) with the rates and the exact buffer sizes each offers; choosing one plays the output
+through that driver at the chosen buffer size. Input stays on the default system. A driver that
+will not open falls back to the default system, with a warning in the log.
 
 Errors: `{"id": 1, "ok": false, "error": "bad parameters for `mix.volume`: no track named `Nope`"}`.
 

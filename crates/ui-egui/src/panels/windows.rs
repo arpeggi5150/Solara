@@ -487,7 +487,12 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
         return;
     }
     let draft_id = egui::Id::unique("audio_draft");
-    let mut draft = ctx.data(|d| d.get_temp::<AudioConfig>(draft_id)).unwrap_or_else(|| app.ui.audio.clone());
+    // The draft starts from the applied settings, and starts again from them when they change from
+    // outside the window (`ui.audio_device`, Reconnect), so it never shows a device that is not open.
+    let base_id = egui::Id::unique("audio_draft_base");
+    let base = ctx.data(|d| d.get_temp::<AudioConfig>(base_id));
+    let mut draft =
+        ctx.data(|d| d.get_temp::<AudioConfig>(draft_id)).filter(|_| base.as_ref() == Some(&app.ui.audio)).unwrap_or_else(|| app.ui.audio.clone());
     let mut refresh = false;
     let mut apply = false;
     let systems = audio_systems(ctx, false);
@@ -562,6 +567,24 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
                 }
             }));
             ui.end_row();
+            // How cleanly the output is fed, counted on the audio thread (Setup › Playback Engine
+            // is where a buffer that is too small shows).
+            if let Some(p) = app.player.as_ref().filter(|p| !p.silent) {
+                let h = p.health();
+                ui.label("Health");
+                let text = format!("{} late · {} gaps · {} xruns · worst block {:.2} ms", h.late, h.gaps, h.xruns, h.worst_render_us as f64 / 1000.0);
+                let color = if h.clean() { t.text } else { t.meter_yellow };
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(text).color(color)).on_hover_text(
+                        "Late: a block took longer to make than it plays. Gap: the device waited too long between blocks. \
+                         Xrun: the audio system reported a dropout. Counted since the device opened or the counters were reset.",
+                    );
+                    if ui.small_button("Reset").clicked() {
+                        p.reset_health();
+                    }
+                });
+                ui.end_row();
+            }
             ui.label("Input");
             ui.label(app.recorder.as_ref().map_or("opened on first record or monitor".to_string(), |r| {
                 format!("{} · {} Hz · {} ch", r.device_name, r.sample_rate, r.channels)
@@ -593,11 +616,16 @@ pub fn playback_engine(app: &mut SoundApp, ctx: &egui::Context) {
         app.ui.status = e;
     }
     if open {
-        ctx.data_mut(|d| d.insert_temp(draft_id, draft));
+        let applied = app.ui.audio.clone();
+        ctx.data_mut(|d| {
+            d.insert_temp(draft_id, draft);
+            d.insert_temp(base_id, applied);
+        });
     } else {
         // Closing discards unapplied edits and the device list (re-read on the next open).
         ctx.data_mut(|d| {
             d.remove_temp::<AudioConfig>(draft_id);
+            d.remove_temp::<AudioConfig>(base_id);
             d.remove_temp::<Arc<Vec<AudioSystem>>>(egui::Id::unique("audio_systems"));
         });
     }
