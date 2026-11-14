@@ -84,6 +84,8 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("ui.editor", "Editor View", "", None),
     ("window.action_list", "Action List", "", None),
     ("window.routing_matrix", "Routing Matrix", "", None),
+    ("window.track_tags", "Track Tags…", "", None),
+    ("window.tag_scan", "Smart Tag Scan…", "", None),
     ("ui.keymap", "Assign Key", "", None),
     ("ui.channel_rack", "Show/Hide Channel Rack", "", None),
     ("ui.piano_roll", "Show/Hide Piano Roll", "", None),
@@ -556,6 +558,9 @@ const MENU_WINDOWS: &[(&str, &str)] = &[
     ("Event > MIDI Real-Time Properties", "window.rtp"),
     ("Window > Action List...", "window.action_list"),
     ("View > Routing Matrix", "window.routing_matrix"),
+    ("Track > Tags...", "window.track_tags"),
+    ("Track > Smart Tag Scan...", "window.tag_scan"),
+    ("Track > Group by Tags", "track.tag_group"),
 ];
 
 /// The shortcut of an engine or window command.
@@ -713,6 +718,18 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
         "window.search" => toggle(&mut app.ui.show_search),
         "window.action_list" => toggle(&mut app.ui.show_action_list),
         "window.routing_matrix" => toggle(&mut app.ui.show_routing_matrix),
+        "window.track_tags" => {
+            let tracks = app.engine.session().edit.selected_tracks.clone();
+            if tracks.is_empty() {
+                return Some(Err("select the tracks to tag first".into()));
+            }
+            crate::tagging::open_editor(app, tracks);
+            json!({"value": true})
+        }
+        "window.tag_scan" => {
+            crate::tagging::open_scan(app);
+            json!({"value": true})
+        }
         "ui.keymap" => return Some(crate::keymap::command(app, p)),
         "window.score" => toggle(&mut app.ui.show_score),
         "window.tab_editor" => toggle(&mut app.ui.show_tab_editor),

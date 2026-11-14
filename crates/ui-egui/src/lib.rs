@@ -40,6 +40,7 @@ pub mod shortcuts;
 mod splash;
 pub mod step_seq;
 pub mod tab_view;
+pub mod tagging;
 pub mod theme;
 pub mod toolbar;
 pub mod updates_ui;
@@ -413,6 +414,8 @@ pub struct SoundApp {
     keyboards: Option<app::keyboard::Keyboards>,
     /// What the keyboards played in the take being recorded, at the session sample it was heard.
     midi_take: Vec<(Samples, [u8; 3])>,
+    /// The Track Tags and Smart Tag Scan windows.
+    pub tagging: tagging::TaggingUi,
     pub ui: UiState,
     pub audio_health_report: Option<Result<Value, String>>,
     pub services: Services,

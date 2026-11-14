@@ -63,6 +63,7 @@ impl SoundApp {
             take_plan: None,
             keyboards: None,
             midi_take: Vec::new(),
+            tagging: crate::tagging::TaggingUi::default(),
             ui: UiState::default(),
             audio_health_report: None,
             services,
@@ -392,6 +393,7 @@ impl SoundApp {
         palette::show(self, &ctx);
         crate::action_list::show(self, &ctx);
         crate::routing_matrix::show(self, &ctx);
+        crate::tagging::show(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
         splash::show(&mut self.splash, self.uptime, &ctx);

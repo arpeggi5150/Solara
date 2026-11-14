@@ -36,6 +36,7 @@ fn document_values<'a>(s: &'a Session, navigation: &'a EditState) -> impl Partia
         auto_clips,
         scenes,
         grooves,
+        tagging,
         launch: _,
         pool,
         folder,
@@ -44,7 +45,7 @@ fn document_values<'a>(s: &'a Session, navigation: &'a EditState) -> impl Partia
     (
         (format_version, name, sample_rate, bit_depth, frame_rate, timecode_start, tempo, key_signatures, sources, videos, busses),
         (outputs, markers, groups, auto_names, edit_values(edit, navigation), next_id, comments, midi_originals, pool, folder),
-        (auto_clips, scenes, grooves),
+        (auto_clips, scenes, grooves, tagging),
     )
 }
 
@@ -75,11 +76,13 @@ fn track_values(track: &Track) -> impl PartialEq + '_ {
         slots,
         rack,
         tab,
+        tags,
+        tag_group,
     } = track;
     (
         (id, name, kind, format, color, height, playlists, active_playlist, mixer_values(mixer), automation, view),
         (hidden, inactive, frozen, comments, folder, folder_open, instrument, ticks_timebase, elastic, pinned),
-        (slots, rack, tab),
+        (slots, rack, tab, tags, tag_group),
     )
 }
 

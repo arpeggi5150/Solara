@@ -333,6 +333,13 @@ pub struct Track {
     /// Tab tracks: tuning and which views show (`None` on other kinds).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tab: Option<TabSetup>,
+    /// Categories the user gave the track (Vocals, Dubs, Drums, DI...), in the order given.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// On a folder or aux track that tag grouping made: the group it holds (see
+    /// [`crate::Tagging`]). Tag grouping only moves tracks in and out of these.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_group: Option<String>,
 }
 
 /// What a tab track shows its notes as.
@@ -423,6 +430,8 @@ impl Track {
             elastic: None,
             pinned: false,
             slots: Vec::new(),
+            tags: Vec::new(),
+            tag_group: None,
             rack: None,
             tab: (kind == TrackKind::Tab).then(|| TabSetup { program: 25, ..TabSetup::default() }),
         }

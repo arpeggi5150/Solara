@@ -249,6 +249,29 @@ pub(crate) fn track_context_menu(app: &mut SoundApp, ui: &mut Ui, id: TrackId) {
     if app.engine.session().track(id).is_some_and(|track| track.folder.is_some()) && ui.button("Remove from Folder").clicked() {
         let _ = app.run("track.remove_from_folder", json!({"tracks": selection}));
     }
+    if ui.button("Tags...").clicked() {
+        crate::tagging::open_editor(app, selection.iter().map(|&t| TrackId(t)).collect());
+    }
+    ui.menu_button("Add Tag", |ui| {
+        for tag in soundcraft_engine::tags::KNOWN {
+            if ui.button(tag).clicked() {
+                let _ = app.run("track.tag_add", json!({"tracks": selection, "tag": tag}));
+            }
+        }
+    });
+    let own = app.engine.session().track(id).map(|t| t.tags.clone()).unwrap_or_default();
+    if !own.is_empty() {
+        ui.menu_button("Remove Tag", |ui| {
+            for tag in &own {
+                if ui.button(tag).clicked() {
+                    let _ = app.run("track.tag_remove", json!({"tracks": selection, "tag": tag}));
+                }
+            }
+        });
+    }
+    if ui.button("Smart Tag Scan...").clicked() {
+        crate::tagging::open_scan(app);
+    }
     // Only the track clicked: the command has one target, and the selection stays as it is.
     if ui.button("Scroll Into View").clicked() {
         let _ = app.run("view.scroll_into_view", json!({"track": id.0}));
