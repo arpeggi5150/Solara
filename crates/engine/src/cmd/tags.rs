@@ -108,18 +108,23 @@ fn confirm(e: &mut Engine, p: &Value) -> Result<Value> {
     if let Some(on) = p.get("group").and_then(Value::as_bool) {
         s.tagging.group = on;
     }
-    let mut learned = 0;
+    let mut lessons = Vec::new();
     for (t, confirmed, suggested) in plan {
         let Some(name) = s.track(t).map(|t| t.name.clone()) else { continue };
         if let Some(suggested) = suggested {
-            let before = s.tagging.clone();
-            tags::learn(&mut s.tagging, &name, &suggested, &confirmed);
-            learned += usize::from(before != s.tagging);
+            lessons.push((name, suggested, confirmed.clone()));
         }
         if let Some(tr) = s.track_mut(t) {
             tr.tags = confirmed;
         }
     }
+    let before = s.tagging.clone();
+    tags::learn_all(&mut s.tagging, &lessons);
+    let learned = if before == s.tagging {
+        0
+    } else {
+        lessons.iter().filter(|(_, a, b)| a.len() != b.len() || a.iter().any(|t| !b.iter().any(|u| u.eq_ignore_ascii_case(t)))).count()
+    };
     let moved = follow_tags(e)?;
     Ok(json!({"confirmed": items.len().min(4096), "learned": learned, "moved": moved}))
 }

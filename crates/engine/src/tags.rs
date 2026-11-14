@@ -79,10 +79,49 @@ pub fn words(name: &str) -> Vec<String> {
     joined
 }
 
-/// The key a learned fix is kept under: the name's words without numbers ("Vox Dub L 2" and
-/// "Vox Dub L" are the same track in two sessions).
+/// The key a learned fix is kept under: the name's words, numbers included ("Vocal Rec 1" and
+/// "Vocal Rec 2" are different parts).
 pub fn name_key(name: &str) -> String {
-    words(name).into_iter().filter(|w| !w.chars().all(|c| c.is_ascii_digit())).collect::<Vec<_>>().join(" ")
+    words(name).join(" ")
+}
+
+fn digits(w: &str) -> bool {
+    w.chars().all(|c| c.is_ascii_digit())
+}
+
+/// The learned fix for a track named `name`: the exact name first, then the name without its
+/// trailing numbers one at a time ("Vocal Rec 1 3", a copy of "Vocal Rec 1", takes its fix), and
+/// last a name that differs only in trailing numbers, when every such name was tagged alike
+/// ("Vox Dub 3" takes the fix of "Vox Dub 2").
+pub fn learned_fix<'a>(tagging: &'a Tagging, name: &str) -> Option<(String, &'a Vec<String>)> {
+    let mut ws = words(name);
+    if ws.is_empty() {
+        return None;
+    }
+    loop {
+        let key = ws.join(" ");
+        if let Some(tags) = tagging.names.get(&key) {
+            return Some((key, tags));
+        }
+        match ws.last() {
+            Some(w) if digits(w) && ws.len() > 1 => {
+                ws.pop();
+            }
+            _ => break,
+        }
+    }
+    let stem = ws.join(" ");
+    let strip = |k: &str| {
+        let mut v: Vec<&str> = k.split(' ').collect();
+        while v.len() > 1 && v.last().is_some_and(|w| digits(w)) {
+            v.pop();
+        }
+        v.join(" ")
+    };
+    let mut alike = tagging.names.iter().filter(|(k, _)| strip(k) == stem);
+    let (key, tags) = alike.next()?;
+    let same = |a: &Vec<String>, b: &Vec<String>| a.len() == b.len() && a.iter().all(|t| has(b, t));
+    alike.all(|(_, t)| same(t, tags)).then(|| (key.clone(), tags))
 }
 
 /// What the audio on a track sounds like, from up to [`LISTEN_SECONDS`] around its middle.
@@ -112,19 +151,26 @@ pub fn listen(s: &Session, t: &Track) -> Option<Listening> {
     if t.kind != TrackKind::Audio {
         return None;
     }
-    let clips = t.clips().iter().filter(|c| matches!(c.content, ClipContent::Audio { .. }));
-    let (start, end) = clips.fold((i64::MAX, i64::MIN), |(a, b), c| (a.min(c.start), b.max(c.end())));
-    if start >= end {
-        return None;
-    }
+    // The middle of the longest clips: the middle of the whole track can fall in a gap.
+    let mut clips: Vec<(i64, i64)> = t
+        .clips()
+        .iter()
+        .filter(|c| !c.muted && matches!(c.content, ClipContent::Audio { .. }) && c.end() > c.start)
+        .map(|c| (c.start, c.end()))
+        .collect();
+    clips.sort_by_key(|(a, b)| std::cmp::Reverse(b.saturating_sub(*a)));
     let sr = s.sample_rate.as_f64();
     let span = s.sample_rate.samples(LISTEN_SECONDS);
-    let mid = start.saturating_add((end - start) / 2);
-    let from = mid.saturating_sub(span / 2).max(start);
-    let range = Range::new(from, from.saturating_add(span).min(end));
-    let audio = soundcraft_mix::render_clips(s, t.id, range);
-    analyse(&audio, sr as f32)
+    clips.into_iter().take(LISTEN_TRIES).find_map(|(start, end)| {
+        let mid = start.saturating_add(end.saturating_sub(start) / 2);
+        let from = mid.saturating_sub(span / 2).max(start);
+        let range = Range::new(from, from.saturating_add(span).min(end));
+        analyse(&soundcraft_mix::render_clips(s, t.id, range), sr as f32)
+    })
 }
+
+/// How many clips the scan tries before it gives up on hearing a track.
+const LISTEN_TRIES: usize = 4;
 
 /// [`listen`] on rendered channels.
 pub fn analyse(channels: &[Vec<f32>], sample_rate: f32) -> Option<Listening> {
@@ -138,7 +184,7 @@ pub fn analyse(channels: &[Vec<f32>], sample_rate: f32) -> Option<Listening> {
         .map(|x| if x.is_finite() { x } else { 0.0 })
         .collect();
     let frame = (sample_rate * 0.05) as usize;
-    let silence = 10f32.powf(-50.0 / 20.0);
+    let silence = 10f32.powf(-60.0 / 20.0);
     let mut active = Vec::new();
     for (i, f) in mono.chunks(frame.max(1)).enumerate() {
         let rms = (f.iter().map(|x| x * x).sum::<f32>() / f.len().max(1) as f32).sqrt();
@@ -259,33 +305,42 @@ fn suggest_one(s: &Session, t: &Track, learned: &Tagging, listen_to_audio: bool)
         add(&mut tags, &mut reasons, tag, format!("a tab track with {strings} strings"));
     }
     let listening = if listen_to_audio { listen(s, t) } else { None };
-    if let Some(l) = listening {
-        let named_drums = has(&tags, DRUMS);
-        let named_voice = has(&tags, VOCALS);
-        if !named_drums && !named_voice && l.onsets_per_second >= 2.0 && l.pitched < 0.35 && l.crest_db >= 14.0 {
-            add(&mut tags, &mut reasons, DRUMS, format!("the audio is mostly unpitched hits ({:.1} a second)", l.onsets_per_second));
-        }
-        let drums = has(&tags, DRUMS);
-        // An undistorted pickup signal: clear pitch, wide peaks, little above 5 kHz.
-        if !drums && !named_voice && !has(&tags, MIC) && !has(&tags, DI) && l.pitched >= 0.4 && l.crest_db >= 15.0 && l.highs < 0.02 {
-            add(&mut tags, &mut reasons, DI, format!("the audio sounds like a direct signal ({:.0} dB peaks over average, few highs)", l.crest_db));
-        }
-        if !drums && !named_voice && !has(&tags, GUITAR) && !has(&tags, BASS) && (has(&tags, DI) || has(&tags, MIC)) && l.pitched >= 0.4 {
-            if l.pitch_hz > 0.0 && l.pitch_hz < 100.0 {
-                add(&mut tags, &mut reasons, BASS, format!("the pitch sits low (about {:.0} Hz)", l.pitch_hz));
-            } else if l.pitch_hz >= 100.0 {
-                add(&mut tags, &mut reasons, GUITAR, format!("the pitch sits in guitar range (about {:.0} Hz)", l.pitch_hz));
-            }
-        }
+    if let Some(l) = &listening {
+        hear(&mut tags, &mut reasons, l);
+    } else if listen_to_audio && t.kind == TrackKind::Audio {
+        reasons.push("not enough sound on the track to listen to".into());
     }
     // A learned fix for this name wins.
-    let key = name_key(&t.name);
-    if let Some(fixed) = learned.names.get(&key).filter(|_| !key.is_empty()) {
+    if let Some((key, fixed)) = learned_fix(learned, &t.name) {
         tags = fixed.clone();
         reasons.push(format!("you tagged a track named \"{key}\" this way before"));
     }
     tags = order(clean_tags(tags.iter().map(String::as_str)));
     Suggestion { track: t.id, name: t.name.clone(), current: t.tags.clone(), tags, reasons, listening }
+}
+
+// The audio only fills in what the name leaves open: tested on real sessions, a direct guitar
+// can look like drums and a frozen amp track like a direct one, so the rules are strict.
+fn hear(tags: &mut Vec<String>, reasons: &mut Vec<String>, l: &Listening) {
+    let named_kind = [DRUMS, VOCALS, GUITAR, BASS, KEYS, DI, MIC].iter().any(|k| has(tags, k));
+    // Drums: sharp, unpitched hits with cymbal or stick brightness.
+    if !named_kind && l.onsets_per_second >= 1.0 && l.pitched < 0.1 && l.crest_db >= 18.5 && l.highs >= 0.008 {
+        add(tags, reasons, DRUMS, format!("the audio is unpitched hits ({:.1} a second) with bright attacks", l.onsets_per_second));
+    }
+    let drums = has(tags, DRUMS);
+    let voice = has(tags, VOCALS);
+    // A pickup straight into the desk: wide peaks and almost nothing above 5 kHz.
+    if !drums && !voice && !has(tags, MIC) && !has(tags, DI) && l.crest_db >= 19.0 && l.highs < 0.0026 && l.onsets_per_second >= 1.0 {
+        add(tags, reasons, DI, format!("the audio sounds like a direct signal ({:.0} dB peaks over average, almost no highs)", l.crest_db));
+    }
+    // The instrument behind a DI or mic: a bass has almost no highs at all.
+    if !drums && !voice && !has(tags, GUITAR) && !has(tags, BASS) && !has(tags, KEYS) && (has(tags, DI) || has(tags, MIC)) {
+        if l.pitched >= 0.3 && l.pitch_hz > 0.0 && l.pitch_hz < 110.0 && l.highs < 0.0015 {
+            add(tags, reasons, BASS, format!("the pitch sits low (about {:.0} Hz) with no highs", l.pitch_hz));
+        } else {
+            add(tags, reasons, GUITAR, "a direct or miked track that does not sound like a bass".into());
+        }
+    }
 }
 
 /// Known tags first, in [`KNOWN`] order, then the user's own.
@@ -307,7 +362,7 @@ pub fn scan(s: &Session, tracks: &[TrackId], listen_to_audio: bool) -> Vec<Sugge
     let dubbed = out.iter().any(|g| has(&g.tags, VOCALS) && (has(&g.tags, DUBS) || has(&g.tags, LEFT) || has(&g.tags, RIGHT)));
     if dubbed {
         for g in &mut out {
-            let learned = s.tagging.names.contains_key(&name_key(&g.name));
+            let learned = learned_fix(&s.tagging, &g.name).is_some();
             if !learned && has(&g.tags, VOCALS) && !has(&g.tags, DUBS) && !has(&g.tags, LEFT) && !has(&g.tags, RIGHT) && !has(&g.tags, MAINS) {
                 g.tags.push(MAINS.into());
                 g.tags = order(std::mem::take(&mut g.tags));
@@ -322,6 +377,27 @@ pub fn scan(s: &Session, tracks: &[TrackId], listen_to_audio: bool) -> Vec<Sugge
 /// named `name`: the name keeps these tags, and a word the scan did not know takes what the user
 /// added. Nothing is learned when the user took the suggestion as it was.
 pub fn learn(tagging: &mut Tagging, name: &str, suggested: &[String], confirmed: &[String]) {
+    learn_all(tagging, &[(name.to_owned(), suggested.to_vec(), confirmed.to_vec())]);
+}
+
+/// [`learn`] for a batch of confirmed tracks `(name, suggested, confirmed)`. A word keeps only the
+/// tags that every confirmed track with that word in its name has: "Xtra" on "Xtra Gtr Amp"
+/// (Mic) and "Xtra Gtr DI" (DI) learns neither.
+pub fn learn_all(tagging: &mut Tagging, items: &[(String, Vec<String>, Vec<String>)]) {
+    for (name, suggested, confirmed) in items {
+        learn_one(tagging, name, suggested, confirmed);
+    }
+    for (name, _, confirmed) in items {
+        for w in words(name) {
+            if let Some(entry) = tagging.words.get_mut(&w) {
+                entry.retain(|t| has(confirmed, t));
+            }
+        }
+    }
+    tagging.words.retain(|_, v| !v.is_empty());
+}
+
+fn learn_one(tagging: &mut Tagging, name: &str, suggested: &[String], confirmed: &[String]) {
     let same = suggested.len() == confirmed.len() && suggested.iter().all(|t| has(confirmed, t));
     if same {
         return;
@@ -340,7 +416,7 @@ pub fn learn(tagging: &mut Tagging, name: &str, suggested: &[String], confirmed:
     let added: Vec<&String> = confirmed.iter().filter(|t| !has(suggested, t) && !part(t)).collect();
     let removed: Vec<&String> = suggested.iter().filter(|t| !has(confirmed, t)).collect();
     for w in words(name) {
-        if w.len() < 2 || w.chars().all(|c| c.is_ascii_digit()) || !word_tags(&w).is_empty() {
+        if w.len() < 2 || digits(&w) || !word_tags(&w).is_empty() {
             continue;
         }
         let entry_full = tagging.words.len() >= soundcraft_model::MAX_LEARNED && !tagging.words.contains_key(&w);
@@ -356,7 +432,6 @@ pub fn learn(tagging: &mut Tagging, name: &str, suggested: &[String], confirmed:
         }
         *entry = clean_tags(entry.iter().map(String::as_str));
     }
-    tagging.words.retain(|_, v| !v.is_empty());
 }
 
 #[cfg(test)]
@@ -371,7 +446,104 @@ mod tests {
         assert_eq!(words("OH-R.wav"), ["oh", "r", "wav"]);
         assert_eq!(words("DRUMS hI-hAT"), ["drums", "hi", "hat"]);
         assert_eq!(words("RIGHT- AARBEAR"), ["right", "aarbear"]);
-        assert_eq!(name_key("Vox Dub L 2"), "vox dub l");
+        assert_eq!(name_key("Vox Dub L 2"), "vox dub l 2");
+    }
+
+    fn v(tags: &[&str]) -> Vec<String> {
+        tags.iter().map(|t| (*t).to_owned()).collect()
+    }
+
+    #[test]
+    fn numbered_takes_keep_their_own_fix() {
+        let mut t = Tagging::default();
+        learn(&mut t, "VOCAL AHHS REC 1", &v(&[VOCALS]), &v(&[VOCALS, MAINS]));
+        learn(&mut t, "VOCAL AHHS REC 2", &v(&[VOCALS]), &v(&[VOCALS, DUBS]));
+        assert_eq!(learned_fix(&t, "VOCAL AHHS REC 1").map(|f| f.1.clone()), Some(v(&[VOCALS, MAINS])));
+        assert_eq!(learned_fix(&t, "VOCAL AHHS REC 2").map(|f| f.1.clone()), Some(v(&[VOCALS, DUBS])));
+        // A numbered copy of a take falls back to the take.
+        assert_eq!(learned_fix(&t, "VOCAL AHHS REC 1 11").map(|f| f.1.clone()), Some(v(&[VOCALS, MAINS])));
+        assert_eq!(learned_fix(&t, "VOCAL AHHS REC 2 3").map(|f| f.1.clone()), Some(v(&[VOCALS, DUBS])));
+        // A take number never seen: the two takes disagree, so nothing is guessed.
+        assert_eq!(learned_fix(&t, "VOCAL AHHS REC 3"), None);
+        // When every numbered name was tagged alike, a new number takes it.
+        learn(&mut t, "Hamish Gtr 2", &v(&[GUITAR]), &v(&[GUITAR, MIC]));
+        assert_eq!(learned_fix(&t, "Hamish Gtr 5").map(|f| f.1.clone()), Some(v(&[GUITAR, MIC])));
+    }
+
+    #[test]
+    fn a_word_shared_by_different_tracks_learns_only_what_they_share() {
+        let mut t = Tagging::default();
+        learn_all(
+            &mut t,
+            &[
+                ("XTRA Guitar Crunchy".into(), v(&[GUITAR]), v(&[GUITAR, MIC])),
+                ("XTRA Guitar Direct In".into(), v(&[GUITAR, DI]), v(&[GUITAR, DI])),
+                ("LEFT - CRUNCHY".into(), v(&[LEFT]), v(&[LEFT, GUITAR, MIC])),
+            ],
+        );
+        assert!(!t.words.contains_key("xtra"), "{t:?}");
+        assert_eq!(t.words.get("crunchy"), Some(&v(&[MIC, GUITAR])));
+    }
+
+    fn heard(named: &[&str], l: Listening) -> Vec<String> {
+        let (mut tags, mut reasons) = (v(named), Vec::new());
+        hear(&mut tags, &mut reasons, &l);
+        tags
+    }
+
+    #[test]
+    fn the_audio_rules_hold_on_numbers_from_real_tracks() {
+        let l = |crest_db, onsets_per_second, pitched, pitch_hz, highs| Listening {
+            active_seconds: 20.0,
+            rms_db: -20.0,
+            crest_db,
+            onsets_per_second,
+            pitched,
+            pitch_hz,
+            highs,
+        };
+        // A real snare and kick.
+        assert_eq!(heard(&[], l(22.7, 7.27, 0.028, 220.0, 0.02)), v(&[DRUMS]));
+        assert_eq!(heard(&[], l(19.0, 1.76, 0.0, 0.0, 0.011)), v(&[DRUMS]));
+        // A direct guitar: wide peaks and lots of attacks, but no highs. Not drums.
+        assert_eq!(heard(&[], l(21.5, 7.52, 0.12, 73.4, 0.0023)), v(&[DI, GUITAR]));
+        // A clean amp tone with few pitched frames: neither drums nor DI.
+        assert_eq!(heard(&[], l(17.3, 5.67, 0.018, 148.0, 0.013)), v(&[]));
+        // Frozen amp tracks look direct in crest but keep their highs.
+        assert_eq!(heard(&[], l(22.6, 3.39, 0.97, 744.0, 0.0064)), v(&[]));
+        assert_eq!(heard(&[], l(16.2, 2.95, 0.77, 73.9, 0.003)), v(&[]));
+        // A drop-tuned guitar DI is a guitar; a bass DI has no highs at all.
+        assert_eq!(heard(&[DI], l(16.2, 2.95, 0.77, 73.9, 0.003)), v(&[DI, GUITAR]));
+        assert_eq!(heard(&[DI], l(14.8, 3.3, 0.37, 73.7, 0.000_55)), v(&[DI, BASS]));
+        // The name wins: a named DI is never called drums.
+        assert_eq!(heard(&[LEFT, DI], l(21.5, 7.52, 0.12, 73.4, 0.0023)), v(&[LEFT, DI, GUITAR]));
+        // Held vocals.
+        assert_eq!(heard(&[VOCALS], l(6.9, 0.31, 1.0, 370.0, 0.0009)), v(&[VOCALS]));
+    }
+
+    #[test]
+    fn the_scan_hears_clips_with_a_long_gap_between_them() {
+        use soundcraft_audio_io::AudioBuffer;
+        use soundcraft_model::{ChannelFormat, Clip};
+        let mut s = Session::default();
+        let t = s.add_track(TrackKind::Audio, ChannelFormat::Mono, Some("Gap"));
+        let sr = 48_000usize;
+        let tone: Vec<f32> = (0..sr * 3).map(|i| (i as f32 * 220.0 * std::f32::consts::TAU / sr as f32).sin() * 0.3).collect();
+        // Two 3-second clips four minutes apart: the middle of the track is silence.
+        for (k, at) in [0i64, 240 * sr as i64].into_iter().enumerate() {
+            let src = crate::io::add_source(
+                &mut s,
+                &format!("t{k}"),
+                AudioBuffer { sample_rate: 48_000, channels: vec![tone.clone()] },
+                None,
+                soundcraft_audio_io::FileFormat::Wav,
+            );
+            let id = s.new_clip_id();
+            crate::edit::place_clip(&mut s, t, Clip::audio(id, "t", src, 0, at, tone.len() as i64));
+        }
+        let track = s.track(t).unwrap().clone();
+        let l = listen(&s, &track).expect("the clips have sound");
+        assert!(l.active_seconds > 2.0 && (l.pitch_hz - 220.0).abs() < 5.0, "{l:?}");
     }
 
     #[test]

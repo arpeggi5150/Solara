@@ -182,6 +182,10 @@ fn editor_window(app: &mut SoundApp, ctx: &egui::Context) {
             });
         },
     );
+    // Escape closes the window without changing anything.
+    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        open = false;
+    }
     match action {
         Some(Value::Null) => {}
         Some(p) => {
@@ -282,6 +286,9 @@ fn scan_window(app: &mut SoundApp, ctx: &egui::Context) {
         w.note.clear();
         start_scan(app, &mut w, ctx);
     }
+    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        open = false;
+    }
     if open {
         app.tagging.scan = Some(w);
     }
@@ -341,6 +348,20 @@ mod tests {
         let w = app.tagging.scan.as_mut().unwrap();
         let h = row(w, "Hamish");
         assert_eq!(w.rows[h].suggested, ["Vocals", "Mains"]);
+        // Escape closes it.
+        let esc = egui::RawInput {
+            events: vec![egui::Event::Key {
+                key: egui::Key::Escape,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+            ..Default::default()
+        };
+        let mut out = ctx.run_ui(esc, |ui| show(&mut app, ui.ctx()));
+        out.textures_delta.clear();
+        assert!(app.tagging.scan.is_none());
     }
 
     #[test]
