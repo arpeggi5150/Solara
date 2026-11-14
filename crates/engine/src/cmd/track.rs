@@ -268,7 +268,7 @@ fn new_track_row(e: &mut Engine, p: &Value) -> Result<Vec<TrackId>> {
         Some(k) => TrackKind::from_id(k).ok_or_else(|| bad("track.new", format!("unknown kind `{k}`")))?,
         None => TrackKind::Audio,
     };
-    let default_fmt = if matches!(kind, TrackKind::Master | TrackKind::Aux | TrackKind::Instrument | TrackKind::Folder) {
+    let default_fmt = if matches!(kind, TrackKind::Master | TrackKind::Aux | TrackKind::Instrument | TrackKind::Folder | TrackKind::Tab) {
         ChannelFormat::Stereo
     } else {
         ChannelFormat::Mono
@@ -288,7 +288,7 @@ fn new_track_row(e: &mut Engine, p: &Value) -> Result<Vec<TrackId>> {
             if let Some(tb) = ticks {
                 t.ticks_timebase = tb;
             }
-            if kind == TrackKind::Instrument {
+            if kind.plays_instrument() {
                 t.instrument = Some(soundcraft_model::Insert::new(instrument.clone().unwrap_or_else(|| "subtractive_synth".into())));
             }
         }

@@ -5,7 +5,7 @@ use super::{CommandSpec, bad, has_selection, str_param, tracks_required};
 
 use crate::{Engine, Result, cmd};
 use serde_json::{Value, json};
-use soundcraft_model::{Insert, TrackKind};
+use soundcraft_model::Insert;
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
@@ -47,7 +47,7 @@ fn set_instrument(e: &mut Engine, p: &Value) -> Result<Value> {
         return Err(bad("mix.instrument", format!("`{plugin}` is not an instrument")));
     }
     let t = tracks_required(e, "mix.instrument", p)?.first().copied().ok_or_else(|| bad("mix.instrument", "no track"))?;
-    if e.session().track(t).map(|tr| tr.kind) != Some(TrackKind::Instrument) {
+    if e.session().track(t).map(|tr| tr.kind.plays_instrument()) != Some(true) {
         return Err(bad("mix.instrument", "only instrument tracks have an instrument"));
     }
     // Validate the parameters before touching the session.

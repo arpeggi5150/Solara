@@ -296,7 +296,7 @@ fn load_preset(e: &mut Engine, p: &Value) -> Result<Value> {
             if tr.mixer.pan.len() != keep.5.len() {
                 tr.mixer.pan = keep.5;
             }
-            if tr.kind == TrackKind::Instrument && instrument.is_some() {
+            if tr.kind.plays_instrument() && instrument.is_some() {
                 tr.instrument = instrument.clone();
             }
         }

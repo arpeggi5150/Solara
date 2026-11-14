@@ -295,7 +295,7 @@ fn voice_row(app: &mut SoundApp, ui: &mut Ui, track: &Track, head: Rect) {
     let at = |x: f32, y: f32, w: f32, h: f32| Rect::from_min_size(pos2(head.min.x + x, head.min.y + y), vec2(w, h));
     let m = &track.mixer;
     if h >= 76.0 {
-        if matches!(track.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Aux) {
+        if matches!(track.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Aux | TrackKind::Tab) {
             let r = at(17.0, 57.0, 13.0, 17.0);
             let resp = ui.interact(r, ui.scope_id().with(("freeze", id.0)), Sense::click());
             raised_key(ui.painter(), r, if track.frozen { t.slot_bypassed } else { t.slot_face }, resp.hovered());
@@ -374,10 +374,10 @@ fn field_row(app: &mut SoundApp, ui: &mut Ui, track: &Track, head: Rect, head_bg
             });
         }
         let field = at(30.0, 75.0, 92.0, 17.0);
-        if matches!(track.kind, TrackKind::Audio | TrackKind::Instrument) {
+        if matches!(track.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Tab) {
             let resp = ui.interact(field, ui.scope_id().with(("field", id.0)), Sense::click());
             ui.painter().rect_filled(field, 2.0, shade(head_bg, if resp.hovered() { -0.02 } else { -0.1 }));
-            if track.kind == TrackKind::Instrument {
+            if track.kind.plays_instrument() {
                 let name =
                     track.instrument.as_ref().and_then(|i| crate::mix_window::plugin_info(&i.plugin)).map_or("no instrument", |p| p.short_name);
                 ui.painter().with_clip_rect(field).text(pos2(field.min.x + 5.0, field.center().y), Align2::LEFT_CENTER, name, bold(10.0), t.text);
@@ -602,7 +602,7 @@ fn plugin_column(app: &mut SoundApp, ui: &mut Ui, track: &Track, col: &str, r: R
     let square = |i: usize, row: usize| Rect::from_min_size(cell(row).min + vec2(i as f32 * 14.0, 0.0), vec2(10.0, 15.0));
     let mut ui = column_ui(ui, col, r);
     if col == "instruments" {
-        if rows > 0 && track.kind == TrackKind::Instrument {
+        if rows > 0 && track.kind.plays_instrument() {
             crate::mix_window::instrument_slot(app, &mut ui, track, cell(0));
         }
         return;

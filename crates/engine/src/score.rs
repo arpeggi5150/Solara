@@ -5,7 +5,7 @@
 //! a chord, overlapping notes are cut at the next onset, and anything crossing a bar line is split
 //! and tied.
 
-use soundcraft_model::{ClipContent, Session, TrackId, TrackKind};
+use soundcraft_model::{ClipContent, Session, TrackId};
 use soundcraft_time::TICKS_PER_QUARTER;
 use std::fmt::Write as _;
 
@@ -98,7 +98,7 @@ pub fn layout(s: &Session, tracks: &[TrackId]) -> Vec<Part> {
     let sr = s.sample_rate;
     let mut raw: Vec<(String, Vec<(i64, i64, u8)>)> = Vec::new();
     for t in &s.tracks {
-        if !matches!(t.kind, TrackKind::Midi | TrackKind::Instrument) || (!tracks.is_empty() && !tracks.contains(&t.id)) {
+        if !t.kind.is_midi() || (!tracks.is_empty() && !tracks.contains(&t.id)) {
             continue;
         }
         let mut notes = Vec::new();

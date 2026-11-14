@@ -26,6 +26,7 @@ pub mod extra_windows;
 pub mod midi_editor;
 pub mod sampler_window;
 pub mod score_editor;
+pub mod tab_editor;
 pub mod video_window;
 pub mod windows;
 

@@ -3,7 +3,7 @@ use super::{Dialog, SoundApp, Value, json};
 /// When `id` would close a session with unsaved changes, ask first; true when the question is
 /// open instead. A take in progress is stopped first, so it counts as a change.
 pub fn ask_to_save(app: &mut SoundApp, id: &str, params: &Value) -> bool {
-    if !matches!(id, "session.new" | "session.open" | "session.close" | "session.revert" | "app.quit" | OPEN_PENDING)
+    if !matches!(id, "session.new" | "session.open" | "file.open_tabgarden" | "session.close" | "session.revert" | "app.quit" | OPEN_PENDING)
         || soundcraft_engine::find_command(id).is_some_and(|c| (c.enabled)(&app.engine).is_err())
     {
         return false;
@@ -59,6 +59,8 @@ pub fn open_path(app: &mut SoundApp, path: &std::path::Path) {
     let lower = p.to_ascii_lowercase();
     let r = if lower.ends_with(".scraft") {
         run_or_ask(app, "session.open", json!({"path": p}))
+    } else if lower.ends_with(".tabgarden") {
+        run_or_ask(app, "file.open_tabgarden", json!({"path": p}))
     } else if lower.ends_with(".mid") || lower.ends_with(".midi") || lower.ends_with(".smf") {
         app.run("file.import_midi", json!({"path": p}))
     } else {
@@ -129,6 +131,7 @@ pub(super) fn path_dialog(id: &str, home: &str, name: &str) -> Option<Dialog> {
     let importing = id.contains("import") || id.contains("open");
     let ext = match id {
         "file.export_midi" => ".mid",
+        "file.export_tabgarden" => ".tabgarden",
         "file.export_sibelius" => ".musicxml",
         "file.print_score" => ".svg",
         "file.export_clip_groups" => ".scgrp",

@@ -270,6 +270,9 @@ fn draw_clip_content(cl: &ClipLane<'_>, clip: &Clip, g: &ClipGeom<'_>) {
             }
         }
         ClipContent::Video { .. } => {} // thumbnails: video_track::draw_lane
+        ClipContent::Midi { sequence } if track.kind == soundcraft_model::TrackKind::Tab && body_r.height() >= 14.0 => {
+            draw_tab_clip(cl, clip, sequence, g);
+        }
         ClipContent::Midi { sequence } => {
             let (lo, hi) = sequence.notes.iter().fold((127u8, 0u8), |(lo, hi), n| (lo.min(n.pitch), hi.max(n.pitch)));
             let (lo, hi) = if lo > hi { (48, 72) } else { (lo.saturating_sub(2), hi.saturating_add(2)) };
@@ -297,6 +300,35 @@ fn draw_clip_content(cl: &ClipLane<'_>, clip: &Clip, g: &ClipGeom<'_>) {
                     if selected { Color32::from_rgb(16, 16, 16) } else { vcol },
                 );
             }
+        }
+    }
+}
+
+/// A tab track's clip: its notes as tab, notation or both (the track's view), at the same x as the
+/// piano roll and the Tab Editor draw them.
+fn draw_tab_clip(cl: &ClipLane<'_>, clip: &Clip, sequence: &soundcraft_midi::Sequence, g: &ClipGeom<'_>) {
+    let ClipLane { painter, s, track, tl, .. } = *cl;
+    let ClipGeom { body_r, vis, body, selected, .. } = *g;
+    let Some(setup) = track.tab_setup() else { return };
+    let tuning = setup.tuning.sanitized();
+    let base = s.tempo.samples_to_ticks(clip.start, s.sample_rate);
+    let end = clip.end();
+    let x_of_tick = |t: i64| x_of(s, tl, s.tempo.tick_to_samples(base.saturating_add(t), s.sample_rate).min(end));
+    let drawn = crate::tab_view::layout(sequence, &tuning, x_of_tick, vis.min.x - 40.0, vis.max.x);
+    let p = painter.with_clip_rect(vis);
+    let ink = if selected || crate::theme::is_light() { Color32::from_rgb(16, 16, 16) } else { Color32::from_rgb(235, 235, 235) };
+    let paper = body;
+    let inner = body_r.shrink2(egui::vec2(0.0, 2.0));
+    let view = if inner.height() < 44.0 && setup.view == soundcraft_model::TabView::Both { soundcraft_model::TabView::Tab } else { setup.view };
+    match view {
+        soundcraft_model::TabView::Tab => crate::tab_view::draw_tab(&p, inner, &tuning, &drawn, ink, paper, None),
+        soundcraft_model::TabView::Notation => crate::tab_view::draw_notation(&p, inner, crate::tab_view::bass_clef(&tuning), &drawn, ink, None),
+        soundcraft_model::TabView::Both => {
+            let split = inner.min.y + inner.height() * 0.45;
+            let top = Rect::from_min_max(inner.min, pos2(inner.max.x, split));
+            let bottom = Rect::from_min_max(pos2(inner.min.x, split + 2.0), inner.max);
+            crate::tab_view::draw_notation(&p, top, crate::tab_view::bass_clef(&tuning), &drawn, ink, None);
+            crate::tab_view::draw_tab(&p, bottom, &tuning, &drawn, ink, paper, None);
         }
     }
 }

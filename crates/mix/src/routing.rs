@@ -42,7 +42,7 @@ pub(crate) fn reads_bus(t: &Track) -> Option<BusId> {
             Route::Bus(b) => Some(*b),
             _ => None,
         },
-        TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi => t.mixer.receive,
+        TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab => t.mixer.receive,
         _ => None,
     }
 }

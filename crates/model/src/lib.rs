@@ -34,6 +34,6 @@ pub use session::{
     Tool, TrackView, ZoomState, ZoomToggle, truncate_chars,
 };
 pub use source::{Source, SourceAudio, SourcePool, VideoSource};
-pub use track::{Playlist, TRACK_COLORS, Track, TrackHeight, TrackKind};
+pub use track::{Playlist, TRACK_COLORS, TabSetup, TabView, Track, TrackHeight, TrackKind};
 
 pub use soundcraft_time as time;

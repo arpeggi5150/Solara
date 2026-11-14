@@ -63,6 +63,7 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("window.clip_effects_dock", "Clip Effects", "View > Other Displays > Lower Dock > Clip Effects", Some("Alt+6")),
     ("window.search", "Search", "Window > Pro Tools Search", Some("Cmd+Ctrl+S")),
     ("window.score", "Score Editor", "Window > Score Editor", Some("Cmd+Ctrl+=")),
+    ("window.tab_editor", "Tab Editor", "Window > Tab Editor", None),
     ("window.beat_detective", "Beat Analysis", "", None),
     ("window.tempo_ops", "Tempo Operations", "", None),
     ("window.time_ops", "Time Operations", "", None),
@@ -393,7 +394,7 @@ fn instrument_menu(app: &mut SoundApp, ui: &mut egui::Ui) {
 
 /// The first selected instrument track, in track order.
 fn instrument_track(s: &soundcraft_model::Session) -> Option<soundcraft_model::TrackId> {
-    s.tracks.iter().find(|t| t.kind == soundcraft_model::TrackKind::Instrument && s.edit.selected_tracks.contains(&t.id)).map(|t| t.id)
+    s.tracks.iter().find(|t| t.kind.plays_instrument() && s.edit.selected_tracks.contains(&t.id)).map(|t| t.id)
 }
 
 fn menu_node(app: &mut SoundApp, ui: &mut egui::Ui, n: &MenuNode, extra: &[(&str, &str)]) {
@@ -714,6 +715,7 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
         "window.routing_matrix" => toggle(&mut app.ui.show_routing_matrix),
         "ui.keymap" => return Some(crate::keymap::command(app, p)),
         "window.score" => toggle(&mut app.ui.show_score),
+        "window.tab_editor" => toggle(&mut app.ui.show_tab_editor),
         "window.beat_detective" => toggle(&mut app.ui.show_beat_detective),
         "window.tempo_ops" => toggle(&mut app.ui.show_tempo_ops),
         "window.time_ops" => toggle(&mut app.ui.show_time_ops),

@@ -74,11 +74,12 @@ fn track_values(track: &Track) -> impl PartialEq + '_ {
         pinned,
         slots,
         rack,
+        tab,
     } = track;
     (
         (id, name, kind, format, color, height, playlists, active_playlist, mixer_values(mixer), automation, view),
         (hidden, inactive, frozen, comments, folder, folder_open, instrument, ticks_timebase, elastic, pinned),
-        (slots, rack),
+        (slots, rack, tab),
     )
 }
 

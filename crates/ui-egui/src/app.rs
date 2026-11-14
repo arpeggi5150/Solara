@@ -384,6 +384,7 @@ impl SoundApp {
         extra_windows::show(self, &ctx);
         recovery::show(self, &ctx);
         score_editor::show(self, &ctx);
+        panels::tab_editor::show(self, &ctx);
         palette::show(self, &ctx);
         crate::action_list::show(self, &ctx);
         crate::routing_matrix::show(self, &ctx);
