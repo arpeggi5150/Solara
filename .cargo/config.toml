@@ -1,2 +1,4 @@
 [alias]
 xtask = "run --package xtask --"
+solara = "run --release --package soundcraft --"
+solara-cli = "run --release --package soundcraft-cli --"

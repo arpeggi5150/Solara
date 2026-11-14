@@ -28,7 +28,7 @@ fn track<'a>(sess: &'a Value, name: &str) -> &'a Value {
 fn handshake_and_tool_list() {
     let mut s = Server::new(Headless::new(Engine::default()));
     let r = rpc(&mut s, 1, "initialize", json!({"protocolVersion": "2025-06-18"}));
-    assert_eq!(r["result"]["serverInfo"]["name"], "soundcraft");
+    assert_eq!(r["result"]["serverInfo"]["name"], "solara");
     let r = rpc(&mut s, 2, "tools/list", json!({}));
     assert!(r["result"]["tools"].as_array().unwrap().len() >= 10);
     let batch = r["result"]["tools"].as_array().unwrap().iter().find(|tool| tool["name"] == "batch").unwrap();
@@ -36,6 +36,14 @@ fn handshake_and_tool_list() {
     assert!(s.handle(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none());
     let r = rpc(&mut s, 3, "nope", json!({}));
     assert_eq!(r["error"]["code"], -32601);
+    // Resources are listed as solara://; the upstream soundcraft:// names still read.
+    let r = rpc(&mut s, 4, "resources/list", json!({}));
+    let uris: Vec<&str> = r["result"]["resources"].as_array().unwrap().iter().filter_map(|x| x["uri"].as_str()).collect();
+    assert_eq!(uris, ["solara://session", "solara://commands"]);
+    for uri in ["solara://session", "soundcraft://session", "solara://commands"] {
+        let r = rpc(&mut s, 5, "resources/read", json!({"uri": uri}));
+        assert!(r["result"]["contents"][0]["text"].as_str().is_some_and(|t| !t.is_empty()), "{uri}: {r}");
+    }
 }
 
 #[test]

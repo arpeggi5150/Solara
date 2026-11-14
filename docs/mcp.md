@@ -2,32 +2,32 @@
 
 Solara speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio, so
 Claude and other agents can make music with it. The server is the `mcp` subcommand of
-`soundcraft-cli`, which [docs/cli.md](cli.md) describes.
+`solara-cli`, which [docs/cli.md](cli.md) describes.
 
 ```sh
-soundcraft-cli mcp                    # headless engine (no window, no audio device)
-soundcraft-cli mcp --demo             # headless, starting from the demo session
-soundcraft-cli mcp --automation-read-root DIR --automation-write-root DIR   # headless, confined to folders
-soundcraft --control 7801 &           # the desktop app…
-soundcraft-cli mcp --connect 7801     # …driven over MCP: same tools plus screenshots and clicks
+solara-cli mcp                    # headless engine (no window, no audio device)
+solara-cli mcp --demo             # headless, starting from the demo session
+solara-cli mcp --automation-read-root DIR --automation-write-root DIR   # headless, confined to folders
+solara --control 7801 &           # the desktop app…
+solara-cli mcp --connect 7801     # …driven over MCP: same tools plus screenshots and clicks
 ```
 
 Claude Code:
 
 ```sh
-claude mcp add soundcraft -- soundcraft-cli mcp --demo
+claude mcp add solara -- solara-cli mcp --demo
 ```
 
 ## Confining file access
 
 ```sh
-soundcraft-cli mcp --automation-read-root /work/project --automation-write-root /work/project/out
-soundcraft-cli mcp --automation-read-root /work/project --automation-read-root /work/shared-samples \
+solara-cli mcp --automation-read-root /work/project --automation-write-root /work/project/out
+solara-cli mcp --automation-read-root /work/project --automation-read-root /work/shared-samples \
   --automation-write-root /work/project/out --automation-write-root /tmp/scratch
 ```
 
 ```json
-{"mcpServers": {"soundcraft": {"command": "soundcraft-cli",
+{"mcpServers": {"solara": {"command": "solara-cli",
   "args": ["mcp", "--automation-read-root", "/work/project", "--automation-write-root", "/work/project/out"]}}}
 ```
 
@@ -72,7 +72,7 @@ works across the suite) keep the agent to the folders you give it:
 
 The flags confine the in-process server, so `--connect` together with them is an error: the server
 would otherwise talk to an app that isn't confined. Solara's desktop app has no equivalent flags
-yet, so a running app (`soundcraft --control`) is not confined. `--demo` is the operator's own
+yet, so a running app (`solara --control`) is not confined. `--demo` is the operator's own
 choice and is built before the roots apply.
 
 Playback and bounce need no check of their own. Solara decodes audio into the session when it
@@ -106,7 +106,7 @@ files it was given rather than guarding against other software on the computer.
 | `parity` | Feature-parity report. |
 | `screenshot`, `ui_inspect`, `ui_set`, `menu_invoke`, `click`, `drag`, `key` | App only (with `--connect`). |
 
-Resources: `soundcraft://session` (full session JSON), `soundcraft://commands`.
+Resources: `solara://session` (full session JSON), `solara://commands`.
 
 ## Conventions
 

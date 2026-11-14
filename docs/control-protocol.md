@@ -6,11 +6,11 @@ input), and every command is reachable from:
 
 | Surface | How |
 |---|---|
-| Desktop app control channel | `soundcraft --control <port>` (`0` = pick a free port; printed as `SOLARA_CONTROL_PORT=…`) |
-| CLI against a running app | `soundcraft-cli app --port <port> <method or command id> [JSON]` (see [cli.md](cli.md)) |
-| Headless CLI | `soundcraft-cli run --demo --cmd 'mix.volume={"track":"Kick","db":-6}' --bounce out.wav` |
-| MCP (headless) | `soundcraft-cli mcp [--demo]` |
-| MCP (bridged to the app) | `soundcraft-cli mcp --connect <port>` |
+| Desktop app control channel | `solara --control <port>` (`0` = pick a free port; printed as `SOLARA_CONTROL_PORT=…`) |
+| CLI against a running app | `solara-cli app --port <port> <method or command id> [JSON]` (see [cli.md](cli.md)) |
+| Headless CLI | `solara-cli run --demo --cmd 'mix.volume={"track":"Kick","db":-6}' --bounce out.wav` |
+| MCP (headless) | `solara-cli mcp [--demo]` |
+| MCP (bridged to the app) | `solara-cli mcp --connect <port>` |
 
 ## Isolated automation profiles
 
@@ -84,11 +84,11 @@ Scripted input (`ui.click`, `ui.drag`, `ui.scroll`, `ui.zoom`, `ui.key`, `ui.tex
 ## Examples
 
 ```sh
-P=$(soundcraft --demo --control 0 | sed -n 's/SOLARA_CONTROL_PORT=//p')   # or read stderr
-soundcraft-cli app --port $P mix.solo '{"track":"Bass"}'
-soundcraft-cli app --port $P transport.play
-soundcraft-cli app --port $P ui.screenshot '{"path":"/tmp/shot.png"}'
-soundcraft-cli app --port $P ui.menu.invoke '{"path":"Track > New..."}'
+P=$(solara --demo --control 0 | sed -n 's/SOLARA_CONTROL_PORT=//p')   # or read stderr
+solara-cli app --port $P mix.solo '{"track":"Bass"}'
+solara-cli app --port $P transport.play
+solara-cli app --port $P ui.screenshot '{"path":"/tmp/shot.png"}'
+solara-cli app --port $P ui.menu.invoke '{"path":"Track > New..."}'
 ```
 
 Offscreen (no window): `cargo run -p soundcraft-ui-egui --example ui_shot -- out.png script.jsonl`,

@@ -42,7 +42,7 @@ impl Headless {
     }
 
     /// Confine every file the session's commands read and write to `roots`
-    /// (`soundcraft-cli mcp --automation-read-root … --automation-write-root …`).
+    /// (`solara-cli mcp --automation-read-root … --automation-write-root …`).
     pub fn with_automation_roots(mut self, roots: Option<Arc<AutomationRoots>>) -> Self {
         self.roots = roots;
         self
@@ -64,7 +64,7 @@ impl Headless {
                 Ok(soundcraft_engine::inspect::session(&self.engine, params.get("detail").and_then(Value::as_str) == Some("full")))
             }
             m if m.starts_with("ui.") => {
-                Err(format!("`{m}` needs the desktop app: start `soundcraft --control 0` and use `soundcraft-cli mcp --connect PORT`"))
+                Err(format!("`{m}` needs the desktop app: start `solara --control 0` and use `solara-cli mcp --connect PORT`"))
             }
             other => Err(format!("unknown method `{other}`")),
         }
@@ -84,8 +84,8 @@ impl Backend for Headless {
     }
 }
 
-/// Where a running app's control channel listens: what `soundcraft-cli app --port`,
-/// `soundcraft-cli mcp --connect`, `soundcraft --control` and SOLARA_CONTROL_PORT give, parsed
+/// Where a running app's control channel listens: what `solara-cli app --port`,
+/// `solara-cli mcp --connect`, `solara --control` and SOLARA_CONTROL_PORT give, parsed
 /// once (`args::control_target`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ControlTarget {

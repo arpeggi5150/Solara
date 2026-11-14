@@ -1,13 +1,13 @@
 # Where Solara falls short of Pro Tools
 
-> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-11-14 · **Change:** trivial (G-02: MIDI keyboard input plays and records armed instruments; previously G-01: ASIO output via azo; G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-11-14 · **Change:** trivial (rebrand sweep wording; previously trivial: G-02: MIDI keyboard input plays and records armed instruments; previously G-01: ASIO output via azo; G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Every known shortfall, one entry each, ranked by how much it stops a Pro Tools user from doing
 real work in Solara. This is the work list: pick from the top. Rows marked **alpha blocker**
 fail the core-workflow gate in [`roadmap.md`](roadmap.md#alpha-gate) and keep Solara pre-alpha. Numbers and weights live in
 [`target-app-parity.md`](target-app-parity.md); the plan that orders these into milestones is
 [`roadmap.md`](roadmap.md). Hours are Opus 5.5 agent-hours (calibration in target-app-parity.md).
-Estimates marked "≈" are judgements; issue numbers are `storytold/soundcraft` GitHub issues.
+Estimates marked "≈" are judgements; issue numbers refer to the upstream project's GitHub issues (see NOTICE).
 
 When you close a gap, delete its entry (or shrink it) in the same PR, and bump the timestamp.
 
@@ -237,6 +237,7 @@ missing. Out of scope unless the owner decides otherwise.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-14 | trivial | Wording: issue numbers refer to the upstream project (rebrand sweep) |
 | 2026-11-14 | trivial | G-02: MIDI keyboard input plays armed and monitored instruments and records takes; output, thru and clock remain (estimate 12–22 h) |
 | 2026-10-25 | trivial | G-04: Clip Looping (#1030) lacks the loop crossfade option, and Number of Loops stops at 512 while length and fill make up to 1000 loops |
 | 2026-10-25 | trivial | G-01: `setup.playback_engine` and `setup.hardware` apply the device and buffer in the desktop app; headless returns `applied: false` |
