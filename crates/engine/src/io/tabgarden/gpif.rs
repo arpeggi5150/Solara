@@ -223,7 +223,9 @@ fn parse_track(t: &Element) -> GpTrack {
         })
         .unwrap_or([128, 128, 128]);
     let set_type = t.text_at(&["InstrumentSet", "Type"]).unwrap_or("");
-    let channel = num::<u8>(t.child("MidiConnection"), "PrimaryChannel").unwrap_or(0).min(15);
+    // Guitar Pro 7 names the channel under MidiConnection, Guitar Pro 6 under GeneralMidi.
+    let channel =
+        num::<u8>(t.child("MidiConnection"), "PrimaryChannel").or_else(|| num::<u8>(t.child("GeneralMidi"), "PrimaryChannel")).unwrap_or(0).min(15);
     let program = t
         .path(&["Sounds", "Sound", "MIDI", "Program"])
         .and_then(|p| p.text.trim().parse::<u8>().ok())
@@ -238,7 +240,8 @@ fn parse_track(t: &Element) -> GpTrack {
         })
         .unwrap_or_default();
     let capo = property(staff_props, "CapoFret").and_then(|p| p.text_at(&["Fret"])).and_then(|f| f.parse::<u8>().ok()).unwrap_or(0);
-    let drums = set_type == "drumKit" || channel == 9;
+    let gp6_kit = t.child("GeneralMidi").and_then(|g| g.attr("table")).is_some_and(|v| v.trim() == "Percussion");
+    let drums = set_type == "drumKit" || channel == 9 || gp6_kit;
     let kind = if drums {
         GpKind::Drums
     } else if !tuning.is_empty() && tuning.iter().any(|p| *p > 0) {
@@ -396,7 +399,14 @@ fn parse_note(n: &Element, kind: &GpKind, arts: &[Option<u8>]) -> Option<GpNote>
     let pitch = match kind {
         GpKind::Drums => {
             let art = n.text_at(&["InstrumentArticulation"]).and_then(|a| a.parse::<usize>().ok()).and_then(|i| arts.get(i).copied().flatten());
-            art.or(midi)
+            // Guitar Pro 6 names a drum by the kit piece and how it is struck.
+            let piece = || {
+                let element = property(props, "Element").and_then(|p| p.text_at(&["Element"])).and_then(|x| x.trim().parse::<usize>().ok())?;
+                let variation =
+                    property(props, "Variation").and_then(|p| p.text_at(&["Variation"])).and_then(|x| x.trim().parse::<usize>().ok()).unwrap_or(0);
+                drum_piece_key(element, variation)
+            };
+            art.or(midi).or_else(piece)
         }
         GpKind::Stringed { tuning, .. } => midi.or_else(|| {
             let open = *tuning.get(usize::from(string?))?;
@@ -411,6 +421,37 @@ fn parse_note(n: &Element, kind: &GpKind, arts: &[Option<u8>]) -> Option<GpNote>
         _ => None,
     };
     Some(GpNote { pitch, string, tie_in, tie_out, tech: techniques(n, props) })
+}
+
+/// The General MIDI drum key of a Guitar Pro 6 kit piece (`Element`) struck a given way
+/// (`Variation`), as TabGarden plays it; an unknown way falls back to the piece's first.
+///
+/// Pieces 0, 1, 6, 7, 12, 13, 15 and 16 were checked against the MIDI TabGarden writes for real
+/// Guitar Pro 6 files (its rim shot plays 38 and its ride bell 59). The others follow the kit's
+/// order and have not been checked yet.
+fn drum_piece_key(element: usize, variation: usize) -> Option<u8> {
+    // Per piece, its keys by variation.
+    const KIT: [&[u8]; 17] = [
+        &[35],         // kick
+        &[38, 38, 37], // snare: hit, rim shot, side stick
+        &[42, 46, 92], // hi-hat: closed, open, half
+        &[44],         // pedal hi-hat
+        &[41],         // very low tom
+        &[43],         // low floor tom
+        &[45],         // low tom
+        &[47],         // mid tom
+        &[48],         // high tom
+        &[50],         // very high tom
+        &[56],         // cowbell
+        &[54],         // tambourine
+        &[57],         // medium crash
+        &[49],         // high crash
+        &[55],         // splash
+        &[51, 59, 59], // ride: middle, edge, bell
+        &[52],         // china
+    ];
+    let keys = KIT.get(element)?;
+    keys.get(variation).or_else(|| keys.first()).copied()
 }
 
 /// A note's playing techniques, as `soundcraft_midi::tab::tech` bits.

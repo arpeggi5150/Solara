@@ -373,3 +373,38 @@ fn techniques_play_as_tabgarden_plays_them_and_survive_export() {
     let back: Vec<(i64, u8, i64, u8)> = again.notes.iter().map(|n| (n.start, n.pitch, n.length, n.velocity)).collect();
     assert!(back.contains(&(0, 40, 254, 95)) && back.contains(&(1440, 54, 480, 79)) && back.contains(&(6720, 67, 960, 111)), "{back:?}");
 }
+
+/// A Guitar Pro 6 drum track: the channel sits under `GeneralMidi`, and each note names a kit
+/// piece and how it is struck instead of a key.
+const GP6_DRUMS: &str = r#"<GPIF><Score><Title><![CDATA[Kit]]></Title></Score>
+<MasterTrack><Tracks>0</Tracks></MasterTrack>
+<Tracks><Track id="0"><Name><![CDATA[Drumkit]]></Name><Instrument ref="drmkt" />
+<GeneralMidi table="Percussion"><Program>0</Program><Port>0</Port><PrimaryChannel>9</PrimaryChannel><SecondaryChannel>9</SecondaryChannel></GeneralMidi></Track></Tracks>
+<MasterBars><MasterBar><Time>4/4</Time><Bars>0</Bars></MasterBar></MasterBars>
+<Bars><Bar id="0"><Voices>0 -1 -1 -1</Voices></Bar></Bars>
+<Voices><Voice id="0"><Beats>0 1 2 3</Beats></Voice></Voices>
+<Beats>
+<Beat id="0"><Rhythm ref="0"/><Notes>0 1</Notes></Beat>
+<Beat id="1"><Rhythm ref="0"/><Notes>2</Notes></Beat>
+<Beat id="2"><Rhythm ref="0"/><Notes>3 4</Notes></Beat>
+<Beat id="3"><Rhythm ref="0"/><Notes>5</Notes></Beat>
+</Beats>
+<Notes>
+<Note id="0"><Properties><Property name="Element"><Element>0</Element></Property><Property name="Variation"><Variation>0</Variation></Property></Properties></Note>
+<Note id="1"><Properties><Property name="Element"><Element>16</Element></Property><Property name="Variation"><Variation>0</Variation></Property></Properties></Note>
+<Note id="2"><Properties><Property name="Element"><Element>1</Element></Property><Property name="Variation"><Variation>1</Variation></Property></Properties></Note>
+<Note id="3"><Properties><Property name="Element"><Element>12</Element></Property><Property name="Variation"><Variation>0</Variation></Property></Properties></Note>
+<Note id="4"><Properties><Property name="Element"><Element>15</Element></Property><Property name="Variation"><Variation>2</Variation></Property></Properties></Note>
+<Note id="5"><Properties><Property name="Element"><Element>999</Element></Property><Property name="Variation"><Variation>99999999999999999999</Variation></Property></Properties></Note>
+</Notes>
+<Rhythms><Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm></Rhythms></GPIF>"#;
+
+#[test]
+fn guitar_pro_6_kit_pieces_play_the_keys_tabgarden_plays() {
+    let s = session_from_score(&gpif::parse_gpif(GP6_DRUMS).unwrap(), None, "k").unwrap();
+    let seq = notes_of(&s, 0);
+    let mut hits: Vec<(i64, u8)> = seq.notes.iter().map(|n| (n.start, n.pitch)).collect();
+    hits.sort_unstable();
+    // Kick and china, the rim shot, a medium crash and the ride bell; an unknown piece is left out.
+    assert_eq!(hits, [(0, 35), (0, 52), (960, 38), (1920, 57), (1920, 59)]);
+}
