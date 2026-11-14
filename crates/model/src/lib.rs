@@ -15,6 +15,7 @@ mod markers;
 mod mixer;
 mod session;
 mod source;
+mod tagging;
 mod track;
 
 pub use auto_clip::{AutoClip, MAX_AUTO_CLIPS};
@@ -34,6 +35,7 @@ pub use session::{
     Tool, TrackView, ZoomState, ZoomToggle, truncate_chars,
 };
 pub use source::{Source, SourceAudio, SourcePool, VideoSource};
+pub use tagging::{MAX_LEARNED, MAX_TAG_CHARS, MAX_TAGS, Tagging, clean_tag, clean_tags};
 pub use track::{Playlist, TRACK_COLORS, TabSetup, TabView, Track, TrackHeight, TrackKind};
 
 pub use soundcraft_time as time;

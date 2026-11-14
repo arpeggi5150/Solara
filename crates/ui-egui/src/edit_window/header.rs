@@ -24,8 +24,31 @@ pub(super) fn track_header(app: &mut SoundApp, ui: &mut Ui, track: &Track, head:
     view_selector(app, ui, track, head);
     voice_row(app, ui, track, head);
     field_row(app, ui, track, head, head_bg);
+    tag_row(app, ui, track, head);
     let md = app.meters.get(&id).copied().unwrap_or_default();
     header_meter(ui, Rect::from_min_max(pos2(head.max.x - 8.0, head.min.y + 1.0), pos2(head.max.x, head.max.y - 1.5)), &md, track.channels() >= 2);
+}
+
+/// The track's tags, on the first free row of the header: below the controls that show at its
+/// height. Too short a track shows them on the name's tooltip only.
+fn tag_row(app: &mut SoundApp, ui: &mut Ui, track: &Track, head: Rect) {
+    if track.tags.is_empty() || track.kind == TrackKind::Master {
+        return;
+    }
+    let h = head.height();
+    let y = if h >= 105.0 {
+        94.0
+    } else if h >= 87.0 {
+        76.0
+    } else if (70.0..76.0).contains(&h) {
+        57.5
+    } else if (46.0..58.0).contains(&h) {
+        36.5
+    } else {
+        return;
+    };
+    let r = Rect::from_min_size(pos2(head.min.x + 17.0, head.min.y + y), vec2((head.width() - 28.0).max(0.0), 10.5));
+    crate::tagging::header_row(app, ui, track.id, r, &track.tags);
 }
 
 /// The colour strip: a click selects the track as the header does, a double click opens the Color
@@ -146,9 +169,12 @@ fn name_plate(app: &mut SoundApp, ui: &mut Ui, track: &Track, head: Rect, select
         if overflows { (pos2(name_r.min.x + 1.5, name_r.center().y), Align2::LEFT_CENTER) } else { (name_r.center(), Align2::CENTER_CENTER) };
     ui.painter().with_clip_rect(name_r).text(text_pos, align, &shown_name, font, name_color);
     let mut nresp = ui.interact(name_r, ui.scope_id().with(("name", id.0)), Sense::click_and_drag());
-    if overflows {
+    if overflows || !track.tags.is_empty() {
         nresp = nresp.on_hover_ui(|ui| {
             ui.label(&shown_name);
+            if !track.tags.is_empty() {
+                ui.label(format!("Tags: {}", crate::tagging::join(&track.tags)));
+            }
         });
     }
     if nresp.double_clicked() {

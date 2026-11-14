@@ -531,7 +531,7 @@ fn flag(
 }
 
 /// A routing folder owns its summing bus; never reuse a user bus with the same name.
-fn unique_folder_bus_name(s: &Session, base: &str, own: Option<soundcraft_model::BusId>) -> String {
+pub(super) fn unique_folder_bus_name(s: &Session, base: &str, own: Option<soundcraft_model::BusId>) -> String {
     for suffix in 1..=s.busses.len().saturating_add(2) {
         let candidate = if suffix == 1 { base.to_string() } else { format!("{base} {suffix}") };
         if !s.busses.iter().any(|bus| bus.name == candidate && Some(bus.id) != own) {
@@ -541,7 +541,7 @@ fn unique_folder_bus_name(s: &Session, base: &str, own: Option<soundcraft_model:
     format!("{base} {}", s.busses.len().saturating_add(3))
 }
 
-fn move_to_folder(e: &mut Engine, p: &Value) -> Result<Value> {
+pub(super) fn move_to_folder(e: &mut Engine, p: &Value) -> Result<Value> {
     let tracks = tracks_required(e, "track.move_to_new_folder", p)?;
     let name = str_param(p, "name").map(str::to_string);
     let s = e.session_mut();
@@ -607,7 +607,7 @@ fn place_under(s: &mut Session, folder: TrackId, tracks: &[TrackId]) {
     }
 }
 
-fn folder_bus(s: &Session, folder: TrackId) -> Option<Route> {
+pub(super) fn folder_bus(s: &Session, folder: TrackId) -> Option<Route> {
     s.track(folder).map(|folder| folder.mixer.input.clone()).filter(|route| matches!(route, Route::Bus(_)))
 }
 
@@ -639,7 +639,7 @@ fn root_tracks(s: &Session, tracks: Vec<TrackId>) -> Vec<TrackId> {
     tracks.iter().copied().filter(|track| !tracks.iter().any(|root| root != track && in_folder(s, *track, *root))).collect()
 }
 
-fn move_into_folder(e: &mut Engine, p: &Value) -> Result<Value> {
+pub(super) fn move_into_folder(e: &mut Engine, p: &Value) -> Result<Value> {
     let folder = track_param(e, "track.move_to_folder", p, "folder")?.ok_or_else(|| bad("track.move_to_folder", "`folder` required"))?;
     let tracks = tracks_required(e, "track.move_to_folder", p)?;
     let session = e.session_mut();
@@ -668,7 +668,7 @@ fn move_into_folder(e: &mut Engine, p: &Value) -> Result<Value> {
     Ok(json!({"folder": folder, "moved": tracks.len()}))
 }
 
-fn remove_from_folder(e: &mut Engine, p: &Value) -> Result<Value> {
+pub(super) fn remove_from_folder(e: &mut Engine, p: &Value) -> Result<Value> {
     let tracks = tracks_required(e, "track.remove_from_folder", p)?;
     let session = e.session_mut();
     let tracks = root_tracks(session, tracks);
@@ -747,7 +747,7 @@ fn reroute_deleted_bus(s: &mut Session, bus: soundcraft_model::BusId, replacemen
     }
 }
 
-fn delete(e: &mut Engine, p: &Value) -> Result<Value> {
+pub(super) fn delete(e: &mut Engine, p: &Value) -> Result<Value> {
     let tracks = tracks_required(e, "track.delete", p)?;
     let s = e.session_mut();
     let removed_busses: Vec<_> = tracks

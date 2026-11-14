@@ -386,6 +386,9 @@ pub struct Session {
     /// The Groove Pool: grooves saved to drop on clips.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub grooves: Vec<crate::GroovePreset>,
+    /// Track tagging: whether tags drive grouping, and what the smart scan learned.
+    #[serde(default, skip_serializing_if = "crate::Tagging::is_empty")]
+    pub tagging: crate::Tagging,
     /// Session View clips launched (live, never saved, compared or undone).
     #[serde(skip)]
     pub launch: Vec<crate::Launch>,
@@ -430,6 +433,7 @@ impl Session {
             auto_clips: Vec::new(),
             scenes: Vec::new(),
             grooves: Vec::new(),
+            tagging: crate::Tagging::default(),
             launch: Vec::new(),
             pool: SourcePool::default(),
             folder: None,
@@ -893,6 +897,7 @@ impl Session {
         }
         self.tempo.sanitize();
         self.sanitize_launcher();
+        self.sanitize_tags();
     }
 
     /// Reject a document whose ids are ambiguous or exhausted, run after [`Session::sanitize`] on

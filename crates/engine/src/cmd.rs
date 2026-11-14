@@ -41,6 +41,7 @@ mod strip_silence;
 mod surround;
 mod tab;
 mod tab_track;
+mod tags;
 mod track;
 mod track_more;
 mod transport;
@@ -182,6 +183,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(launcher::specs());
         v.extend(groove_pool::specs());
         v.extend(rack::specs());
+        v.extend(tags::specs());
         #[cfg(test)]
         v.extend(panic_probe::specs());
         v

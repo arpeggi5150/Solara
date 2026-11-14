@@ -657,7 +657,18 @@ fn name_and_readout(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>) {
         TrackKind::Video => "video",
         TrackKind::Tab => "tab",
     };
-    ui.painter().text(pos2(vr.center().x, vr.max.y + 9.0), Align2::CENTER_CENTER, kind, regular(9.5), t.text_dim);
+    // A tagged track shows its tags where the kind would be; the kind moves to the tooltip.
+    let kind_r = Rect::from_center_size(pos2(vr.center().x, vr.max.y + 9.0), vec2(inner_w, 11.0));
+    if track.tags.is_empty() {
+        ui.painter().text(kind_r.center(), Align2::CENTER_CENTER, kind, regular(9.5), t.text_dim);
+    } else {
+        let line = crate::tagging::join(&track.tags);
+        ui.painter().with_clip_rect(kind_r).text(kind_r.center(), Align2::CENTER_CENTER, &line, regular(9.0), crate::tagging::tag_text_color());
+        let resp = ui.interact(kind_r, ui.scope_id().with(("strip-tags", id.0)), Sense::click()).on_hover_text(format!("{kind} track. Tags: {line}"));
+        if resp.clicked() {
+            crate::tagging::open_editor(app, vec![id]);
+        }
+    }
     let nr = Rect::from_min_size(pos2(x0, r.max.y - 26.0), vec2(inner_w, 18.0));
     ui.painter().rect(
         nr,
