@@ -156,7 +156,7 @@ fn rotation_into_an_unusable_directory_is_an_error_not_a_panic() {
 fn a_line_carries_time_level_thread_target_and_message() {
     assert_eq!(
         format_line("2026-10-08T07:59:17.728Z", log::Level::Warn, "main", "soundcraft_mix", "eq_7band: the plugin did not accept its stored state"),
-        "2026-10-08T07:59:17.728Z WARN  [main] soundcraft_mix: eq_7band: the plugin did not accept its stored state\n"
+        "2026-10-08T07:59:17.728Z WARN  [main] solara_mix: eq_7band: the plugin did not accept its stored state\n"
     );
     // A multi-line message keeps its lines; the record still ends in exactly one newline.
     assert!(format_line("t", log::Level::Error, "w", "x", "a\nb\n").ends_with("x: a\nb\n"));
@@ -234,7 +234,7 @@ fn the_logger_filters_records_and_writes_them_to_the_attached_file() {
     let text = read(&path);
     let lines: Vec<&str> = text.lines().collect();
     assert_eq!(lines.len(), 2, "{text}");
-    assert!(lines.first().is_some_and(|l| l.contains(" INFO  [") && l.ends_with("soundcraft: Solara starting")), "{text}");
+    assert!(lines.first().is_some_and(|l| l.contains(" INFO  [") && l.ends_with("solara: Solara starting")), "{text}");
     assert!(lines.get(1).is_some_and(|l| l.ends_with("wgpu_hal::vulkan: a real warning")), "{text}");
     assert!(logger.enabled(&log::Metadata::builder().level(log::Level::Info).target("soundcraft_engine").build()));
     assert!(!logger.enabled(&log::Metadata::builder().level(log::Level::Info).target("naga").build()));
@@ -261,7 +261,7 @@ fn records_from_many_threads_are_whole_lines() {
     });
     let text = read(&path);
     assert_eq!(text.lines().count(), 400);
-    assert!(text.lines().all(|l| l.ends_with("soundcraft: from a worker")), "{text}");
+    assert!(text.lines().all(|l| l.ends_with("solara: from a worker")), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -347,7 +347,7 @@ fn the_first_audio_thread_record_is_written_later_with_a_count_of_the_rest() {
     let text = read(&path);
     let lines: Vec<&str> = text.lines().collect();
     assert_eq!(lines.len(), 2, "{text}");
-    assert!(lines.first().is_some_and(|l| l.contains(" WARN  [audio] soundcraft_playback: audio stream error: device unplugged")), "{text}");
+    assert!(lines.first().is_some_and(|l| l.contains(" WARN  [audio] solara_playback: audio stream error: device unplugged")), "{text}");
     assert!(lines.get(1).is_some_and(|l| l.contains("41 more log records from the realtime audio thread were not written")), "{text}");
     // Reported once.
     logger.report_audio_thread();
@@ -359,7 +359,7 @@ fn the_first_audio_thread_record_is_written_later_with_a_count_of_the_rest() {
     let tail: Vec<&str> = text.lines().skip(2).collect();
     assert_eq!(tail.len(), 2, "{text}");
     assert!(tail.first().is_some_and(|l| l.contains(" ERROR [audio] soundcraft_clap_host::ffi: clap plugin: out of voices")), "{text}");
-    assert!(tail.get(1).is_some_and(|l| l.ends_with("soundcraft: UI thread")), "{text}");
+    assert!(tail.get(1).is_some_and(|l| l.ends_with("solara: UI thread")), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -372,9 +372,19 @@ fn a_long_audio_thread_record_is_cut_at_a_character_boundary() {
     on_audio_thread(|| record(&logger, log::Level::Warn, "soundcraft", &long));
     logger.report_audio_thread();
     let text = read(&path);
-    let message = text.split("soundcraft: ").nth(1).expect("message");
+    let message = text.split("solara: ").nth(1).expect("message");
     assert!(message.ends_with("…\n"), "{text}");
     assert!(message.len() <= REALTIME_MESSAGE_BYTES + "…\n".len(), "{}", message.len());
     assert!(message.trim_end_matches(['…', '\n']).chars().all(|c| c == 'é'));
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn lines_name_the_product_not_the_crate() {
+    let line = |target| format_line("t", log::Level::Info, "main", target, "m");
+    assert_eq!(line("soundcraft"), "t INFO  [main] solara: m\n");
+    assert_eq!(line("soundcraft::control_server"), "t INFO  [main] solara::control_server: m\n");
+    assert_eq!(line("soundcraft_playback"), "t INFO  [main] solara_playback: m\n");
+    assert_eq!(line("soundcraftish"), "t INFO  [main] soundcraftish: m\n");
+    assert_eq!(line("wgpu_core"), "t INFO  [main] wgpu_core: m\n");
 }
