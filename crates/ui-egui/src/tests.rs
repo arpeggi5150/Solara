@@ -116,6 +116,28 @@ fn record_with_nothing_armed_says_what_to_do() {
 }
 
 #[test]
+fn a_keyboard_take_records_on_an_armed_instrument_without_an_audio_input() {
+    let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
+    app.run("track.new", json!({"kind": "instrument", "name": "Keys"})).unwrap();
+    app.run("mix.record_arm", json!({})).unwrap();
+    app.run("transport.record", json!({})).unwrap();
+    app.handle_transport(0.25);
+    assert!(app.engine.transport.recording, "an instrument records with no audio input: {}", app.ui.status);
+    // What the audio thread hands back while recording: a note played over the first half second.
+    app.midi_take.extend([(4_800, [0x90, 60, 100]), (24_000, [0x80, 60, 0])]);
+    app.handle_transport(0.25);
+    app.run("transport.record", json!({})).unwrap();
+    app.handle_transport(0.25);
+    assert!(!app.engine.transport.recording);
+    let s = app.engine.session();
+    let keys = s.tracks.iter().find(|t| t.name == "Keys").unwrap();
+    let clip = keys.clips().first().expect("the take is a clip");
+    let soundcraft_model::ClipContent::Midi { sequence } = &clip.content else { panic!("not MIDI") };
+    assert_eq!(sequence.notes.len(), 1, "{}", app.ui.status);
+    assert!(app.midi_take.is_empty());
+}
+
+#[test]
 fn a_hidden_window_still_autosaves() {
     let dir = std::env::temp_dir().join(format!("soundcraft-hidden-autosave-{}", std::process::id()));
     let mut app = SoundApp::new(soundcraft_engine::demo::demo_engine(), None, Services::default());

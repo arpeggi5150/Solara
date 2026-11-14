@@ -175,6 +175,10 @@ pub(crate) struct AudioState {
     read: f64,
     pub(crate) device_rate: f64,
     input: Option<Arc<record::InputRing>>,
+    /// Keyboard messages in, and where those played while recording go back.
+    midi: Option<(Receiver<[u8; 3]>, SyncSender<crate::midi_in::RecordedMidi>)>,
+    /// How long, in session samples, from rendering a block to hearing it (one device buffer).
+    heard_after: Samples,
     recording: bool,
     /// Retired plugin instances go back to the UI thread to be dropped there.
     garbage: Sender<Vec<Box<dyn Plugin>>>,
@@ -220,6 +224,8 @@ impl AudioState {
             read: 0.0,
             device_rate,
             input: None,
+            midi: None,
+            heard_after: 0,
             recording: false,
             unsent: MeterSnapshot::default(),
             forget_shared: Vec::new(),
@@ -231,6 +237,7 @@ impl AudioState {
         while let Ok(c) = self.rx.try_recv() {
             match c {
                 Cmd::Input(r) => self.input = Some(r),
+                Cmd::Midi(rx, tx) => self.midi = Some((rx, tx)),
                 Cmd::Forget(gone) => {
                     self.unsent.forget(&gone);
                     if self.forget_shared.is_empty() {
@@ -335,6 +342,7 @@ impl AudioState {
             }
             ring.pop_into(&mut self.mix.input, n, self.session.sample_rate.hz());
         }
+        self.take_live_midi();
         self.mix.monitor_only = !self.playing;
         self.mix.recording = self.recording;
         self.mix.render(&self.session, self.pos, n, &mut self.pending);
@@ -345,6 +353,27 @@ impl AudioState {
             self.pos += n as i64;
             self.shared.position.store(self.pos, Ordering::Relaxed);
         }
+    }
+
+    /// Move the keyboard messages that arrived since the last block into the mix (they play at the
+    /// block's start), and while recording send each back stamped with where it was heard: the
+    /// block being heard now, one device buffer behind the one rendered.
+    fn take_live_midi(&mut self) {
+        self.mix.live_midi.clear();
+        let Some((rx, rec)) = &self.midi else { return };
+        let heard = self.pos.saturating_sub(self.heard_after).max(0);
+        while self.mix.live_midi.len() < soundcraft_mix::LIVE_MIDI_CAPACITY {
+            let Ok(msg) = rx.try_recv() else { break };
+            self.mix.live_midi.push(soundcraft_mix::LiveMidi { offset: 0, msg });
+            if self.recording && self.playing {
+                let _ = rec.try_send(crate::midi_in::RecordedMidi { at: heard, msg });
+            }
+        }
+    }
+
+    /// Whether a keyboard is open and a track plays it (record-enabled or input-monitored).
+    fn keyboard_live(&self) -> bool {
+        self.midi.is_some() && self.session.tracks.iter().any(|t| t.kind.is_midi() && (t.mixer.record_arm || t.mixer.input_monitor))
     }
 
     /// Drop deleted tracks' meters from the shared snapshot, unless the UI holds it right now.
@@ -372,8 +401,13 @@ impl AudioState {
     pub(crate) fn fill(&mut self, out: &mut [f32], channels: usize) {
         self.drain();
         let channels = channels.max(1);
-        let monitoring = self.input.is_some() && self.session.tracks.iter().any(|t| t.mixer.input_monitor || t.mixer.record_arm);
+        let monitoring =
+            (self.input.is_some() && self.session.tracks.iter().any(|t| t.mixer.input_monitor || t.mixer.record_arm)) || self.keyboard_live();
         if !self.playing && !monitoring {
+            // Nothing plays a keyboard: what it sent is not kept for later.
+            if let Some((rx, _)) = &self.midi {
+                while rx.try_recv().is_ok() {}
+            }
             out.iter_mut().for_each(|x| *x = 0.0);
             self.unsent.silence();
             self.forget_meters();
@@ -385,6 +419,7 @@ impl AudioState {
         let speed = f64::from(self.shared.speed.load(Ordering::Relaxed)) / 1000.0;
         let step = self.session.sample_rate.as_f64() / self.device_rate.max(1.0) * speed.clamp(0.1, 4.0);
         let callback_frames = out.len() / channels;
+        self.heard_after = (callback_frames as f64 * step).round() as Samples;
         let quantum = ((callback_frames as f64 * step).ceil() as usize).clamp(1, BLOCK);
         for frame in out.chunks_mut(channels) {
             while self.read >= self.pending_len as f64 {

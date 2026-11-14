@@ -1442,3 +1442,36 @@ fn a_launched_midi_clip_plays_its_notes_from_the_launch() {
     let after = out[0][13_000..].iter().fold(0.0f32, |m, x| m.max(x.abs()));
     assert!(before < 1e-6 && after > 0.01, "{before} {after}");
 }
+
+#[test]
+fn a_keyboard_plays_the_armed_instrument_while_stopped_and_while_playing() {
+    let mut s = synth_session(-6.0);
+    let t = s.tracks[0].id;
+    let peak = |s: &Session, monitor_only: bool, pos: Samples| {
+        let mut m = MixEngine::new(48_000.0, 512);
+        m.monitor_only = monitor_only;
+        let mut out = vec![vec![0.0f32; 512]; 2];
+        let mut loudest = 0.0f32;
+        for block in 0..8 {
+            m.live_midi.clear();
+            if block == 0 {
+                m.live_midi.push(LiveMidi { offset: 0, msg: [0x90, 72, 110] });
+            }
+            m.render(s, pos + block * 512, 512, &mut out);
+            loudest = out.iter().flatten().fold(loudest, |a, x| a.max(x.abs()));
+        }
+        loudest
+    };
+    // Stopped, past the clip: only the keyboard can sound, and only on an armed track.
+    assert_eq!(peak(&s, true, 96_000), 0.0, "not armed: the keyboard is not heard");
+    s.track_mut(t).unwrap().mixer.record_arm = true;
+    assert!(peak(&s, true, 96_000) > 0.0, "armed: the keyboard plays the instrument");
+    // Playing over the clip, the keyboard joins what plays back.
+    let with_clip = {
+        let mut quiet = s.clone();
+        quiet.track_mut(t).unwrap().mixer.record_arm = false;
+        peak(&quiet, false, 0)
+    };
+    assert!(with_clip > 0.0);
+    assert!(peak(&s, false, 0) > with_clip, "the keyboard adds to the playback");
+}

@@ -23,6 +23,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod devices;
+pub mod midi_in;
 pub mod record;
 
 pub use callback::AudioHealth;
@@ -121,6 +122,8 @@ enum Cmd {
     /// Where the callback sends the snapshots it replaces (freeing one takes thousands of frees).
     OldSessions(SyncSender<Arc<Session>>),
     Input(Arc<record::InputRing>),
+    /// Keyboard messages in, and where recorded ones go back.
+    Midi(std::sync::mpsc::Receiver<[u8; 3]>, SyncSender<midi_in::RecordedMidi>),
     Recording(bool),
     Play {
         from: Samples,
@@ -540,6 +543,20 @@ impl Player {
     /// Feed live input (from a `record::Recorder`) into the mix for input monitoring.
     pub fn set_input(&self, ring: Arc<record::InputRing>) {
         let _ = self.tx.send(Cmd::Input(ring));
+    }
+
+    /// Play MIDI keyboards (whatever is sent on the returned sender's channel, `rx`) on the
+    /// record-enabled and input-monitored instruments. Returns where the messages played while
+    /// recording come back, stamped with the session sample they were heard at.
+    pub fn set_midi_input(&self, rx: std::sync::mpsc::Receiver<[u8; 3]>) -> std::sync::mpsc::Receiver<midi_in::RecordedMidi> {
+        let (tx, recorded) = sync_channel(midi_in::RECORDED);
+        let _ = self.tx.send(Cmd::Midi(rx, tx));
+        recorded
+    }
+
+    /// Tells this player from one that replaced it (a reopened device).
+    pub fn id(&self) -> usize {
+        Arc::as_ptr(&self.shared).addr()
     }
 
     pub fn set_recording(&self, on: bool) {

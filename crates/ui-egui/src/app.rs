@@ -11,6 +11,7 @@ mod commands;
 mod control;
 mod files;
 mod input;
+pub(crate) mod keyboard;
 mod playback;
 mod plugins;
 
@@ -60,6 +61,8 @@ impl SoundApp {
             recorder_failed: false,
             lost_shown: 0,
             take_plan: None,
+            keyboards: None,
+            midi_take: Vec::new(),
             ui: UiState::default(),
             audio_health_report: None,
             services,
@@ -221,6 +224,7 @@ impl SoundApp {
         }
         self.watch_output();
         self.watch_input();
+        self.watch_keyboards();
         // Stop the old playback before sending a replacement session to the audio thread.
         self.handle_transport(dt);
         // Launched Session View clips follow the song and stop with it, in every layout.

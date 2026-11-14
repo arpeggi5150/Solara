@@ -346,7 +346,7 @@ fn techniques_play_as_tabgarden_plays_them_and_survive_export() {
     // Written back out and read again: the techniques and the notes as written come back.
     let mut e = Engine::new(Session::default());
     e.replace_session(s);
-    let bytes = export_tabgarden(&mut e, None).unwrap();
+    let bytes = export_tabgarden(&e, None).unwrap();
     open_tabgarden_bytes(&mut e, "again.tabgarden", &bytes).unwrap();
     let again = notes_of(e.session(), 0);
     let tech_again = |start: i64, pitch: u8| again.tab.iter().find(|t| t.start == start && t.pitch == pitch).map_or(0, |t| t.tech);

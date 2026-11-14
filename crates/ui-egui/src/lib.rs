@@ -409,6 +409,10 @@ pub struct SoundApp {
     lost_shown: u64,
     /// Where the takes being recorded go, autosaved with the session so a crash can't lose them.
     take_plan: Option<soundcraft_engine::io::Recording>,
+    /// The MIDI keyboards, connected to the player.
+    keyboards: Option<app::keyboard::Keyboards>,
+    /// What the keyboards played in the take being recorded, at the session sample it was heard.
+    midi_take: Vec<(Samples, [u8; 3])>,
     pub ui: UiState,
     pub audio_health_report: Option<Result<Value, String>>,
     pub services: Services,

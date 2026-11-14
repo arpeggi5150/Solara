@@ -209,6 +209,8 @@ impl SlotCtx<'_> {
 /// Live input routed to monitored tracks.
 pub(crate) struct LiveInput<'a> {
     pub(crate) input: &'a [Vec<f32>],
+    /// Live MIDI for this block.
+    pub(crate) midi: &'a [crate::LiveMidi],
     pub(crate) monitor_only: bool,
     pub(crate) recording: bool,
 }
@@ -308,7 +310,26 @@ fn read_aux_bus(t: &Track, strip: &mut Strip, busses: &HashMap<BusId, BusBuf>, f
 }
 
 /// Render the track's instrument into the strip.
-fn render_instrument(s: &Session, t: &Track, strip: &mut Strip, blk: Block, transport: &Transport) {
+/// Whether a MIDI, instrument or tab track plays the keyboard: record-enabled or input-monitored.
+pub(crate) fn hears_keyboard(t: &Track) -> bool {
+    t.kind.is_midi() && (t.mixer.record_arm || t.mixer.input_monitor)
+}
+
+/// Play `live` (keyboard) messages on an instrument, each at its offset into the block.
+fn play_live(inst: &mut PluginSlot, live: &[crate::LiveMidi], frames: usize) {
+    for e in live {
+        let at = usize::try_from(e.offset).unwrap_or(0).min(frames.saturating_sub(1));
+        let [status, d1, d2] = e.msg;
+        match status & 0xF0 {
+            0x90 if d2 > 0 => inst.plugin.note_on(at, d1 & 0x7F, d2 & 0x7F),
+            0x80 | 0x90 => inst.plugin.note_off(at, d1 & 0x7F),
+            0xA0..=0xE0 => inst.plugin.midi(at, [status & 0xF0, d1 & 0x7F, d2 & 0x7F]),
+            _ => {}
+        }
+    }
+}
+
+fn render_instrument(s: &Session, t: &Track, strip: &mut Strip, blk: Block, transport: &Transport, live: &[crate::LiveMidi], clips: bool) {
     let Block { pos, frames, .. } = blk;
     if let Some(inst) = strip.instrument.as_mut().filter(|i| !i.failed) {
         // #152: push the instrument's stored parameter values into the live plugin
@@ -329,7 +350,10 @@ fn render_instrument(s: &Session, t: &Track, strip: &mut Strip, blk: Block, tran
                 inst.plugin.note_off(0, p);
             }
         }
-        schedule_notes(s, t, pos, frames, inst, &mut strip.held);
+        if clips {
+            schedule_notes(s, t, pos, frames, inst, &mut strip.held);
+        }
+        play_live(inst, live, frames);
         if strip.buf.len() >= 2 {
             inst.plugin.process(&mut strip.buf, frames);
         } else if let Some(c0) = strip.buf.first_mut() {
@@ -442,10 +466,18 @@ pub(crate) fn process_strip(s: &Session, t: &Track, strip: &mut Strip, busses: &
             monitor_input(t, strip, live, frames);
         }
         TrackKind::Audio if live.monitor_only => {}
-        TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab if live.monitor_only => {}
+        // Stopped: an armed or monitored instrument still plays the keyboard.
+        TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab if live.monitor_only => {
+            if hears_keyboard(t) {
+                render_instrument(s, t, strip, blk, &transport, live.midi, false);
+            }
+        }
         TrackKind::Audio => render_audio_clips(s, t, strip, blk),
         TrackKind::Aux | TrackKind::Folder => read_aux_bus(t, strip, busses, frames),
-        TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab => render_instrument(s, t, strip, blk, &transport),
+        TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab => {
+            let midi = if hears_keyboard(t) { live.midi } else { &[] };
+            render_instrument(s, t, strip, blk, &transport, midi, true);
+        }
         _ => {}
     }
     // A receive adds what other tracks send to this one, ahead of its FX (Reaper-style).
