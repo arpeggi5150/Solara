@@ -539,6 +539,28 @@ fn real_time_properties_reach_the_instrument() {
     assert_eq!(*heard.lock().unwrap(), vec![(72, 80)]);
 }
 
+#[test]
+fn the_naturals_property_plays_black_keys_a_semitone_lower() {
+    // TabGarden's Kami rule, kept as a real-time property: the notes stay as written.
+    let mut s = Session::default();
+    let t = s.add_track(TrackKind::Instrument, ChannelFormat::Stereo, None);
+    s.track_mut(t).unwrap().instrument = Some(Insert::new("clap:test.keys"));
+    let mut seq = soundcraft_midi::Sequence::default();
+    for (i, pitch) in [61u8, 64].into_iter().enumerate() {
+        seq.notes.push(soundcraft_midi::Note { pitch, velocity: 100, release_velocity: 64, channel: 0, start: i as i64 * 2, length: 480 });
+    }
+    let cid = s.new_clip_id();
+    s.track_mut(t).unwrap().playlist_mut().unwrap().clips.push(Clip::midi(cid, "m", 0, 48_000, seq));
+    s.edit.values.insert(format!("rtp.{}.naturals", t.0), 1.0);
+    let heard = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let keys = Keys { inner: soundcraft_dsp::create("gain").unwrap(), heard: Arc::clone(&heard) };
+    let mut eng = MixEngine::new(48_000.0, 512);
+    eng.set_external_instances(true);
+    eng.adopt(vec![PreparedInstance { track: t, slot: INSTRUMENT_SLOT, id: "clap:test.keys".into(), ch: 2, plugin: Box::new(keys) }]);
+    render_block(&mut eng, &s, 0);
+    assert_eq!(heard.lock().unwrap().iter().map(|h| h.0).collect::<Vec<_>>(), [60, 64]);
+}
+
 fn render_block(eng: &mut MixEngine, s: &Session, pos: i64) -> f32 {
     let mut out = vec![vec![0.0f32; 512]; 2];
     eng.render(s, pos, 512, &mut out);

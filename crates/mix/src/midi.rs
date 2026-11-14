@@ -59,14 +59,16 @@ fn schedule_clip(
     let base = s.tempo.samples_to_ticks(at, sr);
     // MIDI Real-Time Properties (non-destructive velocity/transpose/duration/delay).
     let rtp = |name: &str, d: f64| Key::new(format_args!("rtp.{}.{name}", t.id.0)).map_or(d, |k| s.edit.value(k.as_str(), d));
-    let (dv, dp, dur, delay) = if s.edit.values.is_empty() {
-        (0i64, 0i64, 1.0f64, 0i64)
+    let (dv, dp, dur, delay, naturals) = if s.edit.values.is_empty() {
+        (0i64, 0i64, 1.0f64, 0i64, false)
     } else {
         (
             rtp("velocity", 0.0).clamp(-127.0, 127.0) as i64,
             rtp("transpose", 0.0).clamp(-127.0, 127.0) as i64,
             rtp("duration", 100.0).clamp(1.0, 1000.0) / 100.0,
             rtp("delay", 0.0).clamp(-1e7, 1e7) as i64,
+            // White keys only (TabGarden's Kami rule): a black key plays the natural below it.
+            rtp("naturals", 0.0) >= 0.5,
         )
     };
     // The block in clip ticks, one tick wider on each side so rounding never drops an event.
@@ -79,6 +81,9 @@ fn schedule_clip(
         let (gt, gv) = groove.map_or((0, 0), |g| groove_shift(&g, n0));
         n.velocity = (i64::from(n.velocity) + dv + gv).clamp(1, 127) as u8;
         n.pitch = (i64::from(n.pitch) + dp).clamp(0, 127) as u8;
+        if naturals && matches!(n.pitch % 12, 1 | 3 | 6 | 8 | 10) {
+            n.pitch -= 1;
+        }
         n.length = ((n.length as f64 * dur) as i64).max(1);
         n.start = n.start.saturating_add(delay).saturating_add(gt).max(0);
         // A note whose on and off both fall outside the block sends nothing: skip it before

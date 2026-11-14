@@ -168,6 +168,20 @@ fn bad_files_are_errors_not_crashes() {
 }
 
 #[test]
+fn the_kami_rule_plays_white_keys_and_survives_export() {
+    let mut e = Engine::new(Session::default());
+    let mut m = manifest();
+    m["instruments"]["0"]["kamiRule"] = json!(true);
+    open_tabgarden_bytes(&mut e, "song.tabgarden", &tabgarden_file(GPIF, &m)).unwrap();
+    let t = e.session().tracks[0].id;
+    assert_eq!(e.session().edit.value(&naturals_key(t), 0.0), 1.0, "played on the white keys");
+    assert_eq!(e.session().edit.value(&naturals_key(e.session().tracks[1].id), 0.0), 0.0);
+    let file = read_tabgarden(&export_tabgarden(&e, None).unwrap()).unwrap();
+    assert_eq!(file.manifest["instruments"]["0"]["kamiRule"], true);
+    assert_eq!(file.manifest["instruments"]["1"]["kamiRule"], false);
+}
+
+#[test]
 fn exported_stems_open_again_with_the_same_notes_and_strings() {
     let mut e = Engine::new(Session::default());
     open_tabgarden_bytes(&mut e, "song.tabgarden", &tabgarden_file(GPIF, &manifest())).unwrap();

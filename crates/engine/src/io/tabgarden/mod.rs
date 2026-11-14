@@ -235,7 +235,10 @@ pub(crate) fn session_from_score(score: &GpScore, manifest: Option<&Value>, fall
     }
     let picks = manifest.and_then(|m| m.get("instruments"));
     for (ti, t) in score.tracks.iter().enumerate() {
-        let pick = picks.and_then(|p| p.get(ti.to_string())).and_then(|p| p.get("id")).and_then(Value::as_str);
+        let entry = picks.and_then(|p| p.get(ti.to_string()));
+        let pick = entry.and_then(|p| p.get("id")).and_then(Value::as_str);
+        // TabGarden's "Kami rule" plays the part on the white keys only; the tab keeps what is written.
+        let naturals = entry.and_then(|p| p.get("kamiRule")).and_then(Value::as_bool).unwrap_or(false);
         let program = pick.and_then(instrument_program).unwrap_or(t.program);
         let drums = matches!(t.kind, GpKind::Drums) || pick.is_some_and(|p| p.starts_with("gmkit:"));
         let kind = match t.kind {
@@ -255,6 +258,9 @@ pub(crate) fn session_from_score(score: &GpScore, manifest: Option<&Value>, fall
                 tr.tab = Some(TabSetup { tuning: Tuning { strings, capo: *capo }.sanitized(), program, ..TabSetup::default() });
             }
         }
+        if naturals {
+            s.edit.values.insert(naturals_key(id), 1.0);
+        }
         let len = s.tempo.tick_to_samples(song_end, s.sample_rate).max(1);
         let cid = s.new_clip_id();
         crate::edit::place_clip(&mut s, id, Clip::midi(cid, track_name, 0, len, seq));
@@ -264,6 +270,11 @@ pub(crate) fn session_from_score(score: &GpScore, manifest: Option<&Value>, fall
     setup.composer = score.artist.clone();
     setup.store(&mut s);
     Ok(s)
+}
+
+/// The MIDI Real-Time Property that plays a track's black keys a semitone lower.
+fn naturals_key(t: TrackId) -> String {
+    format!("rtp.{}.naturals", t.0)
 }
 
 /// One track's notes, in the played-out bar order; ties join notes, strings become hints.
@@ -721,7 +732,8 @@ pub fn export_tabgarden(e: &Engine, only: Option<&[TrackId]>) -> Result<Vec<u8>>
     let mut instruments = serde_json::Map::new();
     for (i, t) in score.tracks.iter().enumerate() {
         let id = if matches!(t.kind, GpKind::Drums) { "gmkit:0".to_string() } else { format!("gm:{}", t.program) };
-        instruments.insert(i.to_string(), json!({"id": id, "kamiRule": false}));
+        let naturals = ids.get(i).is_some_and(|t| s.edit.value(&naturals_key(*t), 0.0) >= 0.5);
+        instruments.insert(i.to_string(), json!({"id": id, "kamiRule": naturals}));
     }
     let saved = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|d| i64::try_from(d.as_secs()).ok()).unwrap_or(0);
     let saved_at = chrono::DateTime::from_timestamp(saved, 0).map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)).unwrap_or_default();
