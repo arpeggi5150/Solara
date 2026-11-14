@@ -17,6 +17,7 @@ mod record;
 mod render;
 mod session;
 mod strip;
+mod tabgarden;
 
 use bundle::BundleLimits;
 pub use bundle::{BUNDLE_EXTENSION, open_session_bytes, session_bundle};
@@ -28,6 +29,7 @@ pub use render::{commit_track, consolidate, refuse_longer, render_clip_gain, ren
 pub(crate) use session::{DecodedFiles, decode_file, open_session_linked};
 pub use session::{open_session, save_copy, save_session, save_session_copy};
 pub use strip::{StripMode, StripNames, StripScan, bounded_to_track, name_stripped_clips, strip_silence, strip_silence_ranges, transients_in};
+pub use tabgarden::{TABGARDEN_EXTENSION, export_tabgarden, open_tabgarden_bytes};
 
 // ─── Checked file access ──────────────────────────────────────────────────────────────────────
 //
@@ -546,7 +548,7 @@ pub fn bounce_stems_with(e: &Engine, dir: &str, r: Range, opts: &EncodeOptions, 
     let stems: Vec<(TrackId, String)> = s
         .tracks
         .iter()
-        .filter(|t| matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi) && !t.inactive && !t.mixer.mute)
+        .filter(|t| matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab) && !t.inactive && !t.mixer.mute)
         .map(|t| (t.id, t.name.clone()))
         .collect();
     for (id, name) in stems {
@@ -828,7 +830,7 @@ pub fn replaces(e: &Engine, command: &str, file: &Path) -> bool {
         "session.save" | "session.save_as" | "session.save_copy" => {
             file.exists() && !e.path.as_deref().is_some_and(|own| same_path(Path::new(own), file))
         }
-        "session.save_template" | "file.export_selected_tracks_as_session" | "file.export_session_text" => file.exists(),
+        "session.save_template" | "file.export_selected_tracks_as_session" | "file.export_session_text" | "file.export_tabgarden" => file.exists(),
         _ => false,
     }
 }

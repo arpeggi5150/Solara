@@ -442,14 +442,14 @@ pub(crate) fn process_strip(s: &Session, t: &Track, strip: &mut Strip, busses: &
             monitor_input(t, strip, live, frames);
         }
         TrackKind::Audio if live.monitor_only => {}
-        TrackKind::Instrument | TrackKind::Midi if live.monitor_only => {}
+        TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab if live.monitor_only => {}
         TrackKind::Audio => render_audio_clips(s, t, strip, blk),
         TrackKind::Aux | TrackKind::Folder => read_aux_bus(t, strip, busses, frames),
-        TrackKind::Instrument | TrackKind::Midi => render_instrument(s, t, strip, blk, &transport),
+        TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab => render_instrument(s, t, strip, blk, &transport),
         _ => {}
     }
     // A receive adds what other tracks send to this one, ahead of its FX (Reaper-style).
-    if matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi) && t.mixer.receive.is_some() {
+    if matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab) && t.mixer.receive.is_some() {
         read_aux_bus(t, strip, busses, frames);
     }
     let trim = db_to_gain(t.mixer.trim_db) * if t.mixer.phase_invert { -1.0 } else { 1.0 };
@@ -489,7 +489,7 @@ pub(crate) fn contain_failure(slot: &mut PluginSlot, buf: &mut [Vec<f32>], frame
 pub(crate) fn strip_channels(t: &Track, main_ch: usize) -> usize {
     match t.kind {
         TrackKind::Master => main_ch,
-        TrackKind::Instrument => t.channels().clamp(2, MAX_CHANNELS),
+        TrackKind::Instrument | TrackKind::Tab => t.channels().clamp(2, MAX_CHANNELS),
         _ => t.channels().clamp(1, MAX_CHANNELS),
     }
 }

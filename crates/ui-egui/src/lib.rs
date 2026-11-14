@@ -39,6 +39,7 @@ pub mod routing_matrix;
 pub mod shortcuts;
 mod splash;
 pub mod step_seq;
+pub mod tab_view;
 pub mod theme;
 pub mod toolbar;
 pub mod updates_ui;
@@ -146,6 +147,9 @@ pub struct UiState {
     pub show_midi_ops: bool,
     pub show_rtp: bool,
     pub show_score: bool,
+    /// Window › Tab Editor, and the note a right-click picked in it.
+    pub show_tab_editor: bool,
+    pub tab_editor_note: Option<(soundcraft_model::ClipId, usize)>,
     pub show_search: bool,
     /// Window › Video, Window › Video Universe, timecode burn-in in the Video window.
     pub show_video: bool,
@@ -243,6 +247,8 @@ impl Default for UiState {
             show_midi_ops: false,
             show_rtp: false,
             show_score: false,
+            show_tab_editor: false,
+            tab_editor_note: None,
             show_search: false,
             show_video: false,
             show_video_universe: false,

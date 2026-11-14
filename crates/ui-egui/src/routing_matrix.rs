@@ -52,7 +52,7 @@ impl Column {
 
 /// Tracks with a row (and, for the kinds that can receive, a column).
 fn routable(t: &Track) -> bool {
-    matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Aux | TrackKind::Folder)
+    matches!(t.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Aux | TrackKind::Folder | TrackKind::Tab)
 }
 
 /// Whether every track takes sends: the Reaper-style layout's routing.
@@ -162,7 +162,7 @@ pub fn toggle(app: &mut SoundApp, row: TrackId, col: &Column) -> Result<Value, S
             let slot = app.engine.session().track(row).and_then(|t| send_to(t, bus)).map(|(slot, _)| slot).ok_or("no send")?;
             let r = app.run("mix.send_remove", json!({"track": row.0, "slot": slot}))?;
             // A receive with nothing left sending to it goes back to a plain track.
-            if let Column::Track { id, kind: TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi, .. } = col
+            if let Column::Track { id, kind: TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab, .. } = col
                 && !app.engine.session().tracks.iter().any(|t| send_to(t, bus).is_some() || t.mixer.output == Route::Bus(bus))
             {
                 app.run("mix.receive", json!({"track": id.0, "value": false}))?;

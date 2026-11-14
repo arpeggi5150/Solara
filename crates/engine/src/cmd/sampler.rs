@@ -8,7 +8,7 @@ use super::{CommandSpec, bad, has_selection, str_param, tracks_required};
 
 use crate::{Engine, EngineError, Result, cmd};
 use serde_json::{Value, json};
-use soundcraft_model::{Insert, TrackId, TrackKind};
+use soundcraft_model::{Insert, TrackId};
 use std::path::Path;
 
 const SAMPLER: &str = "sampler";
@@ -34,7 +34,7 @@ pub fn specs() -> Vec<CommandSpec> {
 /// The instrument track a sampler command acts on.
 fn instrument_track(e: &Engine, id: &str, p: &Value) -> Result<TrackId> {
     let t = tracks_required(e, id, p)?.first().copied().ok_or_else(|| bad(id, "no track"))?;
-    if e.session().track(t).map(|tr| tr.kind) != Some(TrackKind::Instrument) {
+    if e.session().track(t).map(|tr| tr.kind.plays_instrument()) != Some(true) {
         return Err(bad(id, "only instrument tracks have a sampler"));
     }
     Ok(t)
@@ -65,7 +65,7 @@ fn load(e: &mut Engine, p: &Value) -> Result<Value> {
 /// already; `values` are sampler parameters to set. Fails before touching the session.
 pub(crate) fn attach(e: &mut Engine, t: TrackId, name: &str, bytes: &[u8], path: Option<&str>, values: Vec<(String, f32)>) -> Result<Value> {
     let id = "mix.sampler_load";
-    if e.session().track(t).map(|tr| tr.kind) != Some(TrackKind::Instrument) {
+    if e.session().track(t).map(|tr| tr.kind.plays_instrument()) != Some(true) {
         return Err(bad(id, "only instrument tracks have a sampler"));
     }
     let info = soundcraft_dsp::plugin_info(SAMPLER).ok_or_else(|| bad(id, "the sampler is not available"))?;

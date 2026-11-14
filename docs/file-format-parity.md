@@ -1,6 +1,6 @@
 # File-format parity
 
-> **Last reviewed:** 2026-10-19 · **Last updated:** 2026-11-02 · **Change:** trivial (bounces carry a BWF time reference, #1296; previously trivial: Float32 file headroom, #791) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-19 · **Last updated:** 2026-11-14 · **Change:** trivial (TabGarden `.tabgarden` open and stem export, Guitar Pro 7 score inside it; previously trivial: bounces carry a BWF time reference, #1296) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Every format Pro Tools reads or writes, and ours. The Pro Tools list comes from the document types
 its bundle declares (`CFBundleDocumentTypes` in Info.plist: names only, nothing else read) and its
@@ -56,6 +56,8 @@ Legend: ✅ supported and tested · 🟡 partial · ❌ missing · — not appli
 | Standard MIDI File (type 0/1) | import/export | ✅ | 🟡 | Exported MIDI omits imported controllers and ignores the tracks filter (#87, #98; PR #125) |
 | MusicXML (to Sibelius) | export | — | ✅ | `file.export_sibelius`, `score.rs` |
 | Printable score | print | — | ✅ (SVG) | |
+| TabGarden (`.tabgarden`) | — | ✅ | ✅ | Beyond Pro Tools. `file.open_tabgarden` opens every track as a session (fretted parts as tab tracks with tuning, capo and strings; drums; repeats played out); `file.export_tabgarden` writes MIDI, instrument and tab tracks as stems TabGarden opens. `io/tabgarden/`, clean-room |
+| Guitar Pro 7+ score (`score.gpif` inside `.gp`) | — | 🟡 | 🟡 | Read and written as the tab inside `.tabgarden`. Not played: grace notes, bends, slides, harmonics. Writing is on a sixteenth grid with one voice per track. Opening `.gp` / `.gp5` / `.gpx` files directly is TabGarden step 2 |
 
 ## Video
 
@@ -80,6 +82,7 @@ Legend: ✅ supported and tested · 🟡 partial · ❌ missing · — not appli
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-14 | trivial | TabGarden `.tabgarden` read and write; Guitar Pro 7 score read and write inside it |
 | 2026-11-02 | trivial | WAV bounces (mix and stems) write a `bext` TimeReference: session timecode start plus bounce start (#1296) |
 | 2026-10-19 | trivial | WAV and AIFF-C Float32 encoders retain finite headroom (#791); whole-file, streaming and bounce regression tests |
 | 2026-10-13 | trivial | WAV: empty data chunk with trailing metadata (#466) |

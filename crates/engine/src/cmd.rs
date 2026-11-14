@@ -39,6 +39,7 @@ mod setup_more;
 mod strip_silence;
 mod surround;
 mod tab;
+mod tab_track;
 mod track;
 mod track_more;
 mod transport;
@@ -173,6 +174,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(strip_silence::specs());
         v.extend(receive::specs());
         v.extend(playlist::specs());
+        v.extend(tab_track::specs());
         v.extend(piano_roll::specs());
         v.extend(auto_clip::specs());
         v.extend(launcher::specs());

@@ -27,7 +27,7 @@ fn receive(e: &mut Engine, p: &Value) -> Result<Value> {
     let on = bool_or(p, "value", true);
     let s = e.session_mut();
     let track = s.track(t).ok_or_else(|| bad(id, "no track"))?;
-    if !matches!(track.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi) {
+    if !matches!(track.kind, TrackKind::Audio | TrackKind::Instrument | TrackKind::Midi | TrackKind::Tab) {
         return Err(bad(id, "only audio, instrument and MIDI tracks take a receive; aux and folder tracks receive through their input"));
     }
     let (name, current) = (track.name.clone(), track.mixer.receive);

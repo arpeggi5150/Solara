@@ -6,7 +6,7 @@ use super::{CommandSpec, always, bad, str_param, track_param};
 
 use crate::{Engine, Result, cmd};
 use serde_json::{Value, json};
-use soundcraft_model::{MACROS, MAX_MACRO_TARGETS, MAX_NAME_CHARS, MacroTarget, Rack, TrackId, TrackKind};
+use soundcraft_model::{MACROS, MAX_MACRO_TARGETS, MAX_NAME_CHARS, MacroTarget, Rack, TrackId};
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
@@ -31,7 +31,7 @@ pub fn specs() -> Vec<CommandSpec> {
 fn instrument_track(e: &Engine, cmd: &str, p: &Value) -> Result<(TrackId, &'static soundcraft_dsp::PluginInfo)> {
     let t = track_param(e, cmd, p, "track")?.ok_or_else(|| bad(cmd, "`track` required"))?;
     let tr = e.session().track(t).ok_or_else(|| bad(cmd, "no such track"))?;
-    if tr.kind != TrackKind::Instrument {
+    if !tr.kind.plays_instrument() {
         return Err(bad(cmd, "an Instrument Rack goes on an instrument track"));
     }
     let id = tr.instrument.as_ref().map(|i| i.plugin.clone()).ok_or_else(|| bad(cmd, "the track has no instrument"))?;
@@ -157,7 +157,7 @@ fn rename(e: &mut Engine, p: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soundcraft_model::ChannelFormat;
+    use soundcraft_model::{ChannelFormat, TrackKind};
 
     #[test]
     fn eight_macros_move_the_instrument_inside() {

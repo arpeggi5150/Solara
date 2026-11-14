@@ -974,7 +974,7 @@ mod tests {
             dialog_frame(&ctx, &mut app, vec![key(egui::Key::ArrowUp, cmd)]);
             assert_eq!(track_fields(&app).2, "audio");
             dialog_frame(&ctx, &mut app, vec![key(egui::Key::ArrowUp, cmd)]);
-            assert_eq!(track_fields(&app).2, "video");
+            assert_eq!(track_fields(&app).2, "tab");
             dialog_frame(&ctx, &mut app, vec![key(egui::Key::ArrowDown, cmd)]);
             assert_eq!(track_fields(&app).4, "Audio");
             assert!(app.engine.session().tracks.is_empty());

@@ -57,6 +57,9 @@ pub struct Sequence {
     pub notes: Vec<Note>,
     /// Controller events, sorted by tick after [`Sequence::sort`].
     pub ctrls: Vec<CtrlEvent>,
+    /// Which string tab notes are played on, where a tab file or an edit said so ([`crate::tab`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tab: Vec<crate::tab::TabPos>,
 }
 
 fn kind_key(k: CtrlKind) -> (u8, u8) {

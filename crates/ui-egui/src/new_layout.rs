@@ -10,7 +10,7 @@ use crate::widgets::icon_button;
 use egui::{Align2, CornerRadius, Key, Modifiers, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use soundcraft_model::{Route, TrackId, TrackKind};
+use soundcraft_model::{Route, TrackId};
 
 /// The layout presets the switcher offers, all built.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -584,7 +584,7 @@ fn editor_view(app: &SoundApp) -> EditorView {
     match app.ui.new_editor {
         EditorView::Auto => match track {
             Some(t) if t.instrument.as_ref().is_some_and(|i| i.plugin == DRUM_SYNTH) => EditorView::StepSequencer,
-            Some(t) if matches!(t.kind, TrackKind::Midi | TrackKind::Instrument) => EditorView::PianoRoll,
+            Some(t) if t.kind.is_midi() => EditorView::PianoRoll,
             _ => EditorView::Auto,
         },
         v => v,
@@ -742,7 +742,7 @@ mod tests {
         }
         let names: Vec<&str> = app.engine.session().tracks.iter().map(|t| t.name.as_str()).collect();
         assert_eq!(names, ["Drums", "Bass", "Chords", "Lead"]);
-        assert!(app.engine.session().tracks.iter().all(|t| t.kind == TrackKind::Instrument));
+        assert!(app.engine.session().tracks.iter().all(|t| t.kind == soundcraft_model::TrackKind::Instrument));
     }
 
     /// Run one frame with the pointer up (and Alt held when asked), finishing the app's gesture.

@@ -23,6 +23,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 log.workspace = true
 zip.workspace = true
+flate2.workspace = true
+chrono.workspace = true
 craft-docpath.workspace = true
 
 [dev-dependencies]

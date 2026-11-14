@@ -4331,7 +4331,9 @@ dependencies = [
 name = "soundcraft-engine"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "craft-docpath",
+ "flate2",
  "log",
  "proptest",
  "serde",

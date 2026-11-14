@@ -16,10 +16,13 @@ pub enum TrackKind {
     Folder,
     /// Picture: clips reference a movie ([`crate::VideoSource`]); no audio path.
     Video,
+    /// A fretted instrument part: MIDI notes played through an instrument, shown as tab, notation
+    /// or both ([`TabSetup`]), with the piano roll on the same notes.
+    Tab,
 }
 
 impl TrackKind {
-    pub const ALL: [TrackKind; 8] = [
+    pub const ALL: [TrackKind; 9] = [
         TrackKind::Audio,
         TrackKind::Aux,
         TrackKind::Master,
@@ -28,6 +31,7 @@ impl TrackKind {
         TrackKind::Vca,
         TrackKind::Folder,
         TrackKind::Video,
+        TrackKind::Tab,
     ];
     pub fn label(self) -> &'static str {
         match self {
@@ -39,6 +43,7 @@ impl TrackKind {
             TrackKind::Vca => "VCA Master",
             TrackKind::Folder => "Routing Folder Track",
             TrackKind::Video => "Video Track",
+            TrackKind::Tab => "Tab Track",
         }
     }
     pub fn default_name(self) -> &'static str {
@@ -51,6 +56,7 @@ impl TrackKind {
             TrackKind::Vca => "VCA",
             TrackKind::Folder => "Folder",
             TrackKind::Video => "Video",
+            TrackKind::Tab => "Guitar",
         }
     }
     pub fn id(self) -> &'static str {
@@ -63,6 +69,7 @@ impl TrackKind {
             TrackKind::Vca => "vca",
             TrackKind::Folder => "folder",
             TrackKind::Video => "video",
+            TrackKind::Tab => "tab",
         }
     }
     pub fn from_id(s: &str) -> Option<TrackKind> {
@@ -71,18 +78,22 @@ impl TrackKind {
     }
     /// Track kinds that hold clips on a timeline.
     pub fn has_playlist(self) -> bool {
-        matches!(self, TrackKind::Audio | TrackKind::Midi | TrackKind::Instrument | TrackKind::Video)
+        matches!(self, TrackKind::Audio | TrackKind::Midi | TrackKind::Instrument | TrackKind::Video | TrackKind::Tab)
     }
     pub fn is_midi(self) -> bool {
-        matches!(self, TrackKind::Midi | TrackKind::Instrument)
+        matches!(self, TrackKind::Midi | TrackKind::Instrument | TrackKind::Tab)
+    }
+    /// Kinds that play their notes through their own instrument plugin (Instrument and Tab tracks).
+    pub fn plays_instrument(self) -> bool {
+        matches!(self, TrackKind::Instrument | TrackKind::Tab)
     }
     /// Track kinds with Session View clip slots.
     pub fn has_slots(self) -> bool {
-        matches!(self, TrackKind::Audio | TrackKind::Midi | TrackKind::Instrument)
+        matches!(self, TrackKind::Audio | TrackKind::Midi | TrackKind::Instrument | TrackKind::Tab)
     }
     /// Kinds that pass audio through the mixer.
     pub fn is_audio_path(self) -> bool {
-        matches!(self, TrackKind::Audio | TrackKind::Aux | TrackKind::Master | TrackKind::Instrument | TrackKind::Folder)
+        matches!(self, TrackKind::Audio | TrackKind::Aux | TrackKind::Master | TrackKind::Instrument | TrackKind::Folder | TrackKind::Tab)
     }
 }
 
@@ -319,6 +330,59 @@ pub struct Track {
     /// The Instrument Rack's macros around the track's instrument.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rack: Option<crate::Rack>,
+    /// Tab tracks: tuning and which views show (`None` on other kinds).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab: Option<TabSetup>,
+}
+
+/// What a tab track shows its notes as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+pub enum TabView {
+    /// Tab staff only.
+    Tab,
+    /// Standard notation only.
+    Notation,
+    /// Notation above tab.
+    #[default]
+    Both,
+}
+
+impl TabView {
+    pub const ALL: [TabView; 3] = [TabView::Tab, TabView::Notation, TabView::Both];
+    pub fn id(self) -> &'static str {
+        match self {
+            TabView::Tab => "tab",
+            TabView::Notation => "notation",
+            TabView::Both => "both",
+        }
+    }
+    pub fn label(self) -> &'static str {
+        match self {
+            TabView::Tab => "Tab",
+            TabView::Notation => "Notation",
+            TabView::Both => "Tab + Notation",
+        }
+    }
+    pub fn from_id(s: &str) -> Option<TabView> {
+        TabView::ALL.into_iter().find(|v| v.id().eq_ignore_ascii_case(s) || v.label().eq_ignore_ascii_case(s))
+    }
+    pub fn shows_tab(self) -> bool {
+        matches!(self, TabView::Tab | TabView::Both)
+    }
+    pub fn shows_notation(self) -> bool {
+        matches!(self, TabView::Notation | TabView::Both)
+    }
+}
+
+/// A tab track's instrument and view.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub struct TabSetup {
+    pub tuning: soundcraft_midi::tab::Tuning,
+    #[serde(default)]
+    pub view: TabView,
+    /// General MIDI program the part was written for (0..=127), kept for export.
+    #[serde(default)]
+    pub program: u8,
 }
 
 fn yes() -> bool {
@@ -360,7 +424,13 @@ impl Track {
             pinned: false,
             slots: Vec::new(),
             rack: None,
+            tab: (kind == TrackKind::Tab).then(|| TabSetup { program: 25, ..TabSetup::default() }),
         }
+    }
+
+    /// The tab setup of a tab track (the default when an older file left it out).
+    pub fn tab_setup(&self) -> Option<TabSetup> {
+        (self.kind == TrackKind::Tab).then(|| self.tab.clone().unwrap_or_default())
     }
 
     pub fn channels(&self) -> usize {
