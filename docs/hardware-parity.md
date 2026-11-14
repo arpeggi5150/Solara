@@ -1,6 +1,6 @@
 # Hardware parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-13 · **Change:** minor (ASIO output via azo at 128 samples; previously trivial: bounces of a bus fed by an aux compensate its latency (#246); previously minor: audio device, rate and buffer choice; ASIO feature) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-14 · **Change:** minor (MIDI keyboard input and recording; previously minor: ASIO output via azo at 128 samples; trivial: bounces of a bus fed by an aux compensate its latency (#246); previously minor: audio device, rate and buffer choice; ASIO feature) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 A DAW is judged by how it drives audio interfaces, MIDI gear, control surfaces and sync. This is
 Solara's weakest dimension. Ours is measured from `crates/playback` (cpal) and the absence of
@@ -31,7 +31,7 @@ Legend: ✅ works · 🟡 partial · ❌ missing.
 
 | Feature | Pro Tools | Solara (all platforms) |
 |---|---|---|
-| MIDI input devices (keyboards, pads) | ✅ | ❌ no MIDI device layer at all (`setup.midi_input_devices` stores names) |
+| MIDI input devices (keyboards, pads) | ✅ | ✅ through `midir` (CoreMIDI, WinMM, ALSA): the chosen ports (all when none is chosen) play record-enabled and input-monitored instruments and record MIDI takes; timing per audio block |
 | MIDI output to external gear | ✅ | ❌ |
 | MIDI Thru, input filter | ✅ | ❌ (stored flags only) |
 | MIDI Beat Clock out, MTC generate/chase | ✅ | ❌ |
@@ -72,6 +72,7 @@ Legend: ✅ works · 🟡 partial · ❌ missing.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-14 | minor | MIDI keyboard input: plays armed and monitored MIDI, instrument and tab tracks live and records takes while the project plays |
 | 2026-11-13 | minor | ASIO drivers for output on Windows x64 through azo (no Steinberg SDK); cpal's `asio` feature removed; 128 samples verified on two interfaces |
 | 2026-10-13 | trivial | bounces of a bus fed by an aux compensate its latency (#246) |
 | 2026-10-12 | minor | Audio device settings: system, output, input, sample rate and buffer size; opt-in ASIO |

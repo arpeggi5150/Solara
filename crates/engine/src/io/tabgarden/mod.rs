@@ -14,7 +14,9 @@
 //! score's tempo and meters and its repeats played out. Every entry is treated as hostile: sizes,
 //! counts and lengths are capped, and a malformed file is an error.
 
+pub(crate) mod gp5;
 pub(crate) mod gpif;
+pub(crate) mod gpx;
 pub(crate) mod xml;
 
 use crate::{Engine, EngineError, Result};
@@ -424,6 +426,42 @@ pub fn open_tabgarden_bytes(e: &mut Engine, name: &str, bytes: &[u8]) -> Result<
     let file = read_tabgarden(bytes)?;
     let stem = std::path::Path::new(name).file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("TabGarden");
     let s = session_from_score(&file.score, Some(&file.manifest), stem)?;
+    let summary = summary(&s, &file.score);
+    e.replace_session(s);
+    e.path = None;
+    Ok(summary)
+}
+
+/// Read any Guitar Pro score: `.gp` (7 and later, a zip), `.gpx` (6) or `.gp3`/`.gp4`/`.gp5`,
+/// told apart by their contents.
+pub(crate) fn read_guitar_pro(bytes: &[u8]) -> Result<GpScore> {
+    if bytes.starts_with(b"PK") {
+        read_gp(bytes)
+    } else if gpx::sniff(bytes) {
+        gpif::parse_gpif(&gpx::score_gpif(bytes).map_err(io)?).map_err(io)
+    } else if gp5::sniff(bytes) {
+        gp5::parse(bytes).map_err(io)
+    } else {
+        Err(io("not a Guitar Pro file (.gp, .gpx, .gp5, .gp4 or .gp3)"))
+    }
+}
+
+/// Open a Guitar Pro file as a new session (replacing the open one), every track in it.
+pub fn open_guitar_pro_bytes(e: &mut Engine, name: &str, bytes: &[u8]) -> Result<Value> {
+    let score = read_guitar_pro(bytes).map_err(|err| match err {
+        EngineError::Io(m) => EngineError::Io(m.replacen("TabGarden file: ", "Guitar Pro file: ", 1)),
+        other => other,
+    })?;
+    let stem = std::path::Path::new(name).file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("Guitar Pro");
+    let s = session_from_score(&score, None, stem)?;
+    let summary = summary(&s, &score);
+    e.replace_session(s);
+    e.path = None;
+    Ok(summary)
+}
+
+/// What an opened score became: its tracks with their notes, bars played and tempo.
+fn summary(s: &Session, score: &GpScore) -> Value {
     let tracks: Vec<Value> = s
         .tracks
         .iter()
@@ -432,10 +470,7 @@ pub fn open_tabgarden_bytes(e: &mut Engine, name: &str, bytes: &[u8]) -> Result<
             json!({"name": t.name, "kind": t.kind.id(), "notes": notes, "tuning": t.tab.as_ref().map(|x| x.tuning.label())})
         })
         .collect();
-    let summary = json!({"name": s.name, "tracks": tracks, "bars": gpif::play_order(&file.score.bars).len(), "tempo": s.tempo.tempo_at_tick(0)});
-    e.replace_session(s);
-    e.path = None;
-    Ok(summary)
+    json!({"name": s.name, "tracks": tracks, "bars": gpif::play_order(&score.bars).len(), "tempo": s.tempo.tempo_at_tick(0)})
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────────────────────

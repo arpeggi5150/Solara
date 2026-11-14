@@ -3,7 +3,7 @@ use super::{SoundApp, Value, bounce, menus};
 impl SoundApp {
     /// Run a command; errors go to the status line. Returns the result.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
-        if matches!(id, "session.new" | "session.open" | "session.close" | "session.revert" | "file.open_tabgarden")
+        if matches!(id, "session.new" | "session.open" | "session.close" | "session.revert" | "file.open_tabgarden" | "file.open_guitar_pro")
             && bounce::refuses_session_switch(self)
         {
             return Err(self.ui.status.clone());
@@ -15,7 +15,8 @@ impl SoundApp {
             // Third-party plugins keep state the session can't see: store it first.
             self.capture_plugin_states();
         }
-        let replacing = matches!(id, "session.new" | "session.open" | "session.close" | "session.revert" | "file.open_tabgarden");
+        let replacing =
+            matches!(id, "session.new" | "session.open" | "session.close" | "session.revert" | "file.open_tabgarden" | "file.open_guitar_pro");
         match self.engine.execute(id, &params) {
             Ok(v) => {
                 if replacing {

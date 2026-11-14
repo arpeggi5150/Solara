@@ -29,7 +29,7 @@ pub use render::{commit_track, consolidate, refuse_longer, render_clip_gain, ren
 pub(crate) use session::{DecodedFiles, decode_file, open_session_linked};
 pub use session::{open_session, save_copy, save_session, save_session_copy};
 pub use strip::{StripMode, StripNames, StripScan, bounded_to_track, name_stripped_clips, strip_silence, strip_silence_ranges, transients_in};
-pub use tabgarden::{TABGARDEN_EXTENSION, export_tabgarden, open_tabgarden_bytes};
+pub use tabgarden::{TABGARDEN_EXTENSION, export_tabgarden, open_guitar_pro_bytes, open_tabgarden_bytes};
 
 // ─── Checked file access ──────────────────────────────────────────────────────────────────────
 //

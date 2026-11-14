@@ -3,8 +3,17 @@ use super::{Dialog, SoundApp, Value, json};
 /// When `id` would close a session with unsaved changes, ask first; true when the question is
 /// open instead. A take in progress is stopped first, so it counts as a change.
 pub fn ask_to_save(app: &mut SoundApp, id: &str, params: &Value) -> bool {
-    if !matches!(id, "session.new" | "session.open" | "file.open_tabgarden" | "session.close" | "session.revert" | "app.quit" | OPEN_PENDING)
-        || soundcraft_engine::find_command(id).is_some_and(|c| (c.enabled)(&app.engine).is_err())
+    if !matches!(
+        id,
+        "session.new"
+            | "session.open"
+            | "file.open_tabgarden"
+            | "file.open_guitar_pro"
+            | "session.close"
+            | "session.revert"
+            | "app.quit"
+            | OPEN_PENDING
+    ) || soundcraft_engine::find_command(id).is_some_and(|c| (c.enabled)(&app.engine).is_err())
     {
         return false;
     }
@@ -44,8 +53,8 @@ pub fn unicode(path: &std::path::Path) -> Result<&str, NotUnicode> {
     path.to_str().ok_or_else(|| NotUnicode(path.to_path_buf()))
 }
 
-/// Opens a dropped, picked or command-line file by its extension: a session opens (asking to save
-/// first), MIDI imports, and anything else imports as audio, decoded in the background so a long
+/// Opens a dropped, picked or command-line file by its extension: a session, TabGarden or Guitar
+/// Pro file opens (asking to save first), MIDI imports, and anything else imports as audio, decoded in the background so a long
 /// file doesn't freeze the window (#597). A name that is not valid Unicode goes on the status line.
 pub fn open_path(app: &mut SoundApp, path: &std::path::Path) {
     let p = match unicode(path) {
@@ -61,6 +70,8 @@ pub fn open_path(app: &mut SoundApp, path: &std::path::Path) {
         run_or_ask(app, "session.open", json!({"path": p}))
     } else if lower.ends_with(".tabgarden") {
         run_or_ask(app, "file.open_tabgarden", json!({"path": p}))
+    } else if [".gp", ".gpx", ".gp5", ".gp4", ".gp3"].iter().any(|x| lower.ends_with(x)) {
+        run_or_ask(app, "file.open_guitar_pro", json!({"path": p}))
     } else if lower.ends_with(".mid") || lower.ends_with(".midi") || lower.ends_with(".smf") {
         app.run("file.import_midi", json!({"path": p}))
     } else {

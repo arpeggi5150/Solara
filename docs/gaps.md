@@ -1,6 +1,6 @@
 # Where Solara falls short of Pro Tools
 
-> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-11-13 · **Change:** trivial (G-01: ASIO output via azo; previously G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-11-14 · **Change:** trivial (G-02: MIDI keyboard input plays and records armed instruments; previously G-01: ASIO output via azo; G-01: `setup.playback_engine` applies the device buffer in the desktop app; G-04: Clip Looping crossfade and loop count) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Every known shortfall, one entry each, ranked by how much it stops a Pro Tools user from doing
 real work in Solara. This is the work list: pick from the top. Rows marked **alpha blocker**
@@ -16,7 +16,7 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
 | # | Gap | Dimension | Doc | Est. (h) |
 |---|---|---|---|---:|
 | G-01 | **Alpha blocker.** No channel routing or duplex low-latency path (device, rate and buffer choice done; ASIO output done) | Hardware | [hardware-parity.md](hardware-parity.md) | 15–25 |
-| G-02 | **Alpha blocker.** No MIDI device input or output | Hardware / MIDI | [hardware-parity.md](hardware-parity.md) | 20–35 |
+| G-02 | **Alpha blocker.** No MIDI output, thru or clock (keyboard input and recording done) | Hardware / MIDI | [hardware-parity.md](hardware-parity.md) | 12–22 |
 | G-03 | **Alpha blocker.** Cannot exchange sessions with Pro Tools (no AAF/OMF, no `.ptx`) | File formats | [file-format-parity.md](file-format-parity.md) | 50–90 |
 | G-04 | Open correctness bugs in features counted as done (~25 issues) | Stability | this file | 25–40 |
 | G-05 | (Entitlement part: alpha blocker for the mix row) Third-party VST3s blocked in the signed macOS build; AU editors missing | Ecosystem | [plugin-parity.md](plugin-parity.md) | 15–25 |
@@ -69,13 +69,16 @@ When you close a gap, delete its entry (or shrink it) in the same PR, and bump t
 
 ### G-02. MIDI devices
 
-- **Missing:** all MIDI hardware I/O. No `midir`/CoreMIDI/WinMM/ALSA sequencer code exists;
-  `setup.midi_input_devices` and `setup.midi_studio` only store names. You cannot record from a
-  keyboard, play a hosted instrument live, drive external synths, or send MIDI clock/MTC.
-  `midi_editor.rs:288` notes audition "needs a live MIDI input path".
-- **Impact:** MIDI production is limited to drawing notes and importing SMF.
-- **Estimate:** ≈ 20–35 h (device layer, realtime input to armed tracks and instruments with
-  timestamps, MIDI record/merge/loop, thru, output tracks, clock out).
+- **Done:** MIDI keyboards through `midir` (`crates/playback/src/midi_in.rs`). The ports chosen in
+  Setup › MIDI › MIDI Input Devices (all ports when none is chosen) play the record-enabled and
+  input-monitored MIDI, instrument and tab tracks, stopped or playing, and Record turns what they
+  play into a MIDI clip (`record.midi_take`, MIDI Merge layers it), so a part can be overdubbed
+  while the project plays. Timing is per audio block, compensated by one output buffer.
+- **Missing:** MIDI output to external synths, MIDI Thru and the input filter, MIDI Beat Clock and
+  MTC, sample-accurate input timestamps, the MIDI Keyboard window's live audition, and Input
+  Quantize applied while recording.
+- **Impact:** a keyboard part can be played and recorded; external MIDI gear cannot be driven.
+- **Estimate:** ≈ 12–22 h (output tracks and ports, thru, clock out, timestamped input).
 
 ### G-03. Session interchange with Pro Tools
 
@@ -234,6 +237,7 @@ missing. Out of scope unless the owner decides otherwise.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-14 | trivial | G-02: MIDI keyboard input plays armed and monitored instruments and records takes; output, thru and clock remain (estimate 12–22 h) |
 | 2026-10-25 | trivial | G-04: Clip Looping (#1030) lacks the loop crossfade option, and Number of Loops stops at 512 while length and fill make up to 1000 loops |
 | 2026-10-25 | trivial | G-01: `setup.playback_engine` and `setup.hardware` apply the device and buffer in the desktop app; headless returns `applied: false` |
 | 2026-10-24 | trivial | G-08: 27 processors + 3 instruments, as the plugin registry holds; G-20: the sampler shipped (#108), so it is no longer listed as missing |

@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~5% and ~110–180 h away (the alpha gate's three failing workflows)
 
-> **Last reviewed:** 2026-10-24 · **Last updated:** 2026-11-14 · **Change:** trivial (tab tracks and TabGarden files, ASIO output via azo, Ableton-style layout, Session View, Drum Rack, Instrument Rack, Groove Pool, Audio to MIDI, Pro Tools-style layout, Beat Analysis conform, FL-style layout, Reaper-style layout, Action List, Routing Matrix, Cancel Zoom Toggle, side panels in dock columns, Auto Pan stereo balance, Clip List Auto Rename, Strip Silence rectangles, Strip Silence Rename, Strip Silence Extract and Separate, Clip Looping dialog, AudioSuite Vari-Fi speed ramps, Auto Pan plugin, Subharmonic plugin, Ring Modulator plugin, Float32 file headroom) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-24 · **Last updated:** 2026-11-14 · **Change:** trivial (MIDI keyboard input and recording, Guitar Pro files, tab techniques, tab tracks and TabGarden files, ASIO output via azo, Ableton-style layout, Session View, Drum Rack, Instrument Rack, Groove Pool, Audio to MIDI, Pro Tools-style layout, Beat Analysis conform, FL-style layout, Reaper-style layout, Action List, Routing Matrix, Cancel Zoom Toggle, side panels in dock columns, Auto Pan stereo balance, Clip List Auto Rename, Strip Silence rectangles, Strip Silence Rename, Strip Silence Extract and Separate, Clip Looping dialog, AudioSuite Vari-Fi speed ramps, Auto Pan plugin, Subharmonic plugin, Ring Modulator plugin, Float32 file headroom) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Solara is a clean-room, pure-Rust digital audio workstation that aims at full parity with
 Avid Pro Tools, and then beyond it: faster, open, scriptable and agent-controllable. This page is
@@ -103,7 +103,7 @@ Other languages shipped: 0. Detail: [localization-parity.md](docs/localization-p
 Ranked; the alpha gate, the alpha checklist and the beta plan are in [docs/roadmap.md](docs/roadmap.md).
 
 1. **Alpha blocker:** audio interfaces: device and buffer-size choice, duplex stream, ASIO; record to disk (G-01, G-06). 35–55 h.
-2. **Alpha blocker:** MIDI devices: record from keyboards, play instruments live, output (G-02). 20–35 h.
+2. **Alpha blocker:** MIDI devices: output, thru and clock (G-02; keyboard input and recording done). 12–22 h.
 3. **Alpha blocker:** AAF/OMF import and export (G-03). 50–90 h.
 4. macOS plugin entitlement (#153), then AU editors (G-05). 1 h for the entitlement (needed for the mix row), then 15–25 h.
 5. Land the open bug-fix PRs and clear the correctness backlog (G-04). 15–25 h.
@@ -122,6 +122,7 @@ mutated and truncated movies. Field reports from the first public week are track
 
 ## Progress log
 
+- **2026-11-14:** MIDI keyboards and Guitar Pro files. A MIDI keyboard plays the record-enabled and input-monitored instruments live, and Record keeps what it plays as a MIDI clip, so a part can be overdubbed while the project plays back (G-02 shrinks to output, thru and clock). File › Open Guitar Pro File opens `.gp`, `.gpx`, `.gp5`, `.gp4` and `.gp3` files as sessions with every track, read in Rust, clean-room. Slides, hammer-ons and pull-offs, palm mutes, dead and grace notes, let ring, accents and tremolo picking are read from scores, drawn in the tab and notation, and played as TabGarden plays them. No readiness percentage change.
 - **2026-11-14:** Tab tracks and TabGarden files. A Tab Track (Track › New) is a fretted part: its MIDI notes play through an instrument and show as tab, notation or both in the Edit window, with Window › Tab Editor drawing notation, tab and a piano roll of the same notes on one time axis; a right-click moves a note to another string. File › Open TabGarden File opens a `.tabgarden` file as a session with every track (tuning, capo, the strings the tab names, drums, tempo, meters and repeats), and File › Export › TabGarden File writes the MIDI tracks back as stems TabGarden opens. The Guitar Pro 7 score inside the file is read and written in Rust, clean-room. No readiness percentage change.
 - **2026-11-13:** Low-latency output on Windows: Setup › Playback Engine lists the interface's ASIO drivers as “Low-latency driver”, with the buffer sizes each driver offers and the output's health counters. Built on the MIT `azo` crate, with no Steinberg SDK (cpal's opt-in `asio` feature is gone). 128 samples at 48 kHz (2.7 ms) played 60 s with 0 late blocks, 0 gaps and 0 xruns on an Apogee Duet and a Focusrite USB interface. WASAPI stays the default and the fallback. No readiness percentage change.
 - **2026-11-13:** An Ableton-style layout preset joins the switcher (key 6): Browser and Session View on the left, Arrangement in the centre, Device View along the bottom, and the Ableton key set. The Session View holds scenes of clip slots: a click plays a clip or a whole scene from the next bar, and scenes can be named, moved and stopped. Clips get follow actions (again, next, random, stop), warped audio follows tempo changes, and a Groove Pool holds grooves that MIDI clips share. A Drum Rack instrument gives sixteen pads with their own sound, tune and level; an Instrument Rack puts eight macro knobs around any instrument. Audio to MIDI turns an audio clip's melody, chords or drums into a MIDI clip. Link is not in this step. No readiness percentage change.
@@ -183,6 +184,7 @@ mutated and truncated movies. Field reports from the first public week are track
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-14 | trivial | Progress log: MIDI keyboard input and recording, Guitar Pro files, tab techniques; G-02 shrunk; readiness estimates unchanged |
 | 2026-11-14 | trivial | Progress log: tab tracks and TabGarden files; readiness estimates unchanged |
 | 2026-11-13 | trivial | Progress log: ASIO output via azo; readiness estimates unchanged |
 | 2026-11-13 | trivial | Progress log: Ableton-style layout, Session View, Drum Rack, Instrument Rack, Groove Pool, Audio to MIDI; readiness estimates unchanged |
