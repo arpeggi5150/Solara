@@ -1,4 +1,4 @@
-//! Tab tracks and TabGarden files: open a `.tabgarden` file as the session, export the MIDI
+//! Tab tracks, TabGarden and Guitar Pro files: open a `.tabgarden` or Guitar Pro file as the session, export the MIDI
 //! parts to one, and set a tab track's view, tuning and the string a note is played on.
 use super::{CommandSpec, always, bad, bool_or, i64_or, str_param, track_param, tracks_param};
 
@@ -14,6 +14,19 @@ pub fn specs() -> Vec<CommandSpec> {
             let bytes = crate::io::read_file(&path)?;
             crate::io::open_tabgarden_bytes(e, &path, &bytes)
         }),
+        cmd!(
+            noundo "file.open_guitar_pro",
+            "Open Guitar Pro File...",
+            ["File"],
+            None,
+            "{path} — opens a Guitar Pro file (.gp, .gpx, .gp5, .gp4, .gp3) as a new session, every track in it",
+            always,
+            |e, p| {
+                let path = str_param(p, "path").ok_or_else(|| bad("file.open_guitar_pro", "`path` required"))?.to_string();
+                let bytes = crate::io::read_file(&path)?;
+                crate::io::open_guitar_pro_bytes(e, &path, &bytes)
+            }
+        ),
         cmd!(noundo "file.export_tabgarden", "TabGarden File...", ["File", "Export"], None, "{path, tracks?, replace?: false} — MIDI, instrument and tab tracks as a .tabgarden file TabGarden opens", always, export),
         cmd!(
             "track.tab_view",

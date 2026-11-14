@@ -1,6 +1,6 @@
 # File-format parity
 
-> **Last reviewed:** 2026-10-19 · **Last updated:** 2026-11-14 · **Change:** trivial (TabGarden `.tabgarden` open and stem export, Guitar Pro 7 score inside it; previously trivial: bounces carry a BWF time reference, #1296) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-19 · **Last updated:** 2026-11-14 · **Change:** trivial (Guitar Pro `.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3` open; techniques played; previously trivial: TabGarden `.tabgarden` open and stem export; bounces carry a BWF time reference, #1296) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 Every format Pro Tools reads or writes, and ours. The Pro Tools list comes from the document types
 its bundle declares (`CFBundleDocumentTypes` in Info.plist: names only, nothing else read) and its
@@ -57,7 +57,9 @@ Legend: ✅ supported and tested · 🟡 partial · ❌ missing · — not appli
 | MusicXML (to Sibelius) | export | — | ✅ | `file.export_sibelius`, `score.rs` |
 | Printable score | print | — | ✅ (SVG) | |
 | TabGarden (`.tabgarden`) | — | ✅ | ✅ | Beyond Pro Tools. `file.open_tabgarden` opens every track as a session (fretted parts as tab tracks with tuning, capo and strings; drums; repeats played out); `file.export_tabgarden` writes MIDI, instrument and tab tracks as stems TabGarden opens. `io/tabgarden/`, clean-room |
-| Guitar Pro 7+ score (`score.gpif` inside `.gp`) | — | 🟡 | 🟡 | Read and written as the tab inside `.tabgarden`. Not played: grace notes, bends, slides, harmonics. Writing is on a sixteenth grid with one voice per track. Opening `.gp` / `.gp5` / `.gpx` files directly is TabGarden step 2 |
+| Guitar Pro 7+ score (`.gp`, and `score.gpif` inside `.tabgarden`) | — | ✅ | 🟡 | `file.open_guitar_pro` opens a `.gp` as a session with every track; also read and written as the tab inside `.tabgarden`. Dead and palm-muted notes, hammer-ons and pull-offs, slides, let ring, accents, staccato, vibrato, grace notes and tremolo picking are read, drawn and played as TabGarden plays them. Not played: bends, harmonics. Writing (inside `.tabgarden` only) is on a sixteenth grid with one voice per track and leaves grace notes out |
+| Guitar Pro 6 (`.gpx`) | — | ✅ | — | `file.open_guitar_pro`: the BCFZ/BCFS container unpacked in Rust and its `score.gpif` read as above. `io/tabgarden/gpx.rs`, clean-room |
+| Guitar Pro 3, 4, 5 (`.gp3`, `.gp4`, `.gp5`) | — | ✅ | — | `file.open_guitar_pro`: tracks (tuning, capo, program, colour), meters, repeats and alternate endings, tempo changes, both voices, ties and the same techniques. Chord diagrams, bends, harmonics, lyrics and mixer changes other than tempo are skipped. `io/tabgarden/gp5.rs`, clean-room |
 
 ## Video
 
@@ -82,6 +84,7 @@ Legend: ✅ supported and tested · 🟡 partial · ❌ missing · — not appli
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-14 | trivial | Guitar Pro `.gp`, `.gpx`, `.gp5`, `.gp4` and `.gp3` open as sessions; slides, hammer-ons and pull-offs, palm mutes, dead and grace notes, tremolo picking played |
 | 2026-11-14 | trivial | TabGarden `.tabgarden` read and write; Guitar Pro 7 score read and write inside it |
 | 2026-11-02 | trivial | WAV bounces (mix and stems) write a `bext` TimeReference: session timecode start plus bounce start (#1296) |
 | 2026-10-19 | trivial | WAV and AIFF-C Float32 encoders retain finite headroom (#791); whole-file, streaming and bounce regression tests |

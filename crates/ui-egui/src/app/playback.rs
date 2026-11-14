@@ -100,14 +100,22 @@ impl SoundApp {
             self.record_hint = Some((self.last_frame.unwrap_or_default(), why));
             return;
         }
-        self.ensure_input();
-        let takes = match self.arm_recorder() {
-            Ok(takes) => takes,
-            Err(err) => {
-                self.ui.status = format!("Cannot record: {err}");
-                return;
+        let keyboard = self.records_keyboard();
+        let audio = self.engine.session().tracks.iter().any(|t| t.mixer.record_arm && t.kind == soundcraft_model::TrackKind::Audio && !t.inactive);
+        let mut takes = Vec::new();
+        if audio {
+            self.ensure_input();
+            match self.arm_recorder() {
+                Ok(t) => takes = t,
+                // A keyboard take still records when the audio input cannot.
+                Err(err) if keyboard => self.ui.status = format!("Recording MIDI only: {err}"),
+                Err(err) => {
+                    self.ui.status = format!("Cannot record: {err}");
+                    return;
+                }
             }
-        };
+        }
+        self.midi_take.clear();
         self.lost_shown = 0;
         if let Some(p) = &self.player {
             p.set_recording(true);
@@ -182,6 +190,18 @@ impl SoundApp {
             p.set_recording(false);
         }
         let plan = self.take_plan.take();
+        // The keyboard take covers the punch range, the loop, or the take up to Stop.
+        let (start, end) = match (self.punch, plan.as_ref().and_then(|p| p.pass)) {
+            (Some(p), _) => (p.start, p.end),
+            (None, Some(pass)) => (self.record_start, self.record_start.saturating_add(pass)),
+            (None, None) => (self.record_start, self.engine.transport.position),
+        };
+        self.place_midi_take(start, end);
+        let armed_audio = plan.as_ref().is_some_and(|p| !p.takes.is_empty());
+        if !armed_audio {
+            self.punch = None;
+            return;
+        }
         let Some(r) = &mut self.recorder else { return };
         let (takes, problem) = r.finish();
         let tracks = takes.len().max(1);

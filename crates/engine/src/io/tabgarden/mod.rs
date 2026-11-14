@@ -14,14 +14,16 @@
 //! score's tempo and meters and its repeats played out. Every entry is treated as hostile: sizes,
 //! counts and lengths are capped, and a malformed file is an error.
 
+pub(crate) mod gp5;
 pub(crate) mod gpif;
+pub(crate) mod gpx;
 pub(crate) mod xml;
 
 use crate::{Engine, EngineError, Result};
-use gpif::{GpBeat, GpKind, GpMasterBar, GpNote, GpScore, GpTempo, GpTrack};
+use gpif::{GRACE_TICKS, GpBeat, GpKind, GpMasterBar, GpNote, GpScore, GpTempo, GpTrack, Grace};
 use serde_json::{Value, json};
-use soundcraft_midi::tab::{Tuning, place};
-use soundcraft_midi::{Note, Sequence};
+use soundcraft_midi::tab::{Tuning, place, tech as tab_tech};
+use soundcraft_midi::{CtrlEvent, CtrlKind, Note, Sequence};
 use soundcraft_model::{ChannelFormat, Clip, ClipContent, Insert, Session, TabSetup, TrackId, TrackKind};
 use std::io::{Read as _, Write as _};
 
@@ -233,7 +235,10 @@ pub(crate) fn session_from_score(score: &GpScore, manifest: Option<&Value>, fall
     }
     let picks = manifest.and_then(|m| m.get("instruments"));
     for (ti, t) in score.tracks.iter().enumerate() {
-        let pick = picks.and_then(|p| p.get(ti.to_string())).and_then(|p| p.get("id")).and_then(Value::as_str);
+        let entry = picks.and_then(|p| p.get(ti.to_string()));
+        let pick = entry.and_then(|p| p.get("id")).and_then(Value::as_str);
+        // TabGarden's "Kami rule" plays the part on the white keys only; the tab keeps what is written.
+        let naturals = entry.and_then(|p| p.get("kamiRule")).and_then(Value::as_bool).unwrap_or(false);
         let program = pick.and_then(instrument_program).unwrap_or(t.program);
         let drums = matches!(t.kind, GpKind::Drums) || pick.is_some_and(|p| p.starts_with("gmkit:"));
         let kind = match t.kind {
@@ -253,6 +258,9 @@ pub(crate) fn session_from_score(score: &GpScore, manifest: Option<&Value>, fall
                 tr.tab = Some(TabSetup { tuning: Tuning { strings, capo: *capo }.sanitized(), program, ..TabSetup::default() });
             }
         }
+        if naturals {
+            s.edit.values.insert(naturals_key(id), 1.0);
+        }
         let len = s.tempo.tick_to_samples(song_end, s.sample_rate).max(1);
         let cid = s.new_clip_id();
         crate::edit::place_clip(&mut s, id, Clip::midi(cid, track_name, 0, len, seq));
@@ -264,6 +272,11 @@ pub(crate) fn session_from_score(score: &GpScore, manifest: Option<&Value>, fall
     Ok(s)
 }
 
+/// The MIDI Real-Time Property that plays a track's black keys a semitone lower.
+fn naturals_key(t: TrackId) -> String {
+    format!("rtp.{}.naturals", t.0)
+}
+
 /// One track's notes, in the played-out bar order; ties join notes, strings become hints.
 fn track_sequence(t: &GpTrack, order: &[usize], starts: &[(usize, i64)], drums: bool) -> Result<Sequence> {
     let strings = match &t.kind {
@@ -272,54 +285,194 @@ fn track_sequence(t: &GpTrack, order: &[usize], starts: &[(usize, i64)], drums: 
     };
     let channel = if drums { 9 } else { t.channel.min(15) };
     let mut seq = Sequence::default();
+    // Where each note ends as written, before techniques shorten or lengthen it: ties join there.
+    let mut written_end: Vec<i64> = Vec::new();
     for (&bi, &(_, bar_tick)) in order.iter().zip(starts) {
         let Some(voices) = t.bars.get(bi) else { continue };
         for voice in voices {
             let mut at = bar_tick;
+            // Time an on-beat grace note takes from the beat after it.
+            let mut delay = 0i64;
             for beat in voice {
+                let (start, length) = match beat.grace {
+                    Grace::Before => (at.saturating_sub(GRACE_TICKS).max(0), GRACE_TICKS),
+                    Grace::On => (at, GRACE_TICKS),
+                    Grace::None => (at.saturating_add(delay), beat.ticks.saturating_sub(delay).max(1)),
+                };
                 for n in &beat.notes {
                     // A tied note lengthens the same pitch that ends where this beat starts.
-                    if n.tie_in
-                        && let Some(prev) = seq.notes.iter_mut().rev().find(|p| p.pitch == n.pitch && p.end() == at)
-                    {
-                        prev.length = prev.length.saturating_add(beat.ticks);
+                    // A tie with nothing to continue is not picked either.
+                    if n.tie_in && beat.grace == Grace::None {
+                        if let Some((prev, end)) =
+                            seq.notes.iter_mut().zip(written_end.iter_mut()).rev().find(|(p, e)| p.pitch == n.pitch && **e == start)
+                        {
+                            prev.length = prev.length.saturating_add(length);
+                            *end = end.saturating_add(length);
+                        }
                         continue;
                     }
-                    if seq.notes.len() >= MAX_NOTES {
-                        return Err(io(format!("track {}: more than {MAX_NOTES} notes", t.name)));
+                    let mut tech = n.tech;
+                    if beat.grace != Grace::None {
+                        tech |= tab_tech::GRACE;
                     }
-                    seq.notes.push(Note {
-                        pitch: n.pitch,
-                        velocity: beat.velocity.clamp(1, 127),
-                        release_velocity: 64,
-                        channel,
-                        start: at,
-                        length: beat.ticks.max(1),
-                    });
-                    if let Some((string, _)) = n.string
-                        && strings > 0
-                    {
-                        let from_top = strings.saturating_sub(usize::from(string));
-                        if let Ok(s1) = u8::try_from(from_top)
-                            && s1 >= 1
-                        {
-                            seq.tab.push(soundcraft_midi::tab::TabPos { start: at, pitch: n.pitch, channel, string: s1 });
+                    let string = n
+                        .string
+                        .filter(|_| strings > 0)
+                        .and_then(|(s, _)| u8::try_from(strings.saturating_sub(usize::from(s))).ok())
+                        .filter(|s| *s >= 1);
+                    let velocity = played_velocity(beat.velocity, tech);
+                    // Tremolo picking: what sounds of the beat is split into even strokes, as many
+                    // as strokes of the tremolo's value it takes to fill it.
+                    let sounding = played_length(length, tech);
+                    let strokes =
+                        if beat.tremolo > 0 && beat.tremolo < length { (sounding + beat.tremolo - 1) / beat.tremolo } else { 1 }.clamp(1, 64);
+                    if strokes > 1 {
+                        tech |= tab_tech::TREMOLO;
+                    }
+                    let each = (sounding / strokes).max(1);
+                    for k in 0..strokes {
+                        if seq.notes.len() >= MAX_NOTES {
+                            return Err(io(format!("track {}: more than {MAX_NOTES} notes", t.name)));
+                        }
+                        let s0 = start.saturating_add(each.saturating_mul(k));
+                        seq.notes.push(Note { pitch: n.pitch, velocity, release_velocity: 64, channel, start: s0, length: each });
+                        written_end.push(if k + 1 == strokes { start.saturating_add(length) } else { s0.saturating_add(each) });
+                        if string.is_some() || tech != 0 {
+                            seq.tab.push(soundcraft_midi::tab::TabPos { start: s0, pitch: n.pitch, channel, string: string.unwrap_or(0), tech });
                         }
                     }
                 }
-                at = at.saturating_add(beat.ticks);
+                match beat.grace {
+                    Grace::Before => {}
+                    Grace::On => delay = GRACE_TICKS.min(beat_after(voice, beat)),
+                    Grace::None => {
+                        at = at.saturating_add(beat.ticks);
+                        delay = 0;
+                    }
+                }
             }
         }
     }
     seq.sort();
+    legato_slides(&mut seq);
     Ok(seq)
 }
+
+/// The length of the beat after `beat` in `voice` (for an on-beat grace note), else a whole note.
+fn beat_after(voice: &[GpBeat], beat: &GpBeat) -> i64 {
+    let i = voice.iter().position(|b| std::ptr::eq(b, beat)).unwrap_or(voice.len());
+    voice.get(i + 1..).and_then(|rest| rest.iter().find(|b| b.grace == Grace::None)).map_or(UNIT * 16, |b| b.ticks / 2)
+}
+
+/// Velocity one dynamic step is worth.
+const DYNAMIC_STEP: u8 = 16;
+
+/// How hard a note with `tech` is played at a beat's `velocity`: a hammer-on or pull-off softer,
+/// an accent harder.
+fn played_velocity(velocity: u8, tech: u16) -> u8 {
+    let mut v = velocity;
+    if tech & tab_tech::HOPO_DEST != 0 {
+        v = v.saturating_sub(DYNAMIC_STEP);
+    }
+    if tech & tab_tech::ACCENT != 0 {
+        v = v.saturating_add(DYNAMIC_STEP);
+    }
+    v.clamp(1, 127)
+}
+
+/// How long a note with `tech` sounds when written `ticks` long: dead notes and palm mutes are cut
+/// short, staccato halves, let ring doubles.
+fn played_length(ticks: i64, tech: u16) -> i64 {
+    let mut l = ticks;
+    if tech & tab_tech::DEAD != 0 {
+        l = l.min(DEAD_TICKS);
+    } else if tech & tab_tech::PALM_MUTE != 0 {
+        l = l.min(PALM_MUTE_TICKS);
+    }
+    if tech & tab_tech::STACCATO != 0 {
+        l /= 2;
+    }
+    if tech & tab_tech::LET_RING != 0 {
+        l = l.saturating_mul(2);
+    }
+    l.max(1)
+}
+
+/// How long a dead note sounds (a tenth of a quarter note).
+const DEAD_TICKS: i64 = 96;
+/// How long a palm-muted note sounds, at most.
+const PALM_MUTE_TICKS: i64 = 254;
+
+/// A legato slide is not picked again: the note it slides to (the next on the same string, starting
+/// where it ends) is reached by portamento, which glides the sounding voice there. The slide note
+/// is held a tick longer so the voice is still sounding when the glide starts.
+fn legato_slides(seq: &mut Sequence) {
+    let mut glides: Vec<(i64, i64, u8)> = Vec::new();
+    for h in seq.tab.iter().filter(|h| h.tech & tab_tech::SLIDE_LEGATO != 0 && h.string > 0) {
+        let Some(from) = seq.notes.iter().position(|n| n.start == h.start && n.pitch == h.pitch && n.channel == h.channel) else { continue };
+        let Some(end) = seq.notes.get(from).map(Note::end) else { continue };
+        let to = seq.tab.iter().find(|d| d.string == h.string && d.channel == h.channel && d.start == end && d.tech & tab_tech::GRACE == 0);
+        let Some(to) = to.and_then(|d| seq.notes.iter().find(|n| n.start == d.start && n.pitch == d.pitch && n.channel == d.channel)) else {
+            continue;
+        };
+        glides.push((to.start, to.end(), to.channel));
+        if let Some(n) = seq.notes.get_mut(from) {
+            n.length = n.length.saturating_add(1);
+        }
+    }
+    for (start, end, channel) in glides {
+        let on = start.saturating_sub(1).max(0);
+        let off = end.saturating_sub(1).max(on.saturating_add(1));
+        seq.ctrls.push(CtrlEvent { tick: on, channel, kind: CtrlKind::Cc(PORTAMENTO), value: 127 });
+        seq.ctrls.push(CtrlEvent { tick: off, channel, kind: CtrlKind::Cc(PORTAMENTO), value: 0 });
+    }
+    seq.sort();
+}
+
+/// The portamento controller (on at 64 and over).
+const PORTAMENTO: u8 = 65;
 
 /// Open a `.tabgarden` file as a new session (replacing the open one).
 pub fn open_tabgarden_bytes(e: &mut Engine, name: &str, bytes: &[u8]) -> Result<Value> {
     let file = read_tabgarden(bytes)?;
     let stem = std::path::Path::new(name).file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("TabGarden");
     let s = session_from_score(&file.score, Some(&file.manifest), stem)?;
+    let summary = summary(&s, &file.score);
+    e.replace_session(s);
+    e.path = None;
+    Ok(summary)
+}
+
+/// Read any Guitar Pro score: `.gp` (7 and later, a zip), `.gpx` (6) or `.gp3`/`.gp4`/`.gp5`,
+/// told apart by their contents.
+pub(crate) fn read_guitar_pro(bytes: &[u8]) -> Result<GpScore> {
+    if bytes.starts_with(b"PK") {
+        read_gp(bytes)
+    } else if gpx::sniff(bytes) {
+        gpif::parse_gpif(&gpx::score_gpif(bytes).map_err(io)?).map_err(io)
+    } else if gp5::sniff(bytes) {
+        gp5::parse(bytes).map_err(io)
+    } else {
+        Err(io("not a Guitar Pro file (.gp, .gpx, .gp5, .gp4 or .gp3)"))
+    }
+}
+
+/// Open a Guitar Pro file as a new session (replacing the open one), every track in it.
+pub fn open_guitar_pro_bytes(e: &mut Engine, name: &str, bytes: &[u8]) -> Result<Value> {
+    let score = read_guitar_pro(bytes).map_err(|err| match err {
+        EngineError::Io(m) => EngineError::Io(m.replacen("TabGarden file: ", "Guitar Pro file: ", 1)),
+        other => other,
+    })?;
+    let stem = std::path::Path::new(name).file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("Guitar Pro");
+    let s = session_from_score(&score, None, stem)?;
+    let summary = summary(&s, &score);
+    e.replace_session(s);
+    e.path = None;
+    Ok(summary)
+}
+
+/// What an opened score became: its tracks with their notes, bars played and tempo.
+fn summary(s: &Session, score: &GpScore) -> Value {
     let tracks: Vec<Value> = s
         .tracks
         .iter()
@@ -328,10 +481,7 @@ pub fn open_tabgarden_bytes(e: &mut Engine, name: &str, bytes: &[u8]) -> Result<
             json!({"name": t.name, "kind": t.kind.id(), "notes": notes, "tuning": t.tab.as_ref().map(|x| x.tuning.label())})
         })
         .collect();
-    let summary = json!({"name": s.name, "tracks": tracks, "bars": gpif::play_order(&file.score.bars).len(), "tempo": s.tempo.tempo_at_tick(0)});
-    e.replace_session(s);
-    e.path = None;
-    Ok(summary)
+    json!({"name": s.name, "tracks": tracks, "bars": gpif::play_order(&score.bars).len(), "tempo": s.tempo.tempo_at_tick(0)})
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────────────────────
@@ -364,6 +514,36 @@ fn timeline_sequence(s: &Session, t: &soundcraft_model::Track) -> Sequence {
     seq
 }
 
+/// One note of a written chord: pitch, string and fret, velocity, techniques.
+type Chorded = (u8, Option<(u8, u8)>, u8, u16);
+
+/// Where a note ends as written: a dead, palm-muted or staccato note sounds short but is written
+/// up to the next note (at most a half note); a let-ring note sounds twice as long as written.
+fn written_end(n: &Note, tech: u16, starts: &[i64]) -> i64 {
+    if tech & (tab_tech::DEAD | tab_tech::PALM_MUTE | tab_tech::STACCATO) != 0 {
+        // `starts` is sorted (the sequence is).
+        let next = starts.get(starts.partition_point(|s| *s <= n.start)).copied().unwrap_or(n.end());
+        return next.min(n.start.saturating_add(UNIT * 8)).max(n.end());
+    }
+    if tech & tab_tech::LET_RING != 0 {
+        return n.start.saturating_add(n.length / 2);
+    }
+    n.end()
+}
+
+/// The beat's dynamic for a note played at `velocity`: the step a technique added or took away put
+/// back.
+fn written_velocity(velocity: u8, tech: u16) -> u8 {
+    let mut v = velocity;
+    if tech & tab_tech::HOPO_DEST != 0 {
+        v = v.saturating_add(DYNAMIC_STEP);
+    }
+    if tech & tab_tech::ACCENT != 0 {
+        v = v.saturating_sub(DYNAMIC_STEP);
+    }
+    v.clamp(1, 127)
+}
+
 fn quantize(tick: i64) -> i64 {
     (tick.max(0) + UNIT / 2) / UNIT * UNIT
 }
@@ -387,11 +567,17 @@ fn export_kind(t: &soundcraft_model::Track, seq: &Sequence) -> GpKind {
 /// and rests on the sixteenth grid, notes crossing a bar line tied over.
 fn export_bars(seq: &Sequence, kind: &GpKind, tuning: Option<&Tuning>, grid: &[(i64, i64)]) -> Vec<Vec<Vec<GpBeat>>> {
     let placed = tuning.map(|t| place(seq, t));
-    // Chords: onset → (end, [(pitch, string, velocity)]).
-    let mut onsets: std::collections::BTreeMap<i64, (i64, Vec<(u8, Option<(u8, u8)>, u8)>)> = std::collections::BTreeMap::new();
+    // Chords: onset → (end, [(pitch, string, velocity, techniques)]).
+    let mut onsets: std::collections::BTreeMap<i64, (i64, Vec<Chorded>)> = std::collections::BTreeMap::new();
+    let starts: Vec<i64> = seq.notes.iter().map(|n| n.start).collect();
     for (i, n) in seq.notes.iter().enumerate() {
+        let tech = soundcraft_midi::tab::hint(seq, n).map_or(0, |h| h.tech);
+        // Grace notes take no time of their own in a bar; they are not written.
+        if tech & tab_tech::GRACE != 0 {
+            continue;
+        }
         let a = quantize(n.start);
-        let b = quantize(n.end()).max(a + UNIT);
+        let b = quantize(written_end(n, tech, &starts)).max(a + UNIT);
         let string = match (kind, &placed, tuning) {
             (GpKind::Stringed { .. }, Some(p), Some(t)) => p.get(i).filter(|p| p.string >= 1).and_then(|p| {
                 // The file counts strings from the lowest, from 0.
@@ -403,11 +589,11 @@ fn export_bars(seq: &Sequence, kind: &GpKind, tuning: Option<&Tuning>, grid: &[(
         let entry = onsets.entry(a).or_insert((b, Vec::new()));
         entry.0 = entry.0.max(b);
         if entry.1.len() < 16 && !entry.1.iter().any(|(p, ..)| *p == n.pitch) {
-            entry.1.push((n.pitch, string, n.velocity));
+            entry.1.push((n.pitch, string, written_velocity(n.velocity, tech), tech));
         }
     }
     let keys: Vec<i64> = onsets.keys().copied().collect();
-    let spans: Vec<(i64, i64, Vec<(u8, Option<(u8, u8)>, u8)>)> =
+    let spans: Vec<(i64, i64, Vec<Chorded>)> =
         onsets.into_iter().enumerate().map(|(i, (a, (b, ns)))| (a, keys.get(i + 1).map_or(b, |next| b.min(*next)), ns)).collect();
     let mut bars = Vec::with_capacity(grid.len());
     for &(bs, bl) in grid {
@@ -421,15 +607,18 @@ fn export_bars(seq: &Sequence, kind: &GpKind, tuning: Option<&Tuning>, grid: &[(
                 continue;
             }
             if from > cursor {
-                beats.push(GpBeat { ticks: from - cursor, velocity: 95, notes: Vec::new() });
+                beats.push(GpBeat::new(from - cursor, 95, Vec::new()));
             }
             let velocity = ns.iter().map(|n| n.2).max().unwrap_or(95);
-            let notes = ns.iter().map(|(pitch, string, _)| GpNote { pitch: *pitch, string: *string, tie_in: *a < bs, tie_out: *b > be }).collect();
-            beats.push(GpBeat { ticks: to - from, velocity, notes });
+            let notes = ns
+                .iter()
+                .map(|(pitch, string, _, tech)| GpNote { pitch: *pitch, string: *string, tie_in: *a < bs, tie_out: *b > be, tech: *tech })
+                .collect();
+            beats.push(GpBeat::new(to - from, velocity, notes));
             cursor = to;
         }
         if cursor < be {
-            beats.push(GpBeat { ticks: be - cursor, velocity: 95, notes: Vec::new() });
+            beats.push(GpBeat::new(be - cursor, 95, Vec::new()));
         }
         bars.push(vec![beats]);
     }
@@ -543,7 +732,8 @@ pub fn export_tabgarden(e: &Engine, only: Option<&[TrackId]>) -> Result<Vec<u8>>
     let mut instruments = serde_json::Map::new();
     for (i, t) in score.tracks.iter().enumerate() {
         let id = if matches!(t.kind, GpKind::Drums) { "gmkit:0".to_string() } else { format!("gm:{}", t.program) };
-        instruments.insert(i.to_string(), json!({"id": id, "kamiRule": false}));
+        let naturals = ids.get(i).is_some_and(|t| s.edit.value(&naturals_key(*t), 0.0) >= 0.5);
+        instruments.insert(i.to_string(), json!({"id": id, "kamiRule": naturals}));
     }
     let saved = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|d| i64::try_from(d.as_secs()).ok()).unwrap_or(0);
     let saved_at = chrono::DateTime::from_timestamp(saved, 0).map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)).unwrap_or_default();

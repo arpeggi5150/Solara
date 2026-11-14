@@ -60,6 +60,16 @@ use soundcraft_time::{Range, Samples, TICKS_PER_QUARTER};
 use std::collections::HashMap;
 use std::ops::Bound;
 
+/// A MIDI message from a keyboard, `offset` frames into the block it plays in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LiveMidi {
+    pub offset: u32,
+    pub msg: [u8; 3],
+}
+
+/// Live MIDI messages one block holds at most (the host keeps the rest for the next block).
+pub const LIVE_MIDI_CAPACITY: usize = 512;
+
 mod automation;
 mod clips;
 mod instances;
@@ -135,6 +145,9 @@ pub struct MixEngine {
     aux_latency: usize,
     /// Live input for the next block (planar), set by the audio host for input monitoring.
     pub input: Vec<Vec<f32>>,
+    /// Live MIDI for the next block (from a keyboard), set by the audio host: record-armed and
+    /// input-monitored MIDI, instrument and tab tracks play it on their instrument.
+    pub live_midi: Vec<LiveMidi>,
     /// Transport stopped: only monitored inputs sound (no clips).
     pub monitor_only: bool,
     /// Recording: record-armed tracks hear their input (auto input).
@@ -175,6 +188,7 @@ impl MixEngine {
             aux_fed: Vec::new(),
             aux_latency: 0,
             input: Vec::new(),
+            live_midi: Vec::with_capacity(LIVE_MIDI_CAPACITY),
             monitor_only: false,
             recording: false,
             metronome: false,
@@ -382,7 +396,7 @@ impl MixEngine {
             }
         }
         let busses = std::mem::take(&mut self.busses);
-        let live_in = LiveInput { input: &self.input, monitor_only: self.monitor_only, recording: self.recording };
+        let live_in = LiveInput { input: &self.input, midi: &self.live_midi, monitor_only: self.monitor_only, recording: self.recording };
         run_strips(&mut work, |(i, st)| {
             if let Some(t) = s.tracks.get(*i) {
                 process_strip(s, t, st, &busses, &live_in, blk);
@@ -502,7 +516,7 @@ impl MixEngine {
             if st.scratch.len() < self.max_block {
                 st.scratch.resize(self.max_block, 0.0);
             }
-            let live_in = LiveInput { input: &self.input, monitor_only: self.monitor_only, recording: self.recording };
+            let live_in = LiveInput { input: &self.input, midi: &self.live_midi, monitor_only: self.monitor_only, recording: self.recording };
             process_strip(s, t, &mut st, &self.busses, &live_in, blk);
             let ch = st.buf.len();
             st.align.set(if pdc { lmax_a.saturating_sub(st.latency) } else { 0 }, ch);

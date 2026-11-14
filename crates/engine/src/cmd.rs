@@ -24,6 +24,7 @@ mod health;
 mod instrument;
 pub(crate) mod launcher;
 mod midi;
+mod midi_record;
 mod mix;
 mod more_util;
 mod options;
@@ -174,6 +175,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(strip_silence::specs());
         v.extend(receive::specs());
         v.extend(playlist::specs());
+        v.extend(midi_record::specs());
         v.extend(tab_track::specs());
         v.extend(piano_roll::specs());
         v.extend(auto_clip::specs());
