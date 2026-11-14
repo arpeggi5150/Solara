@@ -56,11 +56,12 @@ Other offline items already have descriptive names. Multiple legacy entries mapp
 
 ## Product-name decision
 
-Deferred by the owner. The Solara product name remains unchanged; this work only changes feature labels.
-
-The Solara app name has a separate clearance concern involving the established audio brand Soundcraft. A candidate for review is **ArtCraft Audio**, a descriptive extension of the existing suite identity. It is only a proposal; no availability or legal clearance is claimed. Avoid adopting another audio product name simply because it ends in “Craft.”
-
-A product rename needs an owner decision and a separate migration PR covering app/window titles, website and release copy, package/binary names, bundle/application ids, installers, desktop files, update feeds, settings locations, file associations, shortcuts, URLs and external integrations. Preserve old command/package aliases and discover existing user data rather than resetting it. Verify the existing ArtCraft mark license applies to the new context before changing any brand assets. This feature-label draft makes none of those product-identity changes.
+Decided by the owner: the product is **Solara**, by Zee Creations. Everything a user sees says
+Solara. The internal names (crates, the macOS/Linux/FreeBSD binary and package names, bundle and
+application ids, settings locations, the `.scraft` extension and its content type) keep the
+upstream names, because renaming them breaks saved sessions, settings and upgrades. Renaming any of
+them needs an owner decision and its own migration PR that keeps the old names working and finds
+existing user data rather than resetting it. This feature-label work changes none of them.
 
 ## Validation and release gates
 

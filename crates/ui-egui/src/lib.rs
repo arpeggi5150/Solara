@@ -5,11 +5,16 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 /// Solara as craft-update knows it, with its 128 px icon and accent colour: the update
-/// prompt shows both, and an AppImage's menu entry gets the icon.
+/// prompt shows both, and an AppImage's menu entry gets the icon. The name, tagline and maker are
+/// Solara's; the id stays the upstream one (`soundcraft`), the stem of the package and asset names.
+/// Update checks are off ([`updates_ui::UPDATE_CHECKS_ENABLED`]) until Solara publishes releases.
 #[cfg(not(target_arch = "wasm32"))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.soundcraft.png")),
     accent: Some([0x1f, 0xa5, 0xc9]),
+    name: "Solara",
+    tagline: "Recording, editing and mixing audio",
+    developer: "Zee Creations",
     ..craft_update::suite::SOUNDCRAFT
 };
 
