@@ -271,3 +271,91 @@ fn sample_files_open_and_round_trip() {
     }
     assert!(seen > 0);
 }
+
+/// One guitar, two 4/4 bars of playing techniques: a palm mute, a dead note, a grace note before a
+/// hammer-on, a legato slide, tremolo picking, a tie with nothing before it and an accent.
+const TECHNIQUES: &str = r#"<GPIF><Score><Title><![CDATA[Techniques]]></Title></Score>
+<MasterTrack><Tracks>0</Tracks></MasterTrack>
+<Tracks><Track id="0"><Name><![CDATA[Gtr]]></Name><InstrumentSet><Type>electricGuitar</Type></InstrumentSet>
+<MidiConnection><PrimaryChannel>0</PrimaryChannel></MidiConnection>
+<Staves><Staff><Properties><Property name="Tuning"><Pitches>40 45 50 55 59 64</Pitches></Property></Properties></Staff></Staves></Track></Tracks>
+<MasterBars>
+<MasterBar><Time>4/4</Time><Bars>0</Bars></MasterBar>
+<MasterBar><Time>4/4</Time><Bars>1</Bars></MasterBar>
+</MasterBars>
+<Bars><Bar id="0"><Voices>0 -1 -1 -1</Voices></Bar><Bar id="1"><Voices>1 -1 -1 -1</Voices></Bar></Bars>
+<Voices><Voice id="0"><Beats>0 1 2 3 4 5 6</Beats></Voice><Voice id="1"><Beats>7 8 9</Beats></Voice></Voices>
+<Beats>
+<Beat id="0"><Dynamic>F</Dynamic><Rhythm ref="1"/><Notes>0</Notes></Beat>
+<Beat id="1"><Dynamic>F</Dynamic><Rhythm ref="1"/><Notes>1</Notes></Beat>
+<Beat id="2"><Dynamic>F</Dynamic><GraceNotes>BeforeBeat</GraceNotes><Rhythm ref="1"/><Notes>2</Notes></Beat>
+<Beat id="3"><Dynamic>F</Dynamic><Rhythm ref="1"/><Notes>3</Notes></Beat>
+<Beat id="4"><Dynamic>F</Dynamic><Rhythm ref="1"/><Notes>4</Notes></Beat>
+<Beat id="5"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>5</Notes></Beat>
+<Beat id="6"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>6</Notes></Beat>
+<Beat id="7"><Dynamic>F</Dynamic><Tremolo>1/4</Tremolo><Rhythm ref="0"/><Notes>7</Notes></Beat>
+<Beat id="8"><Dynamic>F</Dynamic><Rhythm ref="2"/><Notes>8</Notes></Beat>
+<Beat id="9"><Dynamic>F</Dynamic><Rhythm ref="0"/><Notes>9</Notes></Beat>
+</Beats>
+<Notes>
+<Note id="0"><Properties><Property name="String"><String>0</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="Midi"><Number>40</Number></Property><Property name="PalmMuted"><Enable/></Property></Properties></Note>
+<Note id="1"><Properties><Property name="String"><String>1</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="Midi"><Number>45</Number></Property><Property name="Muted"><Enable/></Property></Properties></Note>
+<Note id="2"><Properties><Property name="String"><String>2</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="Midi"><Number>50</Number></Property></Properties></Note>
+<Note id="3"><Properties><Property name="String"><String>2</String></Property><Property name="Fret"><Fret>2</Fret></Property><Property name="Midi"><Number>52</Number></Property><Property name="HopoOrigin"><Enable/></Property></Properties></Note>
+<Note id="4"><Properties><Property name="String"><String>2</String></Property><Property name="Fret"><Fret>4</Fret></Property><Property name="Midi"><Number>54</Number></Property><Property name="HopoDestination"><Enable/></Property></Properties></Note>
+<Note id="5"><Properties><Property name="String"><String>3</String></Property><Property name="Fret"><Fret>4</Fret></Property><Property name="Midi"><Number>59</Number></Property><Property name="Slide"><Flags>2</Flags></Property></Properties></Note>
+<Note id="6"><Properties><Property name="String"><String>3</String></Property><Property name="Fret"><Fret>5</Fret></Property><Property name="Midi"><Number>60</Number></Property></Properties></Note>
+<Note id="7"><Properties><Property name="String"><String>5</String></Property><Property name="Fret"><Fret>0</Fret></Property><Property name="Midi"><Number>64</Number></Property></Properties></Note>
+<Note id="8"><Tie origin="false" destination="true"/><Properties><Property name="String"><String>4</String></Property><Property name="Fret"><Fret>1</Fret></Property><Property name="Midi"><Number>60</Number></Property></Properties></Note>
+<Note id="9"><Properties><Property name="String"><String>5</String></Property><Property name="Fret"><Fret>3</Fret></Property><Property name="Midi"><Number>67</Number></Property></Properties><Accent>4</Accent></Note>
+</Notes>
+<Rhythms>
+<Rhythm id="0"><NoteValue>Quarter</NoteValue></Rhythm>
+<Rhythm id="1"><NoteValue>Eighth</NoteValue></Rhythm>
+<Rhythm id="2"><NoteValue>Half</NoteValue></Rhythm>
+</Rhythms></GPIF>"#;
+
+#[test]
+fn techniques_play_as_tabgarden_plays_them_and_survive_export() {
+    use soundcraft_midi::tab::tech;
+    let score = gpif::parse_gpif(TECHNIQUES).unwrap();
+    let s = session_from_score(&score, None, "t").unwrap();
+    let seq = notes_of(&s, 0);
+    let notes: Vec<(i64, u8, i64, u8)> = seq.notes.iter().map(|n| (n.start, n.pitch, n.length, n.velocity)).collect();
+    let tech_of = |start: i64, pitch: u8| seq.tab.iter().find(|t| t.start == start && t.pitch == pitch).map_or(0, |t| t.tech);
+    // A palm mute and a dead note sound short; the hammer-on is played softer.
+    assert!(notes.contains(&(0, 40, 254, 95)), "{notes:?}");
+    assert!(notes.contains(&(480, 45, 96, 95)));
+    assert_eq!(tech_of(0, 40), tech::PALM_MUTE);
+    assert_eq!(tech_of(480, 45), tech::DEAD);
+    // The grace note sounds a 32nd before its beat and takes no time from the bar.
+    assert!(notes.contains(&(840, 50, 120, 95)));
+    assert_eq!(tech_of(840, 50) & tech::GRACE, tech::GRACE);
+    assert!(notes.contains(&(960, 52, 480, 95)) && notes.contains(&(1440, 54, 480, 79)));
+    assert_eq!(tech_of(1440, 54), tech::HOPO_DEST);
+    // The legato slide glides into the next note on its string instead of picking it.
+    assert!(notes.contains(&(1920, 59, 961, 95)) && notes.contains(&(2880, 60, 960, 95)));
+    assert!(seq.ctrls.iter().any(|c| c.tick == 2879 && c.kind == CtrlKind::Cc(PORTAMENTO) && c.value == 127));
+    // Tremolo: a quarter picked as four 16ths. The tie with nothing before it is silent.
+    assert_eq!(notes.iter().filter(|n| n.1 == 64).map(|n| (n.0, n.2)).collect::<Vec<_>>(), [(3840, 240), (4080, 240), (4320, 240), (4560, 240)]);
+    assert!(!notes.iter().any(|n| n.1 == 60 && n.0 == 4800));
+    // The accent is one dynamic step louder.
+    assert!(notes.contains(&(6720, 67, 960, 111)));
+    assert_eq!(seq.notes.len(), 12);
+
+    // Written back out and read again: the techniques and the notes as written come back.
+    let mut e = Engine::new(Session::default());
+    e.replace_session(s);
+    let bytes = export_tabgarden(&mut e, None).unwrap();
+    open_tabgarden_bytes(&mut e, "again.tabgarden", &bytes).unwrap();
+    let again = notes_of(e.session(), 0);
+    let tech_again = |start: i64, pitch: u8| again.tab.iter().find(|t| t.start == start && t.pitch == pitch).map_or(0, |t| t.tech);
+    assert_eq!(tech_again(0, 40), tech::PALM_MUTE);
+    assert_eq!(tech_again(480, 45), tech::DEAD);
+    assert_eq!(tech_again(960, 52), tech::HOPO);
+    assert_eq!(tech_again(1440, 54), tech::HOPO_DEST);
+    assert_eq!(tech_again(1920, 59), tech::SLIDE_LEGATO);
+    assert_eq!(tech_again(6720, 67), tech::ACCENT);
+    let back: Vec<(i64, u8, i64, u8)> = again.notes.iter().map(|n| (n.start, n.pitch, n.length, n.velocity)).collect();
+    assert!(back.contains(&(0, 40, 254, 95)) && back.contains(&(1440, 54, 480, 79)) && back.contains(&(6720, 67, 960, 111)), "{back:?}");
+}

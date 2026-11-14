@@ -328,9 +328,14 @@ impl SubtractiveSynth {
         }
         self.counter += 1;
         let freq = note_hz(f32::from(note.min(127)));
-        // A slide takes over the note sounding most recently: same voice, no new attack.
+        // A slide takes over a sounding note: same voice, no new attack. With several held (a
+        // chord sliding), the nearest in pitch, then the most recent.
         if self.portamento
-            && let Some(v) = self.voices.iter_mut().filter(|v| v.held && v.active() && v.note != note).max_by_key(|v| v.age)
+            && let Some(v) = self
+                .voices
+                .iter_mut()
+                .filter(|v| v.held && v.active() && v.note != note)
+                .min_by_key(|v| (v.note.abs_diff(note), std::cmp::Reverse(v.age)))
         {
             v.note = note;
             v.target = freq;

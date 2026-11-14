@@ -5,7 +5,7 @@
 use crate::theme::{bold, regular};
 use egui::{Align2, Color32, Painter, Pos2, Rect, Shape, Stroke, pos2, vec2};
 use soundcraft_midi::Sequence;
-use soundcraft_midi::tab::{Tuning, place};
+use soundcraft_midi::tab::{Tuning, place, tech};
 use soundcraft_time::TICKS_PER_QUARTER;
 
 /// One note as drawn: its span in x, pitch, and where it is played.
@@ -20,6 +20,8 @@ pub struct Drawn {
     /// String (1 = highest); 0 when the instrument cannot play the pitch.
     pub string: u8,
     pub fret: u8,
+    /// Playing techniques (`soundcraft_midi::tab::tech` bits).
+    pub tech: u16,
 }
 
 /// Lay `seq` out: each note's x from `x_of(tick)` (ticks in the sequence's own time), only those
@@ -32,7 +34,16 @@ pub fn layout(seq: &Sequence, tuning: &Tuning, x_of: impl Fn(i64) -> f32, min_x:
         .filter_map(|(n, p)| {
             let x0 = x_of(n.start);
             let x1 = x_of(n.end()).max(x0 + 2.0);
-            (x1 >= min_x && x0 <= max_x).then_some(Drawn { note: p.note, x0, x1, pitch: n.pitch, ticks: n.length, string: p.string, fret: p.fret })
+            (x1 >= min_x && x0 <= max_x).then_some(Drawn {
+                note: p.note,
+                x0,
+                x1,
+                pitch: n.pitch,
+                ticks: n.length,
+                string: p.string,
+                fret: p.fret,
+                tech: p.tech,
+            })
         })
         .collect()
 }
@@ -68,11 +79,53 @@ pub fn draw_tab(p: &Painter, r: Rect, tuning: &Tuning, notes: &[Drawn], ink: Col
             continue;
         }
         let y = string_y(r, count, d.string);
-        let label = d.fret.to_string();
-        let w = size * 0.62 * label.len() as f32 + 2.0;
-        let cell = Rect::from_center_size(pos2(d.x0 + w * 0.5, y), vec2(w, size));
+        let grace = d.tech & tech::GRACE != 0;
+        let fs = if grace { size * 0.72 } else { size };
+        let label = if d.tech & tech::DEAD != 0 { "x".to_string() } else { d.fret.to_string() };
+        let w = fs * 0.62 * label.len() as f32 + 2.0;
+        let cell = Rect::from_center_size(pos2(d.x0 + w * 0.5, y), vec2(w, fs));
         p.rect_filled(cell, 2.0, if hot == Some(d.note) { Color32::from_rgb(255, 200, 80) } else { paper });
-        p.text(cell.center(), Align2::CENTER_CENTER, label, bold(size), ink);
+        p.text(cell.center(), Align2::CENTER_CENTER, label, bold(fs), ink);
+        draw_techniques(p, r, notes, d, cell, ink, size);
+    }
+}
+
+/// The marks for a tab note's techniques around its fret `cell`: P.M. at the top of the staff, h or p
+/// over a hammer-on or pull-off, a slash for a slide, ~ for vibrato, > for an accent.
+fn draw_techniques(p: &Painter, r: Rect, notes: &[Drawn], d: &Drawn, cell: Rect, ink: Color32, size: f32) {
+    let small = regular((size * 0.75).max(6.0));
+    let faint = ink.gamma_multiply(0.75);
+    if d.tech & tech::PALM_MUTE != 0 {
+        p.text(pos2(cell.left(), r.min.y), Align2::LEFT_TOP, "P.M.", small.clone(), faint);
+    }
+    if d.tech & tech::ACCENT != 0 {
+        p.text(pos2(cell.center().x, r.min.y), Align2::CENTER_TOP, ">", small.clone(), faint);
+    }
+    if d.tech & tech::HOPO_DEST != 0 {
+        // Higher than the note before on the string: hammer-on; lower: pull-off.
+        let before = notes.iter().filter(|o| o.string == d.string && o.x0 < d.x0).max_by(|a, b| a.x0.total_cmp(&b.x0));
+        let label = if before.is_some_and(|b| b.pitch > d.pitch) { "p" } else { "h" };
+        p.text(pos2(cell.center().x - cell.width() * 0.5 - 2.0, cell.top()), Align2::RIGHT_BOTTOM, label, small.clone(), faint);
+    }
+    let stroke = Stroke::new(1.1, faint);
+    let (cy, h) = (cell.center().y, cell.height() * 0.35);
+    if d.tech & (tech::SLIDE_LEGATO | tech::SLIDE_SHIFT) != 0 {
+        let next = notes.iter().filter(|o| o.string == d.string && o.x0 > d.x0).min_by(|a, b| a.x0.total_cmp(&b.x0));
+        let (x0, x1) = (cell.right() + 1.0, next.map_or(cell.right() + 10.0, |n| n.x0 - 1.0).max(cell.right() + 4.0));
+        let up = next.is_none_or(|n| n.pitch >= d.pitch);
+        let (ya, yb) = if up { (cy + h, cy - h) } else { (cy - h, cy + h) };
+        p.line_segment([pos2(x0, ya), pos2(x1, yb)], stroke);
+    }
+    if d.tech & (tech::SLIDE_IN_BELOW | tech::SLIDE_IN_ABOVE) != 0 {
+        let (ya, yb) = if d.tech & tech::SLIDE_IN_BELOW != 0 { (cy + h, cy - h) } else { (cy - h, cy + h) };
+        p.line_segment([pos2(cell.left() - 9.0, ya), pos2(cell.left() - 1.0, yb)], stroke);
+    }
+    if d.tech & (tech::SLIDE_OUT_DOWN | tech::SLIDE_OUT_UP) != 0 {
+        let (ya, yb) = if d.tech & tech::SLIDE_OUT_UP != 0 { (cy + h, cy - h) } else { (cy - h, cy + h) };
+        p.line_segment([pos2(cell.right() + 1.0, ya), pos2(cell.right() + 9.0, yb)], stroke);
+    }
+    if d.tech & tech::VIBRATO != 0 {
+        p.text(pos2(cell.right() + 1.0, cell.top()), Align2::LEFT_BOTTOM, "~", small, faint);
     }
 }
 
@@ -155,10 +208,16 @@ pub fn draw_notation(p: &Painter, r: Rect, bass: bool, notes: &[Drawn], ink: Col
                 l -= 2;
             }
             let q = d.ticks as f32 / TICKS_PER_QUARTER as f32;
-            if q >= 1.75 {
-                p.add(Shape::ellipse_stroke(pos2(x, y), head * 0.5, Stroke::new(1.4, color)));
+            let half = if d.tech & tech::GRACE != 0 { head * 0.33 } else { head * 0.5 };
+            if d.tech & tech::DEAD != 0 {
+                // A dead note: an x for a head.
+                let s = Stroke::new(1.4, color);
+                p.line_segment([pos2(x - half.x, y - half.y), pos2(x + half.x, y + half.y)], s);
+                p.line_segment([pos2(x - half.x, y + half.y), pos2(x + half.x, y - half.y)], s);
+            } else if q >= 1.75 {
+                p.add(Shape::ellipse_stroke(pos2(x, y), half, Stroke::new(1.4, color)));
             } else {
-                p.add(Shape::ellipse_filled(pos2(x, y), head * 0.5, color));
+                p.add(Shape::ellipse_filled(pos2(x, y), half, color));
             }
             if sharp {
                 let cx = x - head.x - 3.0;

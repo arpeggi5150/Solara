@@ -98,6 +98,51 @@ pub struct TabPos {
     #[serde(default)]
     pub channel: u8,
     pub string: u8,
+    /// How the note is played: [`tech`] bits.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub tech: u16,
+}
+
+fn is_zero(v: &u16) -> bool {
+    *v == 0
+}
+
+/// Playing techniques a tab note can carry (bits of [`TabPos::tech`]). The notes themselves
+/// already sound the technique (lengths, velocities, extra notes, glides); these bits say how to
+/// draw it and what to write back to a score.
+pub mod tech {
+    /// Palm muted (P.M.).
+    pub const PALM_MUTE: u16 = 1;
+    /// A dead (muted) note, drawn as x.
+    pub const DEAD: u16 = 1 << 1;
+    /// Hammered on or pulled off to the next note on the string.
+    pub const HOPO: u16 = 1 << 2;
+    /// Reached by a hammer-on or pull-off, not picked.
+    pub const HOPO_DEST: u16 = 1 << 3;
+    /// Slides to the next note on the string without picking it again.
+    pub const SLIDE_LEGATO: u16 = 1 << 4;
+    /// Slides to the next note on the string, which is picked again.
+    pub const SLIDE_SHIFT: u16 = 1 << 5;
+    /// Slides in from below.
+    pub const SLIDE_IN_BELOW: u16 = 1 << 6;
+    /// Slides in from above.
+    pub const SLIDE_IN_ABOVE: u16 = 1 << 7;
+    /// Slides out downwards.
+    pub const SLIDE_OUT_DOWN: u16 = 1 << 8;
+    /// Slides out upwards.
+    pub const SLIDE_OUT_UP: u16 = 1 << 9;
+    /// Let ring.
+    pub const LET_RING: u16 = 1 << 10;
+    /// A grace note, played just before the beat.
+    pub const GRACE: u16 = 1 << 11;
+    /// Accented.
+    pub const ACCENT: u16 = 1 << 12;
+    /// Staccato.
+    pub const STACCATO: u16 = 1 << 13;
+    /// Vibrato.
+    pub const VIBRATO: u16 = 1 << 14;
+    /// One stroke of a tremolo-picked note.
+    pub const TREMOLO: u16 = 1 << 15;
 }
 
 /// Where one note is played.
@@ -108,6 +153,13 @@ pub struct Placed {
     /// String, 1-based; 0 when the note is out of the instrument's range.
     pub string: u8,
     pub fret: u8,
+    /// The note's [`tech`] bits.
+    pub tech: u16,
+}
+
+/// The hint for `n`, if any.
+pub fn hint<'a>(seq: &'a Sequence, n: &Note) -> Option<&'a TabPos> {
+    seq.tab.iter().find(|t| t.start == n.start && t.pitch == n.pitch && t.channel == n.channel)
 }
 
 /// Place every note of `seq` on `tuning`: a hint is kept when it still fits the note's pitch; other
@@ -115,7 +167,6 @@ pub struct Placed {
 /// range get string 0. Returned in note order.
 pub fn place(seq: &Sequence, tuning: &Tuning) -> Vec<Placed> {
     let tuning = tuning.sanitized();
-    let hint = |n: &Note| seq.tab.iter().find(|t| t.start == n.start && t.pitch == n.pitch && t.channel == n.channel).map(|t| t.string);
     let mut out: Vec<Placed> = Vec::with_capacity(seq.notes.len());
     // Notes still sounding: (end tick, string).
     let mut busy: Vec<(i64, u8)> = Vec::new();
@@ -125,7 +176,9 @@ pub fn place(seq: &Sequence, tuning: &Tuning) -> Vec<Placed> {
         let Some(n) = seq.notes.get(i) else { continue };
         busy.retain(|(end, _)| *end > n.start);
         let taken = |s: u8| busy.iter().any(|(_, b)| *b == s);
-        let pinned = hint(n).and_then(|s| tuning.fret(s, n.pitch).map(|f| (s, f)));
+        let h = hint(seq, n);
+        let tech = h.map_or(0, |t| t.tech);
+        let pinned = h.map(|t| t.string).filter(|s| *s > 0).and_then(|s| tuning.fret(s, n.pitch).map(|f| (s, f)));
         let chosen = pinned.or_else(|| {
             let count = u8::try_from(tuning.strings.len()).unwrap_or(0);
             (1..=count).filter(|s| !taken(*s)).filter_map(|s| tuning.fret(s, n.pitch).map(|f| (s, f))).min_by_key(|(s, f)| (*f, *s))
@@ -138,9 +191,9 @@ pub fn place(seq: &Sequence, tuning: &Tuning) -> Vec<Placed> {
         match chosen {
             Some((string, fret)) => {
                 busy.push((n.end(), string));
-                out.push(Placed { note: i, string, fret });
+                out.push(Placed { note: i, string, fret, tech });
             }
-            None => out.push(Placed { note: i, string: 0, fret: 0 }),
+            None => out.push(Placed { note: i, string: 0, fret: 0, tech }),
         }
     }
     out.sort_by_key(|p| p.note);
@@ -154,8 +207,9 @@ pub fn pin(seq: &mut Sequence, tuning: &Tuning, index: usize, string: u8) -> boo
     if tuning.sanitized().fret(string, n.pitch).is_none() {
         return false;
     }
+    let tech = hint(seq, &n).map_or(0, |t| t.tech);
     seq.tab.retain(|t| !(t.start == n.start && t.pitch == n.pitch && t.channel == n.channel));
-    seq.tab.push(TabPos { start: n.start, pitch: n.pitch, channel: n.channel, string });
+    seq.tab.push(TabPos { start: n.start, pitch: n.pitch, channel: n.channel, string, tech });
     true
 }
 
@@ -199,9 +253,9 @@ mod tests {
         assert_eq!(strings, [1, 2, 3, 4, 5, 6], "{placed:?}");
         // A lone A3 goes to the lowest fret (string 3, fret 2); pinned to string 4 it is fret 7.
         seq.notes = vec![note(57, 0, 960)];
-        assert_eq!(place(&seq, &Tuning::guitar())[0], Placed { note: 0, string: 3, fret: 2 });
+        assert_eq!(place(&seq, &Tuning::guitar())[0], Placed { note: 0, string: 3, fret: 2, tech: 0 });
         assert!(pin(&mut seq, &Tuning::guitar(), 0, 4));
-        assert_eq!(place(&seq, &Tuning::guitar())[0], Placed { note: 0, string: 4, fret: 7 });
+        assert_eq!(place(&seq, &Tuning::guitar())[0], Placed { note: 0, string: 4, fret: 7, tech: 0 });
         assert!(!pin(&mut seq, &Tuning::guitar(), 0, 2), "A3 is below the open B string");
         // After a transpose the hint no longer matches, so the note is placed afresh.
         seq.notes[0].pitch = 59;

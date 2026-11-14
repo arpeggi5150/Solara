@@ -4,10 +4,13 @@
 //! Written from the structure of files observed, not from any other program's code. Read: tracks
 //! with their tuning, capo, program and channel; meters, repeats and alternate endings; tempo
 //! changes; every voice's beats with rhythm (dots and tuplets), dynamics and notes with string,
-//! fret, pitch and ties. Grace notes and techniques (bends, slides, harmonics…) are not played.
+//! fret, pitch and ties; and the playing techniques TabGarden plays (dead and palm-muted notes,
+//! hammer-ons and pull-offs, slides, let ring, accents, staccato, grace notes and tremolo
+//! picking). Bends and harmonics are not read.
 //! Written: the same, from Solara's notes, which TabGarden opens.
 
 use super::xml::{self, Element};
+use soundcraft_midi::tab::tech;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
@@ -19,6 +22,8 @@ const MAX_TRACKS: usize = 128;
 const MAX_BARS: usize = 20_000;
 /// Most ids one list may name.
 const MAX_LIST: usize = 4096;
+/// How many bars' worth of beats one voice of a bar may hold.
+const MAX_OVERRUN: i64 = 4;
 /// Most times a repeat is played.
 const MAX_REPEAT: u32 = 16;
 
@@ -42,7 +47,24 @@ pub(crate) struct GpNote {
     pub(crate) tie_in: bool,
     /// Carries on into the next beat.
     pub(crate) tie_out: bool,
+    /// Playing techniques: `soundcraft_midi::tab::tech` bits.
+    pub(crate) tech: u16,
 }
+
+/// Where a grace beat is played.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Grace {
+    /// A normal beat.
+    #[default]
+    None,
+    /// Just before the beat it ornaments, taking time from the beat before.
+    Before,
+    /// On the beat, delaying the beat it ornaments.
+    On,
+}
+
+/// How long a grace note sounds (a 32nd note), whatever its written value.
+pub(crate) const GRACE_TICKS: i64 = 120;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct GpBeat {
@@ -50,6 +72,16 @@ pub(crate) struct GpBeat {
     pub(crate) velocity: u8,
     /// Empty for a rest.
     pub(crate) notes: Vec<GpNote>,
+    /// Tremolo picking: the length of each stroke in ticks, 0 for none.
+    pub(crate) tremolo: i64,
+    /// A grace beat takes no time of its own in the bar.
+    pub(crate) grace: Grace,
+}
+
+impl GpBeat {
+    pub(crate) fn new(ticks: i64, velocity: u8, notes: Vec<GpNote>) -> Self {
+        GpBeat { ticks, velocity, notes, tremolo: 0, grace: Grace::None }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -287,9 +319,11 @@ pub(crate) fn parse_gpif(text: &str) -> Result<GpScore, String> {
                 let mut used = 0i64;
                 for bid in v.text_at(&["Beats"]).map(ids).unwrap_or_default() {
                     let Some(b) = beats.get(&bid) else { continue };
-                    if b.child("GraceNotes").is_some() {
-                        continue;
-                    }
+                    let grace = match b.text_at(&["GraceNotes"]).map(str::trim) {
+                        None => Grace::None,
+                        Some("OnBeat") => Grace::On,
+                        Some(_) => Grace::Before,
+                    };
                     let ticks = b
                         .child("Rhythm")
                         .and_then(|r| r.attr("ref"))
@@ -297,11 +331,15 @@ pub(crate) fn parse_gpif(text: &str) -> Result<GpScore, String> {
                         .and_then(|r| rhythm_of.get(&r))
                         .copied()
                         .unwrap_or(WHOLE / 4);
-                    let ticks = ticks.min(bar_len.saturating_sub(used));
+                    // A voice that runs past its bar still plays (as TabGarden plays it), up to a
+                    // few bars' worth so a hostile file cannot run on for ever.
+                    let ticks = if grace == Grace::None { ticks.min(bar_len.saturating_mul(MAX_OVERRUN).saturating_sub(used)) } else { GRACE_TICKS };
                     if ticks <= 0 {
                         break;
                     }
-                    used += ticks;
+                    if grace == Grace::None {
+                        used += ticks;
+                    }
                     let vel = velocity(b.text_at(&["Dynamic"]).unwrap_or(""));
                     let mut ns = Vec::new();
                     for nid in b.text_at(&["Notes"]).map(ids).unwrap_or_default().into_iter().take(16) {
@@ -310,7 +348,13 @@ pub(crate) fn parse_gpif(text: &str) -> Result<GpScore, String> {
                             ns.push(note);
                         }
                     }
-                    out.push(GpBeat { ticks, velocity: vel, notes: ns });
+                    // "1/2", "1/4", "1/8": strokes of an eighth, a 16th, a 32nd.
+                    let tremolo = b.text_at(&["Tremolo"]).and_then(|t| {
+                        let (n, d) = t.trim().split_once('/')?;
+                        let (n, d) = (n.trim().parse::<i64>().ok()?, d.trim().parse::<i64>().ok()?);
+                        (n > 0 && d > 0 && d <= 64).then(|| (WHOLE / 4).saturating_mul(n) / d).filter(|t| *t >= 30)
+                    });
+                    out.push(GpBeat { ticks, velocity: vel, notes: ns, tremolo: tremolo.unwrap_or(0), grace });
                 }
                 voices_out.push(out);
             }
@@ -366,7 +410,46 @@ fn parse_note(n: &Element, kind: &GpKind, arts: &[Option<u8>]) -> Option<GpNote>
         GpKind::Stringed { tuning, .. } => string.filter(|s| usize::from(*s) < tuning.len()).zip(fret.map(|f| f.min(soundcraft_midi::tab::MAX_FRET))),
         _ => None,
     };
-    Some(GpNote { pitch, string, tie_in, tie_out })
+    Some(GpNote { pitch, string, tie_in, tie_out, tech: techniques(n, props) })
+}
+
+/// A note's playing techniques, as `soundcraft_midi::tab::tech` bits.
+fn techniques(n: &Element, props: Option<&Element>) -> u16 {
+    let on = |name: &str| property(props, name).is_some_and(|p| p.child("Enable").is_some());
+    let mut t = 0;
+    for (name, bit) in [("Muted", tech::DEAD), ("PalmMuted", tech::PALM_MUTE), ("HopoOrigin", tech::HOPO), ("HopoDestination", tech::HOPO_DEST)] {
+        if on(name) {
+            t |= bit;
+        }
+    }
+    let slide = property(props, "Slide").and_then(|p| p.text_at(&["Flags"])).and_then(|f| f.trim().parse::<u32>().ok()).unwrap_or(0);
+    for (flag, bit) in [
+        (1, tech::SLIDE_SHIFT),
+        (2, tech::SLIDE_LEGATO),
+        (4, tech::SLIDE_OUT_DOWN),
+        (8, tech::SLIDE_OUT_UP),
+        (16, tech::SLIDE_IN_BELOW),
+        (32, tech::SLIDE_IN_ABOVE),
+    ] {
+        if slide & flag != 0 {
+            t |= bit;
+        }
+    }
+    if n.child("LetRing").is_some() {
+        t |= tech::LET_RING;
+    }
+    if n.child("Vibrato").is_some() {
+        t |= tech::VIBRATO;
+    }
+    // Accent flags: 1 staccato, 4 accent, 8 heavy accent.
+    let accent = n.text_at(&["Accent"]).and_then(|a| a.trim().parse::<u32>().ok()).unwrap_or(0);
+    if accent & 1 != 0 {
+        t |= tech::STACCATO;
+    }
+    if accent & 12 != 0 {
+        t |= tech::ACCENT;
+    }
+    t
 }
 
 /// The master bars in the order they play: repeats and alternate endings played out.
@@ -591,7 +674,7 @@ fn write_bars(score: &GpScore, x: &mut String) {
             let empty = Vec::new();
             let bar_voices = t.bars.get(mi).unwrap_or(&empty);
             let mut written: Vec<&[GpBeat]> = bar_voices.iter().filter(|v| !v.is_empty()).map(Vec::as_slice).take(4).collect();
-            let rest = [GpBeat { ticks: mb.ticks(), velocity: 95, notes: Vec::new() }];
+            let rest = [GpBeat::new(mb.ticks(), 95, Vec::new())];
             if written.is_empty() {
                 written.push(&rest);
             }
@@ -696,7 +779,39 @@ fn write_note(x: &mut String, id: usize, n: &GpNote, kind: &GpKind, articulation
         }
         _ => {}
     }
-    let _ = write!(x, "<Property name=\"Midi\"><Number>{}</Number></Property></Properties>", n.pitch);
+    let _ = write!(x, "<Property name=\"Midi\"><Number>{}</Number></Property>", n.pitch);
+    // Techniques go on the note as picked, not on the tied pieces after it.
+    let t = if tie_in { 0 } else { n.tech };
+    for (bit, name) in [(tech::DEAD, "Muted"), (tech::PALM_MUTE, "PalmMuted"), (tech::HOPO, "HopoOrigin"), (tech::HOPO_DEST, "HopoDestination")] {
+        if t & bit != 0 {
+            let _ = write!(x, "<Property name=\"{name}\"><Enable/></Property>");
+        }
+    }
+    let slide = [
+        (tech::SLIDE_SHIFT, 1),
+        (tech::SLIDE_LEGATO, 2),
+        (tech::SLIDE_OUT_DOWN, 4),
+        (tech::SLIDE_OUT_UP, 8),
+        (tech::SLIDE_IN_BELOW, 16),
+        (tech::SLIDE_IN_ABOVE, 32),
+    ]
+    .iter()
+    .filter(|(bit, _)| t & bit != 0)
+    .fold(0u32, |acc, (_, flag)| acc | flag);
+    if slide != 0 {
+        let _ = write!(x, "<Property name=\"Slide\"><Flags>{slide}</Flags></Property>");
+    }
+    let _ = write!(x, "</Properties>");
+    if t & tech::LET_RING != 0 {
+        let _ = write!(x, "<LetRing/>");
+    }
+    if t & tech::VIBRATO != 0 {
+        let _ = write!(x, "<Vibrato>Slight</Vibrato>");
+    }
+    let accent = if t & tech::STACCATO != 0 { 1 } else { 0 } | if t & tech::ACCENT != 0 { 4 } else { 0 };
+    if accent != 0 {
+        let _ = write!(x, "<Accent>{accent}</Accent>");
+    }
     let _ = write!(x, "<InstrumentArticulation>{articulation}</InstrumentArticulation></Note>");
 }
 
