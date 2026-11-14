@@ -358,7 +358,7 @@ fn the_first_audio_thread_record_is_written_later_with_a_count_of_the_rest() {
     let text = read(&path);
     let tail: Vec<&str> = text.lines().skip(2).collect();
     assert_eq!(tail.len(), 2, "{text}");
-    assert!(tail.first().is_some_and(|l| l.contains(" ERROR [audio] soundcraft_clap_host::ffi: clap plugin: out of voices")), "{text}");
+    assert!(tail.first().is_some_and(|l| l.contains(" ERROR [audio] solara_clap_host::ffi: clap plugin: out of voices")), "{text}");
     assert!(tail.get(1).is_some_and(|l| l.ends_with("solara: UI thread")), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
