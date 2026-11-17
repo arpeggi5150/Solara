@@ -4380,7 +4380,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "clap",
@@ -4404,7 +4404,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-asio-host"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "azo",
  "log",
@@ -4412,7 +4412,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-au-host"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "log",
  "serde",
@@ -4422,7 +4422,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-audio-io"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "log",
  "proptest",
@@ -4434,7 +4434,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-automation"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "log",
@@ -4447,7 +4447,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-clap-host"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap-sys",
  "libloading 0.9.0",
@@ -4460,7 +4460,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "clap_complete",
@@ -4478,7 +4478,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-delta"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bsdiff",
  "flate2",
@@ -4489,7 +4489,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-dsp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "log",
  "proptest",
@@ -4500,7 +4500,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "craft-docpath",
@@ -4525,7 +4525,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-midi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proptest",
  "serde",
@@ -4535,7 +4535,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-mix"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "log",
  "rayon",
@@ -4551,7 +4551,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-model"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proptest",
  "serde",
@@ -4564,7 +4564,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-playback"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cpal",
  "log",
@@ -4581,7 +4581,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-time"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proptest",
  "serde",
@@ -4591,7 +4591,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-ui-egui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "craft-ui",
  "craft-update",
@@ -4622,7 +4622,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-updater"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "rfd",
@@ -4632,7 +4632,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-video"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "craft-media",
  "image",
@@ -4644,7 +4644,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-vst3-host"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "libloading 0.9.0",
  "log",
@@ -4660,7 +4660,7 @@ dependencies = [
 
 [[package]]
 name = "soundcraft-web"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "eframe",
  "egui",
@@ -6510,7 +6510,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
  "soundcraft-delta",
