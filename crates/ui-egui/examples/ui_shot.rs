@@ -44,7 +44,9 @@ fn main() {
         .unwrap_or((1600.0, 1000.0));
     let engine = if blank { soundcraft_engine::Engine::default() } else { soundcraft_engine::demo::demo_engine() };
     let (tx, rx) = mpsc::channel::<ControlRequest>();
-    let app = SoundApp::new(engine, None, Services::default()).with_control(rx);
+    let mut app = SoundApp::new(engine, None, Services::default()).with_control(rx);
+    // SolPlugs packages are recorded in a scratch folder, never the real settings.
+    app.package_dir = Some(std::env::temp_dir().join("solara-ui-shot-packages"));
     let mut harness =
         egui_kittest::Harness::builder().with_size(egui::vec2(w, h)).with_pixels_per_point(2.0).with_max_steps(1_000_000).wgpu().build_ui_state(
             |ui, app: &mut SoundApp| {

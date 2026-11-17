@@ -8,6 +8,8 @@ publish = false
 [dependencies]
 serde_json.workspace = true
 soundcraft-delta.workspace = true
+soundcraft-packages.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true

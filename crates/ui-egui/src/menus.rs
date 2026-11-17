@@ -86,6 +86,7 @@ pub const UI_COMMANDS: &[(&str, &str, &str, Option<&str>)] = &[
     ("window.routing_matrix", "Routing Matrix", "", None),
     ("window.track_tags", "Track Tags…", "", None),
     ("window.tag_scan", "Smart Tag Scan…", "", None),
+    ("window.packages", "SolPlugs Packages…", "", None),
     ("ui.keymap", "Assign Key", "", None),
     ("ui.channel_rack", "Show/Hide Channel Rack", "", None),
     ("ui.piano_roll", "Show/Hide Piano Roll", "", None),
@@ -329,6 +330,9 @@ fn catalog_menus(app: &mut SoundApp, ui: &mut egui::Ui) {
             if crate::updates_ui::UPDATE_CHECKS_ENABLED && ui.button("Check for Updates…").clicked() {
                 let _ = app.run("app.checkForUpdates", json!({}));
             }
+            if ui.button("SolPlugs Packages…").clicked() {
+                let _ = run_ui_command(app, "window.packages", &json!({"value": true}));
+            }
             if ui.button("Session Info").clicked() {
                 app.ui.show_session_info = true;
             }
@@ -558,6 +562,7 @@ const MENU_WINDOWS: &[(&str, &str)] = &[
     ("View > Routing Matrix", "window.routing_matrix"),
     ("Track > Tags...", "window.track_tags"),
     ("Track > Smart Tag Scan...", "window.tag_scan"),
+    ("Window > SolPlugs Packages...", "window.packages"),
     ("Track > Group by Tags", "track.tag_group"),
 ];
 
@@ -723,6 +728,13 @@ pub fn run_ui_command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<
             }
             crate::tagging::open_editor(app, tracks);
             json!({"value": true})
+        }
+        "window.packages" => {
+            let result = toggle(&mut app.ui.show_packages);
+            if app.ui.show_packages {
+                crate::packages_ui::opened(app);
+            }
+            result
         }
         "window.tag_scan" => {
             crate::tagging::open_scan(app);

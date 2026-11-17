@@ -266,6 +266,7 @@ fn main() -> eframe::Result {
             app.leftovers = app.autosave_dir.as_deref().map(soundcraft_engine::autosave::leftovers).unwrap_or_default();
             app.preset_dir = env.config_dir.as_ref().map(|d| d.join("Presets"));
             app.update_dir = env.config_dir.as_ref().map(|d| d.join("Updates"));
+            app.package_dir = env.config_dir.as_ref().map(|d| d.join("Packages"));
             app.extra.ui_scale = prefs.ui_scale;
             app.ui = prefs;
             app.ask_mode = fresh;

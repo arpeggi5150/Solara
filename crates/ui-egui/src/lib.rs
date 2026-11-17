@@ -37,6 +37,7 @@ pub mod menus;
 pub mod mix_window;
 pub mod modes;
 pub mod new_layout;
+mod packages_ui;
 pub mod palette;
 pub mod panels;
 pub mod preferences;
@@ -185,6 +186,8 @@ pub struct UiState {
     /// Window › Action List and View › Routing Matrix.
     pub show_action_list: bool,
     pub show_routing_matrix: bool,
+    /// The SolPlugs package browser.
+    pub show_packages: bool,
     /// The FL-style layout's panels (F6 Channel Rack, F7 Piano Roll, Alt+F8 Browser, F9 Mixer)
     /// and its piano roll's ghost notes.
     pub fl_browser_open: bool,
@@ -276,6 +279,7 @@ impl Default for UiState {
             key_overrides: keymap::Overrides::new(),
             show_action_list: false,
             show_routing_matrix: false,
+            show_packages: false,
             fl_browser_open: true,
             fl_rack_open: true,
             fl_roll_open: true,
@@ -452,6 +456,9 @@ pub struct SoundApp {
     pub dialogs: dialogs::Dialogs,
     pub(crate) updates_rt: updates_ui::Runtime,
     pub(crate) delta_rt: delta_update::Runtime,
+    /// Folder for the SolPlugs package record and downloads (native apps set it).
+    pub package_dir: Option<std::path::PathBuf>,
+    pub(crate) packages_rt: packages_ui::Runtime,
     /// The start-up splash (off unless the host turns it on).
     splash: splash::Splash,
     /// Bring the window to the front at launch (off unless the host turns it on).

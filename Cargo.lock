@@ -4563,6 +4563,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "soundcraft-packages"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "soundcraft-delta",
+ "zip",
+]
+
+[[package]]
 name = "soundcraft-playback"
 version = "0.1.1"
 dependencies = [
@@ -4611,6 +4621,7 @@ dependencies = [
  "soundcraft-midi",
  "soundcraft-mix",
  "soundcraft-model",
+ "soundcraft-packages",
  "soundcraft-playback",
  "soundcraft-time",
  "soundcraft-video",
@@ -4618,6 +4629,7 @@ dependencies = [
  "toml",
  "web-time",
  "zbus",
+ "zip",
 ]
 
 [[package]]
@@ -6514,6 +6526,8 @@ version = "0.1.1"
 dependencies = [
  "serde_json",
  "soundcraft-delta",
+ "soundcraft-packages",
+ "zip",
 ]
 
 [[package]]

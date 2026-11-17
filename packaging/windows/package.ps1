@@ -9,6 +9,11 @@
     solara-<version>-windows-<arch>-delta-from-<old>\  with -DeltaFrom: the delta update from an older
                                                        install (delta.json, its .sha256, payloads)
 
+  The MSI asks "Install SolPlugs?" and installs every package in the SolPlugs package index
+  (-SolPlugsIndex, default: index.json on the SolPlugs repository's main branch) as VST3 and CLAP
+  plugins. Each zip and every file in it is checked against the index's SHA-256 first; a mismatch
+  stops the build. -NoSolPlugs leaves them out (as does an index with nothing for this platform).
+
   The binaries link the C runtime statically (+crt-static), so neither the MSI nor the portable
   zip needs the Visual C++ redistributable. Signing is delegated to sign.ps1 (skipped with a
   warning when no signing secrets are set).
@@ -21,6 +26,7 @@
   pwsh packaging/windows/package.ps1 -Arch x86 -SkipBuild
   pwsh packaging/windows/package.ps1 -Arch arm64     # cross-compiled; needs the MSVC ARM64 build tools
   pwsh packaging/windows/package.ps1 -Arch x64 -DeltaFrom 'C:\Program Files\Zee Creations\Solara' -DeltaFromVersion 0.1.0
+  pwsh packaging/windows/package.ps1 -Arch x64 -SolPlugsIndex C:\dev\test-index\index.json
 
   Incremental: nothing here cleans target\. cargo rebuilds only the crates whose sources (or
   inputs) changed and relinks; only the small staging folders below are recreated each run.
@@ -31,7 +37,10 @@ param(
   # An older install folder (or a copy of an older target\windows-package\<arch> folder): also
   # write the delta update from it to this build. Needs -DeltaFromVersion.
   [string] $DeltaFrom,
-  [string] $DeltaFromVersion
+  [string] $DeltaFromVersion,
+  # The SolPlugs package index (https URL or a local index.json) the installer's SolPlugs come from.
+  [string] $SolPlugsIndex = 'https://raw.githubusercontent.com/arpeggi5150/SolPlugs/main/index.json',
+  [switch] $NoSolPlugs
 )
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -114,13 +123,90 @@ Copy-Item (Join-Path $Bin 'soundcraft-updater.exe') (Join-Path $Stage 'solara-up
 # Required embedded-font notices ship independently of optional font inputs.
 Copy-Item -LiteralPath (Join-Path $Root 'NOTICE') -Destination $Stage
 
+# ---- SolPlugs ----------------------------------------------------------------------------------
+# Every package in the index for this platform, unpacked into $SolPlugs\VST3 and $SolPlugs\CLAP
+# after checking each zip, and every file in it, against the index.
+$SolPlugs = Join-Path $TargetDir "windows-package\$Arch-solplugs"
+Remove-Item -Recurse -Force $SolPlugs -ErrorAction SilentlyContinue
+$SolPlugsNames = @()
+if (-not $NoSolPlugs) {
+  Write-Output "==> SolPlugs from $SolPlugsIndex"
+  $remote = $SolPlugsIndex -match '^https://'
+  # An index that can't be reached leaves SolPlugs out with a warning (the MSI still builds); one that
+  # is read but wrong, or a download that doesn't match it, stops the build.
+  $indexJson = $null
+  try {
+    $indexJson = if ($remote) { (Invoke-WebRequest -UseBasicParsing -Uri $SolPlugsIndex).Content } else { Get-Content -Raw -LiteralPath $SolPlugsIndex -ErrorAction Stop }
+  } catch {
+    Write-Warning "couldn't read the SolPlugs index $SolPlugsIndex ($($_.Exception.Message)); the MSI is built without SolPlugs"
+  }
+  if ($indexJson -is [byte[]]) { $indexJson = [Text.Encoding]::UTF8.GetString($indexJson) }
+  $index = if ($indexJson) { $indexJson | ConvertFrom-Json } else { [pscustomobject]@{ format = 'solplugs-index'; format_version = 1; packages = @() } }
+  if ($index.format -ne 'solplugs-index' -or $index.format_version -ne 1) { throw "$SolPlugsIndex isn't a SolPlugs package index (format 1)" }
+  $platform = "windows-$Arch"
+  $downloadDir = Join-Path $TargetDir "windows-package\solplugs-downloads"
+  New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
+  foreach ($pkg in $index.packages) {
+    $downloads = @($pkg.downloads | Where-Object { $_.platform -eq $platform })
+    if ($downloads.Count -eq 0) { Write-Output "   $($pkg.name): nothing for $platform"; continue }
+    foreach ($d in $downloads) {
+      $formatDir = switch ($d.format) { 'vst3' { 'VST3' } 'clap' { 'CLAP' } default { throw "$($pkg.id): unknown format $($d.format)" } }
+      if ($d.bundle -match '[\\/:]' -or $d.bundle -match '^\.') { throw "$($pkg.id): unsafe bundle name $($d.bundle)" }
+      $zip = Join-Path $downloadDir "$($d.sha256).zip"
+      if (-not ((Test-Path $zip) -and (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower() -eq $d.sha256)) {
+        if ($d.url -match '^https://') {
+          Invoke-WebRequest -UseBasicParsing -Uri $d.url -OutFile $zip
+        } elseif ($remote) {
+          Invoke-WebRequest -UseBasicParsing -Uri (($SolPlugsIndex -replace '[^/]*$', '') + $d.url) -OutFile $zip
+        } else {
+          Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $SolPlugsIndex) $d.url) -Destination $zip
+        }
+      }
+      if ((Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower() -ne $d.sha256 -or (Get-Item $zip).Length -ne $d.size) {
+        Remove-Item -Force $zip
+        throw "$($pkg.name) $($d.format): the download doesn't match the index's SHA-256; nothing was packaged"
+      }
+      $unpacked = Join-Path $downloadDir "unpacked-$($d.sha256)"
+      Remove-Item -Recurse -Force $unpacked -ErrorAction SilentlyContinue
+      Expand-Archive -LiteralPath $zip -DestinationPath $unpacked
+      $listed = @{}
+      foreach ($f in $d.files) {
+        if ($f.path -ne $d.bundle -and -not $f.path.StartsWith("$($d.bundle)/")) { throw "$($pkg.id): $($f.path) is outside its bundle" }
+        if ($f.path -match '(^|/)\.\.(/|$)' -or $f.path -match '[\\:]') { throw "$($pkg.id): unsafe path $($f.path)" }
+        $p = Join-Path $unpacked ($f.path -replace '/', '\')
+        if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or (Get-FileHash -Algorithm SHA256 -LiteralPath $p).Hash.ToLower() -ne $f.sha256) {
+          throw "$($pkg.name) $($d.format): $($f.path) doesn't match the index's SHA-256; nothing was packaged"
+        }
+        $listed[(Resolve-Path -LiteralPath $p).Path] = $true
+      }
+      $extra = @(Get-ChildItem -LiteralPath $unpacked -Recurse -File | Where-Object { -not $listed.ContainsKey($_.FullName) })
+      if ($extra.Count) { throw "$($pkg.name) $($d.format): the zip holds files the index doesn't list ($($extra[0].Name))" }
+      $dest = Join-Path $SolPlugs $formatDir
+      New-Item -ItemType Directory -Force -Path $dest | Out-Null
+      Copy-Item -Recurse -LiteralPath (Join-Path $unpacked $d.bundle) -Destination $dest
+      Remove-Item -Recurse -Force $unpacked
+    }
+    $SolPlugsNames += $pkg.name
+    Write-Output "   $($pkg.name) $($pkg.version): $(@($downloads | ForEach-Object { $_.format.ToUpper() }) -join ' + ')"
+  }
+}
+foreach ($f in 'VST3', 'CLAP') { New-Item -ItemType Directory -Force -Path (Join-Path $SolPlugs $f) | Out-Null }
+
 # ---- MSI ---------------------------------------------------------------------------------------
 $Msi = Join-Path $Dist "solara-$Version-windows-$Arch.msi"
+$SolPlugsArgs = @()
+if ($SolPlugsNames.Count) {
+  $names = [Security.SecurityElement]::Escape(($SolPlugsNames -join ', '))
+  $SolPlugsArgs = @('-d', 'SolPlugs=1', '-d', "SolPlugsDir=$SolPlugs", '-d', "SolPlugsNames=$names")
+  Write-Output "The MSI offers SolPlugs: $($SolPlugsNames -join ', ')"
+} else {
+  Write-Output 'The MSI has no SolPlugs (none for this platform, or -NoSolPlugs)'
+}
 Invoke-Native 'WiX UI extension' { wix extension add -g WixToolset.UI.wixext/5.0.2 }
 Invoke-Native 'wix build' {
   wix build (Join-Path $PSScriptRoot 'soundcraft.wxs') -arch $Arch -ext WixToolset.UI.wixext `
     -d "Version=$MsiVersion" -d "BinDir=$Stage" -d "IconPath=$(Join-Path $Root 'assets\app-icon\solara.ico')" `
-    -o $Msi
+    @SolPlugsArgs -o $Msi
 }
 # Check the compiled scope, path and registration contract before signing.
 & (Join-Path $PSScriptRoot 'check-install-policy.ps1') -MsiPath $Msi
