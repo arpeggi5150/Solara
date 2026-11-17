@@ -40,6 +40,26 @@ jobs (macOS, Windows) and the draft-release job use the `release` environment, w
 `release` branch can use. On any other branch the run is a dry run: Linux, Flatpak, FreeBSD and
 web build and are checked, the signing jobs are refused, and no release is drafted.
 
+## Publishing Windows builds to Solara-Releases
+
+Solara's public downloads live in [arpeggi5150/Solara-Releases](https://github.com/arpeggi5150/Solara-Releases).
+`.github/workflows/publish.yml` builds the Windows x64 MSI and portable zip with
+`packaging/windows/package.ps1` and publishes them there as a normal (not draft) GitHub Release,
+with `SHA256SUMS.txt`. It does not need the signing secrets or the shared release pipeline above.
+
+1. Make sure `[workspace.package] version` in `Cargo.toml` is the version to ship (say `0.1.0`).
+2. Push the matching tag on the commit to ship: `git tag v0.1.0 <commit> && git push origin v0.1.0`.
+   Or run *Actions → Publish → Run workflow* on that commit; the `tag` input defaults to
+   `v<version>`.
+3. About 20 to 30 minutes later the release `v0.1.0` is in Solara-Releases with
+   `solara-0.1.0-windows-x64.msi`, `solara-0.1.0-windows-x64-portable.zip` and `SHA256SUMS.txt`.
+
+The upload token is the repository secret `SOLARA_RELEASES_TOKEN`: a fine-grained token with
+Contents read + write on Solara-Releases only. The workflow stops before building, with a plain
+error, when the secret is missing, when the token can't reach Solara-Releases, when the tag doesn't
+match `Cargo.toml`, or when that release already exists (published releases are never replaced).
+It never publishes anywhere but Solara-Releases. The files are not code-signed yet.
+
 ## What gets built
 
 | Platform | Artifacts | Built on |
