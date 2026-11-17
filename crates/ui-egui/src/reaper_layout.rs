@@ -1,6 +1,6 @@
-//! The Reaper-style layout preset: the transport bar on top, the track list (track control panel)
-//! on the left of the arrange view in the centre, and the mixer (mixer control panel) along the
-//! bottom. Same engine, session and commands as NEW and Classic; only the panels, the words and the
+//! The Reaper-style layout preset: the main toolbar on top, the track list (track control panel)
+//! on the left of the arrange view in the centre, the transport under the arrange view, and the
+//! mixer (mixer control panel) along the bottom. Same engine, session and commands as NEW and Classic; only the panels, the words and the
 //! keys change (the keys live in `keymap`). Learnt from how such a DAW behaves, not from its code
 //! or artwork.
 
@@ -24,12 +24,14 @@ pub fn open_mixer_height(room: f32) -> f32 {
 pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     let t = Tokens::current();
     crate::edit_window::drive_drag(app, ui.ctx());
-    egui::Panel::top("reaper_transport").exact_size(TOP_BAR_H).frame(egui::Frame::NONE.fill(t.toolbar_bg)).show(ui, |ui| transport(app, ui));
-    let room = ui.available_rect_before_wrap().height();
+    egui::Panel::top("reaper_toolbar").exact_size(TOOLBAR_H).frame(egui::Frame::NONE.fill(t.toolbar_bg)).show(ui, |ui| toolbar(app, ui));
+    let room = ui.available_rect_before_wrap().height() - TOP_BAR_H;
     // Open, the mixer fits a whole strip, fader included, when the window allows it, and the
     // arrange view keeps the rest (at least `ARRANGE_MIN_H`).
     let mixer_h = if app.ui.reaper_mixer_open { open_mixer_height(room) } else { MIXER_COLLAPSED_H };
     egui::Panel::bottom("reaper_mixer").exact_size(mixer_h).frame(egui::Frame::NONE.fill(t.panel_bg)).show(ui, |ui| mixer(app, ui));
+    // The transport docks under the arrange view, above the mixer.
+    egui::Panel::bottom("reaper_transport").exact_size(TOP_BAR_H).frame(egui::Frame::NONE.fill(t.toolbar_bg)).show(ui, |ui| transport(app, ui));
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.window_bg)).show(ui, |ui| {
         let full = ui.max_rect();
         let mut arrange = ui.new_child(egui::UiBuilder::new().max_rect(full));
@@ -38,12 +40,74 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     });
 }
 
-/// The transport bar: position, play controls, tempo and time signature, the layout switcher, and
-/// the Actions and Routing buttons.
-fn transport(app: &mut SoundApp, ui: &mut Ui) {
+/// Height of the main toolbar.
+pub const TOOLBAR_H: f32 = 30.0;
+
+/// The main toolbar: project file buttons, undo and redo, metronome, repeat, snap, and the Actions
+/// and Routing windows. Each button runs the same command as its menu item.
+fn toolbar(app: &mut SoundApp, ui: &mut Ui) {
     let t = Tokens::current();
     let r = ui.max_rect();
     ui.painter().line_segment([pos2(r.min.x, r.max.y - 0.5), pos2(r.max.x, r.max.y - 0.5)], Stroke::new(1.0, t.border));
+    let mut row = ui.new_child(egui::UiBuilder::new().max_rect(r.shrink2(vec2(8.0, 3.0))).layout(egui::Layout::left_to_right(egui::Align::Center)));
+    let ui = &mut row;
+    ui.spacing_mut().item_spacing.x = 3.0;
+    ui.spacing_mut().button_padding = vec2(7.0, 2.0);
+    let mac = ui.ctx().os().is_mac();
+    let (click, looped, snap) = {
+        let e = &app.engine.session().edit;
+        (e.click, e.loop_playback, e.edit_mode == soundcraft_model::EditMode::Grid)
+    };
+    let groups: [&[(&str, &str, bool)]; 4] = [
+        &[("New", "session.new", false), ("Open", "session.open", false), ("Save", "session.save", false)],
+        &[("Undo", "edit.undo", false), ("Redo", "edit.redo", false)],
+        &[("Metronome", "options.click", click), ("Repeat", "options.loop_playback", looped), ("Snap", "ui.reaper_snap", snap)],
+        &[("Project settings", "setup.session", false), ("Preferences", "setup.preferences", false)],
+    ];
+    for group in groups {
+        for &(label, id, on) in group {
+            let key = crate::keymap::chord_for(app, id).map(|c| crate::keymap::display(&c, mac));
+            let tip = key.map_or_else(|| label.to_string(), |k| format!("{label} ({k})"));
+            let text = egui::RichText::new(label).font(regular(11.5)).color(if on { t.mode_on_text } else { t.text });
+            let mut button = egui::Button::new(text).selected(on);
+            if on {
+                button = button.fill(t.mode_on);
+            }
+            if ui.add(button).on_hover_text(tip).clicked() {
+                if id == "ui.reaper_snap" {
+                    let mode = if snap { "slip" } else { "grid" };
+                    if let Err(e) = app.run("edit.mode", json!({"mode": mode})) {
+                        app.ui.status = e;
+                    }
+                } else {
+                    crate::menus::invoke_menu(app, id, "");
+                }
+            }
+        }
+        ui.add_space(8.0);
+    }
+    crate::new_layout::switcher(app, ui);
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        for (label, id) in [("Routing", "window.routing_matrix"), ("Actions", "window.action_list")] {
+            let key = crate::keymap::chord_for(app, id).map(|c| crate::keymap::display(&c, mac));
+            let tip = match (id, key) {
+                ("window.routing_matrix", Some(k)) => format!("Routing Matrix ({k})"),
+                ("window.routing_matrix", None) => "Routing Matrix".to_string(),
+                (_, Some(k)) => format!("Action List ({k})"),
+                (_, None) => "Action List".to_string(),
+            };
+            if ui.add(egui::Button::new(egui::RichText::new(label).font(regular(11.5)))).on_hover_text(tip).clicked() {
+                let _ = app.run(id, json!({"value": true}));
+            }
+        }
+    });
+}
+
+/// The transport bar, under the arrange view: play controls, position, tempo and time signature.
+fn transport(app: &mut SoundApp, ui: &mut Ui) {
+    let t = Tokens::current();
+    let r = ui.max_rect();
+    ui.painter().line_segment([pos2(r.min.x, r.min.y + 0.5), pos2(r.max.x, r.min.y + 0.5)], Stroke::new(1.0, t.border));
     let mut row = ui.new_child(egui::UiBuilder::new().max_rect(r.shrink2(vec2(10.0, 6.0))).layout(egui::Layout::left_to_right(egui::Align::Center)));
     let ui = &mut row;
     ui.spacing_mut().item_spacing.x = 6.0;
@@ -105,24 +169,6 @@ fn transport(app: &mut SoundApp, ui: &mut Ui) {
     readout(ui, "BPM", |ui| crate::toolbar::tempo_field(app, ui, bpm));
     readout(ui, "Time sig", |ui| {
         ui.label(egui::RichText::new(meter).font(mono(12.0)).color(t.counter_text));
-    });
-    ui.add_space(8.0);
-    crate::new_layout::switcher(app, ui);
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
-        let mac = ui.ctx().os().is_mac();
-        for (label, id) in [("Routing", "window.routing_matrix"), ("Actions", "window.action_list")] {
-            let key = crate::keymap::chord_for(app, id).map(|c| crate::keymap::display(&c, mac));
-            let tip = match (id, key) {
-                ("window.routing_matrix", Some(k)) => format!("Routing Matrix ({k})"),
-                ("window.routing_matrix", None) => "Routing Matrix".to_string(),
-                (_, Some(k)) => format!("Action List ({k})"),
-                (_, None) => "Action List".to_string(),
-            };
-            if ui.add(egui::Button::new(egui::RichText::new(label).font(regular(12.0)))).on_hover_text(tip).clicked() {
-                let _ = app.run(id, json!({"value": true}));
-            }
-        }
     });
 }
 

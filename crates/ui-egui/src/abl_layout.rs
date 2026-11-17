@@ -37,6 +37,7 @@ pub const ABL_KEYS: &[(&str, &str)] = &[
     ("Tab", "ui.session_view"),
     ("Cmd+Alt+B", "ui.browser"),
     ("Cmd+Alt+L", "ui.device_view"),
+    ("Cmd+Alt+M", "ui.mixer"),
     ("Enter", "ui.launch_scene"),
     ("Cmd+I", "scene.new"),
     ("Cmd+E", "edit.separate"),
@@ -44,6 +45,7 @@ pub const ABL_KEYS: &[(&str, &str)] = &[
     ("Cmd+D", "edit.duplicate"),
     ("Cmd+U", "event.quantize"),
     ("Cmd+T", "track.new"),
+    ("Cmd+,", "setup.preferences"),
     ("F9", "transport.record"),
     ("Cmd+L", "options.loop_playback"),
     ("Delete", "edit.clear"),
@@ -145,6 +147,13 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
             .frame(egui::Frame::NONE.fill(t.panel_bg))
             .show(ui, |ui| device_view(app, ui));
     }
+    if app.ui.abl_mixer_open {
+        // Above the Device View, like the Mixer section under Live's tracks: tall enough for a
+        // whole strip, fader included, when the window allows it.
+        let room = ui.available_rect_before_wrap().height();
+        let h = crate::new_layout::MIXER_FIT_H.min(room - MIXER_ROOM_H).max(TITLE_H + 120.0);
+        egui::Panel::bottom("abl_mixer").exact_size(h).frame(egui::Frame::NONE.fill(t.panel_bg)).show(ui, |ui| mixer(app, ui));
+    }
     if app.ui.abl_browser_open {
         egui::Panel::left("abl_browser")
             .resizable(true)
@@ -172,6 +181,22 @@ pub fn show(app: &mut SoundApp, ui: &mut Ui) {
     if ui.input(|i| i.pointer.any_released()) {
         ui.ctx().data_mut(|d| d.remove::<Drag>(drag_id()));
     }
+}
+
+/// What the Mixer leaves above it for the views.
+const MIXER_ROOM_H: f32 = 160.0;
+
+/// The Mixer: a title row and the strips, in the Ableton-style words and colours.
+fn mixer(app: &mut SoundApp, ui: &mut Ui) {
+    let full = ui.max_rect();
+    let body = title(ui, full, "MIXER");
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(body));
+    child.set_clip_rect(body.intersect(ui.clip_rect()));
+    egui::ScrollArea::vertical()
+        .id_salt("abl_mixer_scroll")
+        .auto_shrink([false, false])
+        .stick_to_bottom(true)
+        .show(&mut child, |ui| crate::mix_window::content(app, ui));
 }
 
 /// A panel's title row with its top border, and the rest of the panel below it.
@@ -233,6 +258,7 @@ fn top_bar(app: &mut SoundApp, ui: &mut Ui) {
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         let panels = [
+            ("Mixer", "ui.mixer", app.ui.abl_mixer_open),
             ("Device View", "ui.device_view", app.ui.abl_device_open),
             ("Session View", "ui.session_view", app.ui.abl_session_open),
             ("Browser", "ui.browser", app.ui.abl_browser_open),
@@ -953,6 +979,10 @@ mod tests {
         assert!(app.ui.fl_browser_open);
         app.run("ui.session_view", json!({})).unwrap();
         assert!(!app.ui.abl_session_open);
+        assert!(!app.ui.abl_mixer_open, "the Mixer starts hidden");
+        app.run("ui.mixer", json!({})).unwrap();
+        assert!(app.ui.abl_mixer_open, "its own Mixer, not NEW's");
+        assert!(!app.ui.new_mixer_open);
     }
 
     #[test]

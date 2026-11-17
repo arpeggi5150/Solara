@@ -68,6 +68,7 @@ impl SoundApp {
             audio_health_report: None,
             services,
             native_menu_bar: false,
+            ask_mode: false,
             autosave_dir: None,
             autosaver: None,
             autosaved_rev: 0,
@@ -183,7 +184,11 @@ impl SoundApp {
             }
         }
         let light = theme::wants_light(ctx, self.ui.theme);
-        if self.theme_applied != Some(light) || theme::is_light() != light {
+        // Each mode brings its colours: a mode change repaints the visuals too.
+        let skin = crate::modes::current(self).skin;
+        let reskinned = theme::skin() != skin;
+        theme::set_skin(skin);
+        if reskinned || self.theme_applied != Some(light) || theme::is_light() != light {
             theme::apply(ctx, light);
             self.theme_applied = Some(light);
         }
@@ -394,6 +399,7 @@ impl SoundApp {
         crate::action_list::show(self, &ctx);
         crate::routing_matrix::show(self, &ctx);
         crate::tagging::show(self, &ctx);
+        crate::modes::first_run(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
         splash::show(&mut self.splash, self.uptime, &ctx);

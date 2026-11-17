@@ -62,7 +62,12 @@ pub fn separate_closed(app: &mut SoundApp) {
 pub const STRIP_MIN_H: f32 = 560.0;
 
 pub(crate) fn content(app: &mut SoundApp, ui: &mut Ui) {
-    let ids: Vec<TrackId> = app.engine.session().tracks.iter().filter(|x| !x.hidden && x.kind != TrackKind::Video).map(|x| x.id).collect();
+    let mut ids: Vec<TrackId> = app.engine.session().tracks.iter().filter(|x| !x.hidden && x.kind != TrackKind::Video).map(|x| x.id).collect();
+    // Some modes lead with the master strip, at the left.
+    if crate::modes::current(app).mix.master_first {
+        let s = app.engine.session();
+        ids.sort_by_key(|id| s.track(*id).is_none_or(|t| t.kind != TrackKind::Master));
+    }
     // Per-channel peaks for multichannel meters, from the snapshot `logic` takes from the player
     // (taking them here too would split each period's peaks between two readers).
     let snap = (app.player.is_some() && app.meters_live()).then(|| app.meter_snapshot.clone());
@@ -171,9 +176,16 @@ struct StripCtx<'a> {
     selected: bool,
     views: Vec<String>,
     all: bool,
+    /// The active mode's section captions.
+    words: &'static [(&'static str, &'static str)],
 }
 
 impl StripCtx<'_> {
+    /// A section's caption in the active mode's words.
+    fn word<'b>(&self, title: &'b str) -> &'b str {
+        self.words.iter().find(|(pt, _)| *pt == title).map_or(title, |(_, own)| own)
+    }
+
     /// Whether the mixer shows the section named `view`.
     fn shows(&self, view: &str) -> bool {
         self.all || self.views.iter().any(|x| x == view)
@@ -201,9 +213,11 @@ fn strip(app: &mut SoundApp, ui: &mut Ui, id: TrackId, snap: Option<&MeterSnapsh
     let mut y = r.min.y + 4.0;
     let inner_w = w - 8.0;
     let x0 = r.min.x + 4.0;
-    let views = app.ui.mix_views.clone();
+    // A mode may bring its own sections; Pro Tools-style and Classic keep View › Mix Window Views.
+    let mix = crate::modes::current(app).mix;
+    let views = mix.views.map_or_else(|| app.ui.mix_views.clone(), |v| v.iter().map(|x| (*x).to_string()).collect());
     let all = views.iter().any(|x| x == "all");
-    let cx = StripCtx { track, id, r, w, x0, inner_w, narrow, selected, views, all };
+    let cx = StripCtx { track, id, r, w, x0, inner_w, narrow, selected, views, all, words: mix.words };
     // Preamp, instrument and object rows keep their height on every strip so sections line up;
     // their controls only appear on tracks with an input.
     y = preamp_section(app, ui, &cx, y);
@@ -291,22 +305,10 @@ fn object_section(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32
     y
 }
 
-/// A section's title in the Reaper-style layout's words: inserts are FX, slots count from 1.
-fn reaper_title(title: &str) -> &str {
-    match title {
-        "INSERTS A-E" => "FX 1-5",
-        "INSERTS F-J" => "FX 6-10",
-        "SENDS A-E" => "SENDS 1-5",
-        "SENDS F-J" => "SENDS 6-10",
-        _ => title,
-    }
-}
-
 /// The insert and send sections.
 fn slot_sections(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32) -> f32 {
     let StripCtx { track, narrow, x0, inner_w, .. } = *cx;
     let t = Tokens::current();
-    let reaper = app.ui.layout == crate::new_layout::LayoutPreset::Reaper;
     for (key, title, off, is_send) in [
         ("inserts_ae", "INSERTS A-E", 0usize, false),
         ("inserts_fj", "INSERTS F-J", 5, false),
@@ -318,7 +320,7 @@ fn slot_sections(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32)
         }
         let sec = Rect::from_min_size(pos2(x0, y), vec2(inner_w, 16.0 + 5.0 * 17.0));
         inset(ui.painter(), sec, t.strip_section);
-        section_label(ui, sec, if reaper { reaper_title(title) } else { title }, narrow);
+        section_label(ui, sec, cx.word(title), narrow);
         for k in 0..5 {
             let sr = Rect::from_min_size(pos2(x0 + 2.0, sec.min.y + 15.0 + k as f32 * 17.0), vec2(inner_w - 4.0, 15.0));
             if is_send {
@@ -395,7 +397,7 @@ fn io_section(app: &mut SoundApp, ui: &mut Ui, cx: &StripCtx<'_>, mut y: f32) ->
     if cx.shows("io") {
         let sec = Rect::from_min_size(pos2(x0, y), vec2(inner_w, 16.0 + 2.0 * 18.0 + 30.0));
         inset(ui.painter(), sec, t.strip_section);
-        section_label(ui, sec, "I / O", narrow);
+        section_label(ui, sec, cx.word("I / O"), narrow);
         let in_r = Rect::from_min_size(pos2(x0 + 2.0, sec.min.y + 15.0), vec2(inner_w - 4.0, 16.0));
         let out_r = Rect::from_min_size(pos2(x0 + 2.0, sec.min.y + 33.0), vec2(inner_w - 4.0, 16.0));
         let mut c = ui.new_child(egui::UiBuilder::new().id_salt(("mix-input", id.0)).max_rect(in_r));

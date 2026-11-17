@@ -34,6 +34,7 @@ pub mod import;
 pub mod keymap;
 pub mod menus;
 pub mod mix_window;
+pub mod modes;
 pub mod new_layout;
 pub mod palette;
 pub mod panels;
@@ -170,7 +171,7 @@ pub struct UiState {
     pub window_size: [f32; 2],
     pub window_maximized: bool,
     pub ui_scale: f32,
-    /// The layout preset (`ui.layout`): NEW by default, Classic on request.
+    /// The mode (`ui.layout`): Pro Tools-style on a fresh start.
     pub layout: new_layout::LayoutPreset,
     /// The NEW layout's Mixer, expanded in place (`ui.mixer`, M). Collapsed by default.
     pub new_mixer_open: bool,
@@ -197,6 +198,8 @@ pub struct UiState {
     pub abl_browser_open: bool,
     pub abl_session_open: bool,
     pub abl_device_open: bool,
+    /// The Ableton-style layout's Mixer under the views (`ui.mixer`, Cmd+Alt+M). Hidden by default.
+    pub abl_mixer_open: bool,
 }
 
 impl Default for UiState {
@@ -265,7 +268,7 @@ impl Default for UiState {
             window_size: [1600.0, 1000.0],
             window_maximized: false,
             ui_scale: 1.0,
-            layout: new_layout::LayoutPreset::New,
+            layout: new_layout::LayoutPreset::ProToolsStyle,
             new_mixer_open: false,
             new_editor: new_layout::EditorView::Auto,
             reaper_mixer_open: true,
@@ -281,6 +284,7 @@ impl Default for UiState {
             abl_browser_open: true,
             abl_session_open: true,
             abl_device_open: true,
+            abl_mixer_open: false,
         }
     }
 }
@@ -426,6 +430,9 @@ pub struct SoundApp {
     pub services: Services,
     /// Set only by a desktop host after installing an OS menu bar.
     pub native_menu_bar: bool,
+    /// A fresh install (no saved settings): ask which mode to work in, Pro Tools-style picked
+    /// until another is chosen. Set by the desktop host.
+    pub ask_mode: bool,
     /// Folder for crash-recovery autosaves (native apps set it).
     pub autosave_dir: Option<std::path::PathBuf>,
     /// Writes the open session's autosaves in the background, once there is something to write.

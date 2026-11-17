@@ -283,7 +283,9 @@ fn harness(n: usize) -> Harness<'static, SoundApp> {
 }
 
 fn harness_with(engine: soundcraft_engine::Engine) -> Harness<'static, SoundApp> {
-    let app = SoundApp::new(engine, None, crate::Services::default());
+    // The Edit window's own controls: Classic shows it whole, with Pro Tools-style headers.
+    let mut app = SoundApp::new(engine, None, crate::Services::default());
+    app.ui.layout = crate::new_layout::LayoutPreset::Classic;
     let builder = Harness::builder().with_size(vec2(1400.0, 900.0)).with_step_dt(1.0 / 60.0);
     let builder = if std::env::var_os("SOUNDCRAFT_FADE_SHOTS").is_some() { builder.wgpu() } else { builder };
     let mut h = builder.build_ui_state(
@@ -1661,4 +1663,50 @@ fn the_clip_gain_line_drags_the_clip_gain_in_the_pro_tools_layout() {
     h.run_steps(2);
     drag(&mut h, on_line, on_line - vec2(0.0, 30.0));
     assert_eq!(h.state().engine.session().find_clip(clip.id).unwrap().1.gain_db, 0.0);
+}
+
+/// Clicking the middle of a clip's body (below its name bar) in `layout`: is the clip selected after?
+fn body_click_selects_the_clip(layout: crate::new_layout::LayoutPreset) -> bool {
+    let mut engine = soundcraft_engine::demo::demo_engine();
+    engine.execute("edit.tool", &json!({"tool": "selector"})).unwrap();
+    let mut h = harness_with(engine);
+    h.state_mut().ui.layout = layout;
+    h.run_steps(4);
+    let (clip, lane) = clip_on_screen(&h, |a, b| b - a > 60.0 && a > timeline(&h).min.x);
+    let s = h.state().engine.session_arc();
+    let x = (x_of(&s, timeline(&h), clip.start) + x_of(&s, timeline(&h), clip.end()).min(timeline(&h).max.x)) * 0.5;
+    click(&mut h, pos2(x, lane.center().y + lane.height() * 0.2));
+    h.run_steps(2);
+    h.state().engine.session().edit.selected_clips.contains(&clip.id)
+}
+
+#[test]
+fn modes_without_tools_select_an_item_with_a_click_whatever_the_edit_tool() {
+    use crate::new_layout::LayoutPreset;
+    // Reaper-style and NEW: a click on an item selects it; FL-style too (its clips paint and move).
+    for layout in [LayoutPreset::Reaper, LayoutPreset::New, LayoutPreset::FlStyle] {
+        assert!(body_click_selects_the_clip(layout), "{layout:?}");
+    }
+    // The Selector in Classic places the insertion point there instead; Ableton-style's clip body
+    // selects time, its name bar moves the clip.
+    for layout in [LayoutPreset::Classic, LayoutPreset::AbletonStyle] {
+        assert!(!body_click_selects_the_clip(layout), "{layout:?}");
+    }
+}
+
+#[test]
+fn ableton_style_puts_the_track_headers_right_of_the_clips() {
+    let mut h = harness_with(soundcraft_engine::demo::demo_engine());
+    h.state_mut().ui.layout = crate::new_layout::LayoutPreset::AbletonStyle;
+    h.run_steps(4);
+    let tl = timeline(&h);
+    let kick = h.query_by_label("Track activator for Kick").expect("activator");
+    assert!(kick.rect().min.x > tl.max.x, "{:?} right of {:?}", kick.rect(), tl);
+    // Each header style names its controls per track, as the Pro Tools-style one does.
+    h.state_mut().ui.layout = crate::new_layout::LayoutPreset::Reaper;
+    h.run_steps(4);
+    let tl = timeline(&h);
+    let arm = h.query_by_label("Record arm for Kick").expect("arm");
+    assert!(arm.rect().max.x < tl.min.x);
+    assert!(h.query_by_label("Track FX for Kick").is_some());
 }

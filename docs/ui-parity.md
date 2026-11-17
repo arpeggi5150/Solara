@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-10-25 · **Change:** minor (Cancel Zoom Toggle) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-11-17 · **Change:** minor (modes: each layout brings its own menus, right-click menus, clicks, headers and colours; Pro Tools-style is the default) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 How Solara feels in the hands of a Pro Tools user: tools, modes, modifiers, shortcuts,
 windows, meters. Measured from `crates/model/src/session.rs` (tools, modes), the command
@@ -70,6 +70,7 @@ Legend: ✅ matches · 🟡 partial · ❌ missing.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-17 | minor | Modes: six arrangements of one command set, each with its own menu bar, context menus, click behaviour, track header, rulers, mixer sections and colours; a top-right mode toggle; Pro Tools-style opens on a fresh start. Readiness estimate unchanged |
 | 2026-10-25 | minor | Zoom Toggle row: Alt+Shift+E and Alt-click cancel Zoom Toggle and keep the view. Readiness estimate unchanged |
 | 2026-10-25 | minor | Edit and Mix windows: Tracks and Groups and Clips in full-height dock columns. Readiness estimate unchanged |
 | 2026-10-20 | minor | Preferences uses one fixed non-scrolling size with compact stacked choices, removes the duplicate meter-type list, and command-backs visual-effects reduction and undo depth alongside the UI theme |

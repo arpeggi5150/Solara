@@ -284,102 +284,100 @@ pub fn tree() -> Vec<MenuNode> {
 
 pub fn menu_bar(app: &mut SoundApp, ui: &mut egui::Ui) {
     let t = crate::theme::Tokens::current();
-    let menu_entries_enabled = !app.ui.show_preferences;
-    let preferences_enabled = preferences_menu_enabled(app);
     egui::Panel::top("menu_bar").exact_size(24.0).frame(egui::Frame::NONE.fill(t.menu_bar).inner_margin(egui::Margin::symmetric(8, 2))).show(
         ui,
         |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
-                ui.menu_button("Solara", |ui| {
-                    ui.add_enabled_ui(menu_entries_enabled, |ui| {
-                        if ui.button("About Solara").clicked() {
-                            app.ui.show_about = true;
-                        }
-                        if ui.add_enabled(preferences_enabled, egui::Button::new("Preferences...")).clicked() {
-                            let _ = app.run("setup.preferences", json!({"value": true}));
-                        }
-                        if crate::updates_ui::UPDATE_CHECKS_ENABLED && ui.button("Check for Updates…").clicked() {
-                            let _ = app.run("app.checkForUpdates", json!({}));
-                        }
-                        if ui.button("Session Info").clicked() {
-                            app.ui.show_session_info = true;
-                        }
-                        if ui.button("Session Audio Health").clicked() {
-                            let _ = app.run("window.audio_health", json!({"value": true}));
-                        }
-                        ui.separator();
-                        if ui.button("Quit").clicked() {
-                            let _ = crate::dialogs::run_or_ask(app, "app.quit", json!({}));
-                        }
-                    });
-                });
-                let extra = ui_aliases();
-                let reaper = app.ui.layout == crate::new_layout::LayoutPreset::Reaper;
-                for root in tree() {
-                    // Reaper-style wording: a clip is an item there.
-                    let label = if reaper && root.path == "Clip" { "Item" } else { root.label.as_str() };
-                    ui.menu_button(label, |ui| {
-                        ui.add_enabled_ui(menu_entries_enabled, |ui| {
-                            for c in &root.children {
-                                menu_node(app, ui, c, &extra);
-                                if c.path == "File > Open" {
-                                    crate::recent::menu(app, ui);
-                                }
-                                if c.path == "Track > New..." {
-                                    instrument_menu(app, ui);
-                                }
-                            }
-                            if root.path == "AudioSuite" {
-                                ui.separator();
-                                ui.label(egui::RichText::new("Processes selected clips offline").small().color(t.text_dim));
-                            }
-                            if root.path == "Window" {
-                                ui.separator();
-                                // The layout switcher's way back from Classic, which has no top bar.
-                                for preset in crate::new_layout::LayoutPreset::ALL.into_iter().filter(|p| p.available()) {
-                                    if ui.radio(app.ui.layout == preset, format!("{} Layout", preset.label())).clicked() {
-                                        let _ = run_ui_command(app, "ui.layout", &json!({"preset": preset.id()}));
-                                        ui.close();
-                                    }
-                                }
-                                ui.separator();
-                                let mut separate = app.ui.mix_separate;
-                                if ui
-                                    .checkbox(&mut separate, "Mix in Separate Window")
-                                    .on_hover_text("Show Edit and Mix at once, e.g. one per monitor")
-                                    .changed()
-                                {
-                                    let _ = run_ui_command(app, "window.mix_separate", &json!({"value": separate}));
-                                    ui.close();
-                                }
-                            }
-                        });
-                    });
+                // Each mode brings its own menu bar; Pro Tools-style and Classic use the catalog's.
+                match crate::modes::current(app).menus {
+                    Some(roots) => crate::modes::menu_roots(app, ui, roots),
+                    None => catalog_menus(app, ui),
                 }
-                let title = format!(
-                    "{}{}  —  {}",
-                    app.engine.session().name,
-                    if app.engine.is_dirty() { " *" } else { "" },
-                    if app.ui.layout == crate::new_layout::LayoutPreset::New {
-                        "NEW"
-                    } else if reaper {
-                        "Reaper"
-                    } else if app.ui.layout == crate::new_layout::LayoutPreset::FlStyle {
-                        "FL"
-                    } else if crate::pt_layout::active(app) {
-                        "Edit + Mix"
-                    } else if app.ui.window == MainWindow::Edit || app.ui.mix_separate {
-                        "Edit"
-                    } else {
-                        "Mix"
-                    }
-                );
+                let window = if crate::pt_layout::active(app) || app.ui.layout != crate::new_layout::LayoutPreset::Classic {
+                    String::new()
+                } else if app.ui.window == MainWindow::Edit || app.ui.mix_separate {
+                    " · Edit".into()
+                } else {
+                    " · Mix".into()
+                };
+                let title =
+                    format!("{}{}  —  {}{window}", app.engine.session().name, if app.engine.is_dirty() { " *" } else { "" }, app.ui.layout.label());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // The mode toggle, top right: the current mode's logo, all six a click away.
+                    crate::modes::toggle(app, ui);
+                    ui.add_space(6.0);
                     ui.label(egui::RichText::new(title).color(t.text_dim));
                 });
             });
         },
     );
+}
+
+/// The catalog's menus (Pro Tools-style names), after Solara's own app menu.
+fn catalog_menus(app: &mut SoundApp, ui: &mut egui::Ui) {
+    let t = crate::theme::Tokens::current();
+    let menu_entries_enabled = !app.ui.show_preferences;
+    let preferences_enabled = preferences_menu_enabled(app);
+    ui.menu_button("Solara", |ui| {
+        ui.add_enabled_ui(menu_entries_enabled, |ui| {
+            if ui.button("About Solara").clicked() {
+                app.ui.show_about = true;
+            }
+            if ui.add_enabled(preferences_enabled, egui::Button::new("Preferences...")).clicked() {
+                let _ = app.run("setup.preferences", json!({"value": true}));
+            }
+            if crate::updates_ui::UPDATE_CHECKS_ENABLED && ui.button("Check for Updates…").clicked() {
+                let _ = app.run("app.checkForUpdates", json!({}));
+            }
+            if ui.button("Session Info").clicked() {
+                app.ui.show_session_info = true;
+            }
+            if ui.button("Session Audio Health").clicked() {
+                let _ = app.run("window.audio_health", json!({"value": true}));
+            }
+            ui.separator();
+            if ui.button("Quit").clicked() {
+                let _ = crate::dialogs::run_or_ask(app, "app.quit", json!({}));
+            }
+        });
+    });
+    let extra = ui_aliases();
+    for root in tree() {
+        ui.menu_button(root.label.as_str(), |ui| {
+            ui.add_enabled_ui(menu_entries_enabled, |ui| {
+                for c in &root.children {
+                    menu_node(app, ui, c, &extra);
+                    if c.path == "File > Open" {
+                        crate::recent::menu(app, ui);
+                    }
+                    if c.path == "Track > New..." {
+                        instrument_menu(app, ui);
+                    }
+                }
+                if root.path == "AudioSuite" {
+                    ui.separator();
+                    ui.label(egui::RichText::new("Processes selected clips offline").small().color(t.text_dim));
+                }
+                if root.path == "Window" {
+                    ui.separator();
+                    // The modes, also on the toggle at the top right.
+                    for preset in crate::new_layout::LayoutPreset::ALL.into_iter().filter(|p| p.available()) {
+                        if ui.radio(app.ui.layout == preset, format!("{} Mode", preset.label())).clicked() {
+                            let _ = run_ui_command(app, "ui.layout", &json!({"preset": preset.id()}));
+                            ui.close();
+                        }
+                    }
+                    ui.separator();
+                    let mut separate = app.ui.mix_separate;
+                    if ui.checkbox(&mut separate, "Mix in Separate Window").on_hover_text("Show Edit and Mix at once, e.g. one per monitor").changed()
+                    {
+                        let _ = run_ui_command(app, "window.mix_separate", &json!({"value": separate}));
+                        ui.close();
+                    }
+                }
+            });
+        });
+    }
 }
 
 /// Track › Instrument: the instrument picker for the selected instrument track (#374).
@@ -399,7 +397,7 @@ fn instrument_track(s: &soundcraft_model::Session) -> Option<soundcraft_model::T
     s.tracks.iter().find(|t| t.kind.plays_instrument() && s.edit.selected_tracks.contains(&t.id)).map(|t| t.id)
 }
 
-fn menu_node(app: &mut SoundApp, ui: &mut egui::Ui, n: &MenuNode, extra: &[(&str, &str)]) {
+pub(crate) fn menu_node(app: &mut SoundApp, ui: &mut egui::Ui, n: &MenuNode, extra: &[(&str, &str)]) {
     if !n.children.is_empty() {
         ui.menu_button(&n.label, |ui| {
             for c in &n.children {
