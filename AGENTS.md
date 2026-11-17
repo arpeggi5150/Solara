@@ -139,6 +139,7 @@ Push to the `release` branch to build signed installers for macOS (universal DMG
 ## CI workflows
 - Workflows in `.github/workflows/` call the shared workflows in [`storytold/craft-common-actions`](https://github.com/storytold/craft-common-actions) at `@main`, with their inputs and secrets. No other jobs: if no shared workflow does what's needed, it doesn't go here.
 - Don't add or change CI in a feature or fix PR. If the existing workflows can't build or test a change, link an existing craft-common-actions issue or PR, or open a new issue, or a PR only for a small fix that is safe for every app and does not increase CI time.
+- Exception (owner-approved 2026-11-17): `publish.yml` runs its own jobs. It builds the Windows MSI and portable zip and publishes them to arpeggi5150/Solara-Releases on a `v*` tag, because the shared release workflow needs signing secrets this repo does not have. Keep it narrow: it is not a model for other workflows.
 - Some workflow files here still run their own jobs. Don't add to them. Moving a job into craft-common-actions is its own task, never part of another PR, and the job stays here until a shared workflow runs it.
 
 New workspace crates include `[lints] workspace = true` in `Cargo.toml`. Production crate roots declare the crate-level lint attributes before modules; crate-level `//!` documentation may precede them.
