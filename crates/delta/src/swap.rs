@@ -81,21 +81,31 @@ fn apply_failing_at(plan: &Plan, fail_at: Option<usize>) -> Result<(), String> {
     }
     let mut done = 0usize;
     let mut result = Ok(());
+    // Where each old file went: `<name>.solara-old`, or a numbered name when an earlier swap's
+    // `.solara-old` is still held open (a plugin a running DAW has loaded can be renamed, not deleted).
+    let mut aside: Vec<Option<PathBuf>> = vec![None; work.len()];
     for (i, w) in work.iter().enumerate() {
         let step = (|| {
             if fail_at == Some(i) {
                 return Err("simulated failure".to_string());
             }
-            if w.has_old {
-                std::fs::rename(&w.target, with_suffix(&w.target, OLD)).map_err(|e| format!("couldn't move {} aside ({e})", w.target.display()))?;
-            }
+            let old = if w.has_old {
+                let old = aside_path(&w.target);
+                std::fs::rename(&w.target, &old).map_err(|e| format!("couldn't move {} aside ({e})", w.target.display()))?;
+                Some(old)
+            } else {
+                None
+            };
             if let Some((_, copy, _)) = &w.new
                 && let Err(e) = std::fs::rename(copy, &w.target)
             {
-                if w.has_old {
-                    let _ = std::fs::rename(with_suffix(&w.target, OLD), &w.target);
+                if let Some(old) = &old {
+                    let _ = std::fs::rename(old, &w.target);
                 }
                 return Err(format!("couldn't put the new {} in place ({e})", w.target.display()));
+            }
+            if let Some(slot) = aside.get_mut(i) {
+                *slot = old;
             }
             Ok(())
         })();
@@ -106,23 +116,34 @@ fn apply_failing_at(plan: &Plan, fail_at: Option<usize>) -> Result<(), String> {
         done = i + 1;
     }
     if let Err(e) = result {
-        for w in work.iter().take(done).rev() {
+        for (w, old) in work.iter().zip(&aside).take(done).rev() {
             if w.new.is_some() {
                 let _ = std::fs::remove_file(&w.target);
             }
-            if w.has_old {
-                let _ = std::fs::rename(with_suffix(&w.target, OLD), &w.target);
+            if let Some(old) = old {
+                let _ = std::fs::rename(old, &w.target);
             }
         }
         cleanup_new(&work);
         return Err(format!("{e}; the old version was put back"));
     }
-    for w in &work {
-        if w.has_old {
-            let _ = std::fs::remove_file(with_suffix(&w.target, OLD));
-        }
+    for old in aside.iter().flatten() {
+        let _ = std::fs::remove_file(old);
     }
     Ok(())
+}
+
+/// A free name to move `target` aside to: `<name>.solara-old`, deleting a leftover one first; if a
+/// leftover can't be deleted (still loaded somewhere), `<name>.solara-old.1`, `.2`, …
+fn aside_path(target: &Path) -> PathBuf {
+    let plain = with_suffix(target, OLD);
+    for n in 0..100u32 {
+        let p = if n == 0 { plain.clone() } else { with_suffix(target, &format!("{OLD}.{n}")) };
+        if std::fs::symlink_metadata(&p).is_err() || std::fs::remove_file(&p).is_ok() {
+            return p;
+        }
+    }
+    plain
 }
 
 /// Give the new file the permissions of the one it replaces (the executable bit on Unix).
@@ -274,5 +295,25 @@ mod tests {
         let mut f = fixture("outside");
         f.plan.steps[0].staged = Some(f.root.join("elsewhere"));
         assert!(apply(&f.plan).unwrap_err().contains("outside"));
+    }
+
+    #[test]
+    fn a_leftover_old_copy_gets_a_numbered_name_instead_of_blocking() {
+        let f = fixture("leftover");
+        let a = f.plan.install_dir.join("a");
+        // A leftover from an earlier swap that can't be deleted: a non-empty folder stands in for
+        // a file another program still has open.
+        let stuck = with_suffix(&a, OLD);
+        std::fs::create_dir_all(stuck.join("held")).unwrap();
+        assert_eq!(aside_path(&a), with_suffix(&a, &format!("{OLD}.1")));
+        apply(&f.plan).unwrap();
+        assert_eq!(std::fs::read(&a).unwrap(), b"new a");
+        assert!(stuck.is_dir(), "the stuck leftover is left for later");
+        assert!(!with_suffix(&a, &format!("{OLD}.1")).exists(), "this swap's own old copy is deleted");
+        // A leftover that can be deleted is reused.
+        let _ = std::fs::remove_dir_all(&stuck);
+        std::fs::write(&stuck, b"stale").unwrap();
+        assert_eq!(aside_path(&a), stuck);
+        assert!(!stuck.exists());
     }
 }

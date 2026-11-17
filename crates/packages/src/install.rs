@@ -216,7 +216,7 @@ pub fn sweep(root: &Path, bundles: &[String]) {
                 let p = e.path();
                 if e.file_type().is_ok_and(|t| t.is_dir()) {
                     stack.push(p);
-                } else if p.to_string_lossy().ends_with(OLD_SUFFIX) || p.to_string_lossy().ends_with(NEW_SUFFIX) {
+                } else if is_leftover(&p.to_string_lossy()) {
                     let _ = std::fs::remove_file(&p);
                 }
             }
@@ -252,7 +252,7 @@ fn walk(root: &Path, bundle: &str) -> Result<Vec<String>, String> {
             }
             if t.is_dir() {
                 stack.push((e.path(), child));
-            } else if !name.ends_with(OLD_SUFFIX) && !name.ends_with(NEW_SUFFIX) {
+            } else if !is_leftover(&name) {
                 safe_relative(&child)?;
                 out.push(child);
             }
@@ -263,6 +263,15 @@ fn walk(root: &Path, bundle: &str) -> Result<Vec<String>, String> {
     }
     out.sort();
     Ok(out)
+}
+
+/// `x.solara-old`, `x.solara-old.3` or `x.solara-new`: a swap's leftover, not a package file.
+fn is_leftover(name: &str) -> bool {
+    name.ends_with(NEW_SUFFIX)
+        || name.ends_with(OLD_SUFFIX)
+        || name
+            .rsplit_once(OLD_SUFFIX)
+            .is_some_and(|(_, n)| n.strip_prefix('.').is_some_and(|d| !d.is_empty() && d.bytes().all(|b| b.is_ascii_digit())))
 }
 
 fn current_hash(root: &Path, path: &str) -> Result<Option<String>, String> {
@@ -497,9 +506,13 @@ mod tests {
         std::fs::create_dir_all(&b).unwrap();
         std::fs::write(b.join("A.vst3"), b"keep").unwrap();
         std::fs::write(b.join("A.vst3.solara-old"), b"old").unwrap();
+        std::fs::write(b.join("A.vst3.solara-old.2"), b"older").unwrap();
+        std::fs::write(b.join("A.vst3.solara-oldie"), b"not ours").unwrap();
         sweep(&t.0, &["VST3/A.vst3".into()]);
         assert!(b.join("A.vst3").exists());
         assert!(!b.join("A.vst3.solara-old").exists());
+        assert!(!b.join("A.vst3.solara-old.2").exists());
+        assert!(b.join("A.vst3.solara-oldie").exists());
         assert_eq!(bundle_of("VST3/A.vst3/Contents/x"), Some("VST3/A.vst3"));
         assert_eq!(bundle_of("CLAP/A.clap"), Some("CLAP/A.clap"));
     }
