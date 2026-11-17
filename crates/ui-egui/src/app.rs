@@ -74,9 +74,11 @@ impl SoundApp {
             leftovers: Vec::new(),
             panic_rev: 0,
             preset_dir: None,
+            update_dir: None,
             last_autosave: None,
             dialogs: dialogs::Dialogs::default(),
             updates_rt: updates_ui::Runtime::default(),
+            delta_rt: crate::delta_update::Runtime::default(),
             splash: splash::Splash::default(),
             raise: splash::Raise::default(),
             browser_search: String::new(),
@@ -213,6 +215,7 @@ impl SoundApp {
             bounce::step(self, ctx);
             import::step(self, ctx);
             updates_ui::tick(self, ctx);
+            crate::delta_update::tick(self, ctx);
         }
         if !self.pointer_down {
             if matches!(self.gesture, Some(Gesture::Fader { .. } | Gesture::SendFader { .. })) {
@@ -396,6 +399,7 @@ impl SoundApp {
         crate::tagging::show(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
+        crate::delta_update::show(self, &ctx);
         splash::show(&mut self.splash, self.uptime, &ctx);
         splash::raise(&mut self.raise, self.uptime, &ctx);
         // The sampler's drop rects are current now, so route any captured drop in this pass.

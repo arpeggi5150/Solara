@@ -624,6 +624,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bsdiff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6709158fe6ca66c1f32eb27b4ae5997c67b0df350ae185831233af3e7a91213"
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2845,6 +2851,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ntapi"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3b335231dfd352ffb0f8017f3b6027a4917f7df785ea2143d8af2adc66980ae"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "num-complex"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3130,6 +3145,16 @@ dependencies = [
  "block2 0.6.2",
  "libc",
  "objc2 0.6.5",
+ "objc2-core-foundation",
+]
+
+[[package]]
+name = "objc2-io-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33fafba39597d6dc1fb709123dfa8289d39406734be322956a69f0931c73bb15"
+dependencies = [
+ "libc",
  "objc2-core-foundation",
 ]
 
@@ -4452,6 +4477,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "soundcraft-delta"
+version = "0.1.0"
+dependencies = [
+ "bsdiff",
+ "flate2",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "soundcraft-dsp"
 version = "0.1.0"
 dependencies = [
@@ -4569,6 +4605,7 @@ dependencies = [
  "soundcraft-au-host",
  "soundcraft-audio-io",
  "soundcraft-clap-host",
+ "soundcraft-delta",
  "soundcraft-dsp",
  "soundcraft-engine",
  "soundcraft-midi",
@@ -4581,6 +4618,16 @@ dependencies = [
  "toml",
  "web-time",
  "zbus",
+]
+
+[[package]]
+name = "soundcraft-updater"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "rfd",
+ "soundcraft-delta",
+ "sysinfo",
 ]
 
 [[package]]
@@ -4916,6 +4963,20 @@ dependencies = [
  "libc",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.40.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e80749408e2d8bec0ffa303012cf4e1b3b355f4a09087b4fdf7473680f6a2de"
+dependencies = [
+ "libc",
+ "memchr",
+ "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows",
 ]
 
 [[package]]
@@ -6452,6 +6513,7 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "soundcraft-delta",
 ]
 
 [[package]]

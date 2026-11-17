@@ -563,6 +563,11 @@ fn handle(app: &mut SoundApp, ctx: &egui::Context, req: &ControlRequest) -> Opti
             Ok(()) => return None,
             Err(e) => err(e),
         },
+        "app.delta_update" => match crate::delta_update::start(app, p) {
+            Ok(v) => ok(v),
+            Err(e) => err(e),
+        },
+        "app.delta_update.status" => ok(crate::delta_update::status(app)),
         "app.quit" => {
             app.quit_requested = true;
             ok(json!({}))

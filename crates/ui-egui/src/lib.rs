@@ -24,6 +24,7 @@ pub mod appearance;
 pub mod bounce;
 pub mod control;
 pub mod credits;
+mod delta_update;
 pub mod dialogs;
 pub mod docking;
 pub mod edit_window;
@@ -438,9 +439,12 @@ pub struct SoundApp {
     panic_rev: u64,
     /// Folder for user plugin presets (native apps set it).
     pub preset_dir: Option<std::path::PathBuf>,
+    /// Folder where delta updates are staged and the updater reports back (native apps set it).
+    pub update_dir: Option<std::path::PathBuf>,
     last_autosave: Option<std::time::Instant>,
     pub dialogs: dialogs::Dialogs,
     pub(crate) updates_rt: updates_ui::Runtime,
+    pub(crate) delta_rt: delta_update::Runtime,
     /// The start-up splash (off unless the host turns it on).
     splash: splash::Splash,
     /// Bring the window to the front at launch (off unless the host turns it on).

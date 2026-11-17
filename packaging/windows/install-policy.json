@@ -13,6 +13,7 @@
   "payloads": [
     "NOTICE",
     "solara-cli.exe",
+    "solara-updater.exe",
     "solara.exe"
   ],
   "registry": [
