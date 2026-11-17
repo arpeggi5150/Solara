@@ -2,10 +2,9 @@ use super::automation::draw_automation;
 use super::clips::{ClipLane, GridLines, draw_clip, draw_live_take, draw_strip_silence};
 use super::header::{header_column, track_header};
 use super::input::lane_interaction;
-use super::layout::{Column, HEADER_W, LANE_H, STRIP_W, lane_rect, sample_at, x_of};
+use super::layout::{Column, LANE_H, STRIP_W, lane_rect, sample_at, x_of};
 use super::{
-    Align2, AutoParam, Range, Rect, Sense, Session, SoundApp, Stroke, Tokens, Track, TrackHeight, TrackId, TrackKind, Ui, json, ops, pos2, regular,
-    rgb, vec2,
+    Align2, AutoParam, Range, Rect, Sense, Session, SoundApp, Stroke, Tokens, Track, TrackId, TrackKind, Ui, json, ops, pos2, regular, rgb, vec2,
 };
 
 pub(super) fn in_edit_window(s: &Session, t: &Track) -> bool {
@@ -59,12 +58,15 @@ pub(crate) fn click_track(app: &mut SoundApp, id: TrackId, mods: egui::Modifiers
 // ---- track rows ------------------------------------------------------------------------------
 
 /// Draw one track with grid positions shared by all lanes in the current frame.
-pub(super) fn track_row(app: &mut SoundApp, ui: &mut Ui, id: TrackId, row: Rect, tl: Rect, cols: &[Column], grid: &GridLines) {
+/// One track row: its header at `head` (x and width; Pro Tools-style's columns follow it), and its lane.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn track_row(app: &mut SoundApp, ui: &mut Ui, id: TrackId, row: Rect, tl: Rect, cols: &[Column], grid: &GridLines, head: (f32, f32)) {
     let t = Tokens::current();
     let s = app.engine.session_arc();
     let Some(track) = s.track(id) else { return };
     let selected = s.edit.selected_tracks.contains(&id);
-    let head = Rect::from_min_max(row.min, pos2(row.min.x + HEADER_W, row.max.y));
+    let head = Rect::from_min_max(pos2(head.0, row.min.y), pos2(head.0 + head.1, row.max.y));
+    let style = crate::modes::current(app).header;
     let (head_bg, lane_bg) = crate::theme::track_backgrounds(track.color, selected, app.ui.track_tint);
     let mut x = head.max.x;
     for &(col, _, _, w) in cols {
@@ -73,13 +75,18 @@ pub(super) fn track_row(app: &mut SoundApp, ui: &mut Ui, id: TrackId, row: Rect,
     }
     let main_h = track.height.points();
     let lane = lane_rect(track, row, tl);
-    ui.painter().rect_filled(head, 0.0, head_bg);
-    ui.painter().rect_filled(Rect::from_min_size(head.min, vec2(STRIP_W, head.height())), 0.0, rgb(track.color));
-    ui.painter().line_segment([pos2(head.min.x, row.max.y + 0.5), pos2(tl.max.x, row.max.y + 0.5)], Stroke::new(1.0, t.border));
-    ui.painter().hline(head.min.x + STRIP_W..=head.max.x, head.min.y + 0.5, Stroke::new(1.0, t.edge_light));
-    track_header(app, ui, track, head, selected, head_bg);
+    ui.painter().line_segment([pos2(row.min.x, row.max.y + 0.5), pos2(row.max.x, row.max.y + 0.5)], Stroke::new(1.0, t.border));
+    if style == crate::modes::Header::ProTools {
+        ui.painter().rect_filled(head, 0.0, head_bg);
+        ui.painter().rect_filled(Rect::from_min_size(head.min, vec2(STRIP_W, head.height())), 0.0, rgb(track.color));
+        ui.painter().hline(head.min.x + STRIP_W..=head.max.x, head.min.y + 0.5, Stroke::new(1.0, t.edge_light));
+        track_header(app, ui, track, head, selected, head_bg);
+    } else {
+        super::mode_header::draw(app, ui, track, head, selected, head_bg, style);
+    }
     // Lane.
     ui.painter().vline(tl.min.x - 0.5, row.y_range(), Stroke::new(1.0, t.border));
+    ui.painter().vline(tl.max.x + 0.5, row.y_range(), Stroke::new(1.0, t.border));
     let painter = ui.painter().with_clip_rect(lane.intersect(ui.clip_rect()));
     painter.rect_filled(lane, 0.0, lane_bg);
     let s = app.engine.session_arc();
@@ -201,34 +208,18 @@ pub(super) fn view_menu(app: &mut SoundApp, ui: &mut Ui, track: &Track) {
     }
 }
 
+/// A track's right-click menu, in the active mode's words and order.
 pub(crate) fn track_context_menu(app: &mut SoundApp, ui: &mut Ui, id: TrackId) {
-    let tid = id.0;
-    let items: [(&str, &str); 10] = [
-        ("Rename...", "ui.rename_track"),
-        ("Duplicate...", "track.duplicate"),
-        ("Make Inactive", "track.make_inactive"),
-        ("Hide", "track.hide"),
-        ("Delete", "track.delete"),
-        ("Split into Mono", "track.split_into_mono"),
-        ("Commit...", "track.commit"),
-        ("Freeze", "track.freeze"),
-        ("Move to New Folder...", "track.move_to_new_folder"),
-        ("Group...", "track.group"),
-    ];
     let selection: Vec<u64> = {
         let selected = &app.engine.session().edit.selected_tracks;
-        if selected.contains(&id) { selected.iter().map(|track| track.0).collect() } else { vec![tid] }
+        if selected.contains(&id) { selected.iter().map(|track| track.0).collect() } else { vec![id.0] }
     };
-    for (label, cmd) in items {
-        if ui.button(label).clicked() {
-            if cmd == "ui.rename_track" {
-                let name = app.engine.session().track(id).map(|t| t.name.clone()).unwrap_or_default();
-                app.dialogs.open_rename_track(id, &name);
-            } else {
-                let _ = app.run(cmd, json!({"tracks": selection}));
-            }
-        }
-    }
+    let entries = crate::modes::current(app).track_menu;
+    crate::modes::context_menu(app, ui, entries, &crate::modes::Target::Tracks(id, selection));
+}
+
+/// Move to Folder and Remove from Folder, for the tracks of a right-click menu.
+pub(crate) fn folder_entries(app: &mut SoundApp, ui: &mut Ui, id: TrackId, selection: &[u64]) {
     let folders: Vec<(u64, String)> = app
         .engine
         .session()
@@ -249,6 +240,10 @@ pub(crate) fn track_context_menu(app: &mut SoundApp, ui: &mut Ui, id: TrackId) {
     if app.engine.session().track(id).is_some_and(|track| track.folder.is_some()) && ui.button("Remove from Folder").clicked() {
         let _ = app.run("track.remove_from_folder", json!({"tracks": selection}));
     }
+}
+
+/// Tags..., Add Tag, Remove Tag and Smart Tag Scan..., for the tracks of a right-click menu.
+pub(crate) fn tag_entries(app: &mut SoundApp, ui: &mut Ui, id: TrackId, selection: &[u64]) {
     if ui.button("Tags...").clicked() {
         crate::tagging::open_editor(app, selection.iter().map(|&t| TrackId(t)).collect());
     }
@@ -272,27 +267,4 @@ pub(crate) fn track_context_menu(app: &mut SoundApp, ui: &mut Ui, id: TrackId) {
     if ui.button("Smart Tag Scan...").clicked() {
         crate::tagging::open_scan(app);
     }
-    // Only the track clicked: the command has one target, and the selection stays as it is.
-    if ui.button("Scroll Into View").clicked() {
-        let _ = app.run("view.scroll_into_view", json!({"track": id.0}));
-    }
-    ui.separator();
-    ui.menu_button("Track Height", |ui| {
-        for h in TrackHeight::ALL {
-            if ui.button(h.label()).clicked() {
-                let own: Vec<TrackId> = selection.iter().map(|&t| TrackId(t)).collect();
-                let tracks = height_targets(app.engine.session(), ui.input(|i| i.modifiers), &own);
-                let _ = app.run("track.height", json!({"tracks": tracks, "height": h.label()}));
-            }
-        }
-    });
-    ui.menu_button("Track Color", |ui| {
-        for (i, c) in soundcraft_model::TRACK_COLORS.iter().enumerate() {
-            let (r, resp) = ui.allocate_exact_size(vec2(120.0, 14.0), Sense::click());
-            ui.painter().rect_filled(r, 2.0, rgb(*c));
-            if resp.clicked() {
-                let _ = app.run("track.color", json!({"tracks": selection, "color": i}));
-            }
-        }
-    });
 }

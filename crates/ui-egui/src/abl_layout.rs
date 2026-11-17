@@ -44,6 +44,7 @@ pub const ABL_KEYS: &[(&str, &str)] = &[
     ("Cmd+D", "edit.duplicate"),
     ("Cmd+U", "event.quantize"),
     ("Cmd+T", "track.new"),
+    ("Cmd+,", "setup.preferences"),
     ("F9", "transport.record"),
     ("Cmd+L", "options.loop_playback"),
     ("Delete", "edit.clear"),

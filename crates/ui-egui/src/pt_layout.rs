@@ -66,20 +66,12 @@ fn mix(app: &mut SoundApp, ui: &mut Ui) {
     if resp.on_hover_text(tip).clicked() {
         let _ = app.run("ui.mixer", json!({}));
     }
-    // The way to the other layouts, which Classic finds in the Window menu.
+    // The mode toggle, when the menus are the system's; otherwise it is at the top right of the menu bar.
     let row = Rect::from_min_max(pos2(toggle.max.x, header.min.y + 2.0), pos2(header.max.x - 8.0, header.max.y - 2.0));
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(row).layout(egui::Layout::right_to_left(egui::Align::Center)));
     child.spacing_mut().item_spacing.x = 4.0;
     child.spacing_mut().button_padding = vec2(6.0, 1.0);
-    for preset in LayoutPreset::ALL.into_iter().rev() {
-        let on = app.ui.layout == preset;
-        let text = egui::RichText::new(preset.label()).font(bold(10.5)).color(if on { t.mode_on_text } else { t.text });
-        let button = egui::Button::new(text).fill(if on { t.mode_on } else { t.button }).selected(on);
-        let tip = if preset.available() { format!("{} layout", preset.label()) } else { format!("{} layout: later", preset.label()) };
-        if child.add_enabled(preset.available(), button).on_hover_text(tip.clone()).on_disabled_hover_text(tip).clicked() {
-            let _ = app.run("ui.layout", json!({"preset": preset.id()}));
-        }
-    }
+    crate::new_layout::switcher(app, &mut child);
     if open {
         let body = Rect::from_min_max(pos2(r.min.x, header.max.y), r.max);
         let mut child = ui.new_child(egui::UiBuilder::new().max_rect(body));

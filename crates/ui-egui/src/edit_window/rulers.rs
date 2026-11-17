@@ -86,7 +86,8 @@ fn nice_step(spp: f64, sr: f64, min_px: f64) -> i64 {
 }
 
 /// Draw each enabled ruler and handle its clicks and double-clicks against the visible sample range.
-pub(super) fn draw_rulers(app: &mut SoundApp, ui: &mut Ui, area: Rect, tl: Rect, rulers: &[String]) {
+/// `labels` is the x span the ruler names sit in: over the track headers.
+pub(super) fn draw_rulers(app: &mut SoundApp, ui: &mut Ui, area: Rect, tl: Rect, rulers: &[String], labels: (f32, f32)) {
     let t = Tokens::current();
     let s = app.engine.session_arc();
     ui.painter().rect_filled(area, 0.0, t.ruler_bg);
@@ -96,7 +97,7 @@ pub(super) fn draw_rulers(app: &mut SoundApp, ui: &mut Ui, area: Rect, tl: Rect,
     for (i, id) in rulers.iter().enumerate() {
         let h = ruler_height(id);
         let row = Rect::from_min_max(pos2(tl.min.x, y0), pos2(tl.max.x, y0 + h));
-        let lab = Rect::from_min_max(pos2(area.min.x, y0), pos2(area.min.x + HEADER_W, y0 + h));
+        let lab = Rect::from_min_max(pos2(labels.0, y0), pos2(labels.1, y0 + h));
         y0 += h;
         let painter = ui.painter().with_clip_rect(row);
         ui.painter().text(pos2(lab.max.x - 12.0, lab.center().y), Align2::RIGHT_CENTER, ruler_label(id), bold(11.0), t.ruler_text);

@@ -104,7 +104,10 @@ a portal answer it uses Dark. Manual Light and Dark stay fixed when the OS appea
 An offscreen render without `--system-theme` supplies no OS appearance and therefore resolves
 System to Dark, or on Linux to the desktop's portal setting when one is available.
 
-Layouts: the app opens in the NEW layout.
+Modes (layouts): a fresh start opens in Pro Tools-style; a chosen mode is kept with the settings.
+Each mode brings its own menu bar, right-click menus, left-click behaviour, track headers, rulers,
+mixer sections, settings place and colours, all over the same commands (`crates/ui-egui/src/modes.rs`).
+The mode toggle at the top right of the menu bar shows the current mode's logo and picks any of the six.
 `ui.layout {"preset":"new"|"flStyle"|"classic"|"reaper"|"proToolsStyle"|"abletonStyle"}` switches between NEW,
 the FL-style layout (Browser and Channel Rack on the left, Playlist in the centre, Piano Roll and
 Mixer along the bottom), Classic (the Edit and Mix windows), the Reaper-style layout (transport on

@@ -34,6 +34,7 @@ pub mod import;
 pub mod keymap;
 pub mod menus;
 pub mod mix_window;
+pub mod modes;
 pub mod new_layout;
 pub mod palette;
 pub mod panels;
@@ -170,7 +171,7 @@ pub struct UiState {
     pub window_size: [f32; 2],
     pub window_maximized: bool,
     pub ui_scale: f32,
-    /// The layout preset (`ui.layout`): NEW by default, Classic on request.
+    /// The mode (`ui.layout`): Pro Tools-style on a fresh start.
     pub layout: new_layout::LayoutPreset,
     /// The NEW layout's Mixer, expanded in place (`ui.mixer`, M). Collapsed by default.
     pub new_mixer_open: bool,
@@ -265,7 +266,7 @@ impl Default for UiState {
             window_size: [1600.0, 1000.0],
             window_maximized: false,
             ui_scale: 1.0,
-            layout: new_layout::LayoutPreset::New,
+            layout: new_layout::LayoutPreset::ProToolsStyle,
             new_mixer_open: false,
             new_editor: new_layout::EditorView::Auto,
             reaper_mixer_open: true,

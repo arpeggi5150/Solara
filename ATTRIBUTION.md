@@ -10,7 +10,10 @@ Assets must be original, public domain (CC0) or permissively licensed. See `AGEN
 
 All UI icons (tools, transport, track buttons) are drawn procedurally in
 `crates/ui-egui/src/icons.rs` by the SoundCraft contributors (MIT OR Apache-2.0). No UI icon image
-files are used. The Solara app icon, wordmark and splash (`assets/app-icon/`, `assets/brand/`,
+files are used. The six mode logos in the top-right mode picker (a sun, two cherries, a cassette,
+a scythe, a toolbox, a grid of clip slots) are original parody art drawn in code in
+`crates/ui-egui/src/modes.rs` by the Solara contributors (MIT OR Apache-2.0); none is, or is
+traced from, any DAW's real logo or brand mark. The Solara app icon, wordmark and splash (`assets/app-icon/`, `assets/brand/`,
 `assets/splash/`) belong to Zee Creations LLC and are not open source; they are listed under
 Files below.
 

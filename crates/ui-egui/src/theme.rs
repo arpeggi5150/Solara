@@ -384,8 +384,176 @@ impl Tokens {
     };
 
     pub fn current() -> Tokens {
-        if is_light() { Self::LIGHT } else { Self::DARK }
+        let light = is_light();
+        skinned(if light { Self::LIGHT } else { Self::DARK }, skin(), light)
     }
+}
+
+/// The colours a mode brings with it. Classic keeps the base palette as it was.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Skin {
+    #[default]
+    Classic,
+    ProTools,
+    Reaper,
+    Fl,
+    Ableton,
+    New,
+}
+
+thread_local! {
+    /// The active mode's colours. Per thread: the UI draws on one thread, and tests on their own.
+    static SKIN: std::cell::Cell<Skin> = const { std::cell::Cell::new(Skin::Classic) };
+}
+
+/// The active mode's colours.
+pub fn skin() -> Skin {
+    SKIN.with(std::cell::Cell::get)
+}
+
+/// Make `s` the active mode's colours. Re-apply the visuals ([`apply`]) after a change.
+pub fn set_skin(s: Skin) {
+    SKIN.with(|c| c.set(s));
+}
+
+/// `base` in a mode's colours. Light keeps its greys and takes the mode's accent only.
+fn skinned(base: Tokens, skin: Skin, light: bool) -> Tokens {
+    let c = Color32::from_rgb;
+    let accent = match skin {
+        Skin::Classic => return base,
+        Skin::ProTools => (c(70, 140, 214), c(42, 92, 150)),
+        Skin::Reaper => (c(96, 168, 200), c(56, 108, 132)),
+        Skin::Fl => (c(255, 152, 48), c(168, 92, 24)),
+        Skin::Ableton => (c(255, 172, 40), c(150, 100, 20)),
+        Skin::New => (c(255, 170, 60), c(150, 96, 30)),
+    };
+    let mut t = Tokens { accent: accent.0, accent_dark: accent.1, ..base };
+    if light {
+        return t;
+    }
+    match skin {
+        Skin::Classic => {}
+        // Cool blue-grey panels and blue counters.
+        Skin::ProTools => {
+            t.window_bg = c(32, 34, 38);
+            t.panel_bg = c(40, 43, 48);
+            t.panel_bg2 = c(48, 51, 57);
+            t.toolbar_bg = c(34, 36, 41);
+            t.menu_bar = c(26, 28, 32);
+            t.playlist_bg = c(38, 40, 45);
+            t.playlist_alt = c(43, 46, 52);
+            t.ruler_bg = c(44, 47, 53);
+            t.ruler_label_bg = c(44, 47, 53);
+            t.strip_bg = c(50, 53, 60);
+            t.strip_section = c(38, 41, 47);
+            t.header_selected = c(56, 66, 82);
+            t.strip_selected = c(58, 66, 80);
+            t.counter_text = c(120, 196, 255);
+            t.row_selected = c(48, 72, 108);
+            t.selection = Color32::from_rgba_premultiplied(36, 72, 120, 120);
+        }
+        // Mid greys, a light time selection and a red edit cursor.
+        Skin::Reaper => {
+            t.window_bg = c(42, 42, 42);
+            t.panel_bg = c(56, 56, 56);
+            t.panel_bg2 = c(70, 70, 70);
+            t.toolbar_bg = c(50, 50, 50);
+            t.toolbar_group = c(40, 40, 40);
+            t.menu_bar = c(46, 46, 46);
+            t.playlist_bg = c(50, 50, 50);
+            t.playlist_alt = c(58, 58, 58);
+            t.ruler_bg = c(64, 64, 64);
+            t.ruler_label_bg = c(64, 64, 64);
+            t.ruler_text = c(212, 212, 212);
+            t.grid_line = c(60, 60, 60);
+            t.bar_line = c(78, 78, 78);
+            t.strip_bg = c(66, 66, 66);
+            t.strip_section = c(52, 52, 52);
+            t.header_selected = c(98, 108, 120);
+            t.strip_selected = c(92, 100, 112);
+            t.selection = Color32::from_rgba_premultiplied(70, 70, 70, 70);
+            t.insertion = c(230, 70, 60);
+            t.counter_bg = c(28, 28, 28);
+            t.counter_text = c(222, 222, 222);
+            t.mode_on = c(96, 168, 200);
+            t.mode_on_text = c(16, 24, 30);
+            t.row_selected = c(80, 92, 108);
+        }
+        // Slate blue-grey, orange highlights and green lights.
+        Skin::Fl => {
+            t.window_bg = c(44, 52, 58);
+            t.panel_bg = c(54, 62, 69);
+            t.panel_bg2 = c(64, 73, 81);
+            t.toolbar_bg = c(72, 80, 87);
+            t.toolbar_group = c(52, 59, 65);
+            t.menu_bar = c(60, 68, 75);
+            t.playlist_bg = c(50, 58, 65);
+            t.playlist_alt = c(56, 65, 72);
+            t.ruler_bg = c(62, 70, 77);
+            t.ruler_label_bg = c(62, 70, 77);
+            t.grid_line = c(58, 67, 74);
+            t.bar_line = c(74, 84, 92);
+            t.strip_bg = c(64, 72, 80);
+            t.strip_section = c(50, 58, 64);
+            t.header_selected = c(84, 96, 106);
+            t.strip_selected = c(86, 98, 108);
+            t.selection = Color32::from_rgba_premultiplied(96, 60, 20, 90);
+            t.counter_bg = c(32, 38, 42);
+            t.counter_text = c(255, 176, 92);
+            t.mode_on = c(126, 214, 82);
+            t.mode_on_text = c(18, 34, 10);
+            t.row_selected = c(92, 76, 52);
+        }
+        // Near-black and charcoal, yellow activators.
+        Skin::Ableton => {
+            t.window_bg = c(30, 30, 30);
+            t.panel_bg = c(40, 40, 40);
+            t.panel_bg2 = c(52, 52, 52);
+            t.toolbar_bg = c(36, 36, 36);
+            t.toolbar_group = c(28, 28, 28);
+            t.menu_bar = c(26, 26, 26);
+            t.playlist_bg = c(44, 44, 44);
+            t.playlist_alt = c(48, 48, 48);
+            t.ruler_bg = c(36, 36, 36);
+            t.ruler_label_bg = c(36, 36, 36);
+            t.grid_line = c(54, 54, 54);
+            t.bar_line = c(66, 66, 66);
+            t.strip_bg = c(48, 48, 48);
+            t.strip_section = c(38, 38, 38);
+            t.header_selected = c(70, 70, 70);
+            t.strip_selected = c(72, 72, 72);
+            t.selection = Color32::from_rgba_premultiplied(70, 96, 120, 100);
+            t.counter_bg = c(24, 24, 24);
+            t.counter_text = c(240, 240, 240);
+            t.mode_on = c(255, 210, 0);
+            t.mode_on_text = c(30, 24, 0);
+            t.row_selected = c(80, 72, 44);
+        }
+        // Night blue with a warm sun.
+        Skin::New => {
+            t.window_bg = c(24, 26, 36);
+            t.panel_bg = c(31, 34, 47);
+            t.panel_bg2 = c(39, 43, 58);
+            t.toolbar_bg = c(27, 29, 41);
+            t.menu_bar = c(20, 22, 31);
+            t.playlist_bg = c(29, 31, 43);
+            t.playlist_alt = c(34, 37, 50);
+            t.ruler_bg = c(35, 38, 52);
+            t.ruler_label_bg = c(35, 38, 52);
+            t.grid_line = c(42, 45, 60);
+            t.bar_line = c(56, 60, 78);
+            t.strip_bg = c(40, 44, 60);
+            t.strip_section = c(31, 34, 47);
+            t.header_selected = c(56, 60, 84);
+            t.strip_selected = c(58, 62, 86);
+            t.selection = Color32::from_rgba_premultiplied(90, 64, 24, 100);
+            t.counter_text = c(255, 196, 92);
+            t.mode_on = c(255, 170, 60);
+            t.mode_on_text = c(40, 24, 4);
+            t.row_selected = c(72, 60, 40);
+        }
+    }
+    t
 }
 
 /// Whether the Light palette is the active one.
@@ -508,6 +676,23 @@ mod tests {
     }
 
     #[test]
+    fn mode_colours_tint_dark_and_keep_light_greys() {
+        let _palette = lock_test_palette();
+        let before = skin();
+        set_skin(Skin::Classic);
+        assert_eq!(skinned(Tokens::DARK, Skin::Classic, false).panel_bg, Tokens::DARK.panel_bg);
+        for s in [Skin::ProTools, Skin::Reaper, Skin::Fl, Skin::Ableton, Skin::New] {
+            assert_ne!(skinned(Tokens::DARK, s, false).panel_bg, Tokens::DARK.panel_bg, "{s:?}");
+            let light = skinned(Tokens::LIGHT, s, true);
+            assert_eq!(light.panel_bg, Tokens::LIGHT.panel_bg, "{s:?}");
+            assert_ne!(light.accent, Tokens::LIGHT.accent, "{s:?}");
+        }
+        set_skin(Skin::Reaper);
+        assert_eq!(Tokens::current().panel_bg, skinned(if is_light() { Tokens::LIGHT } else { Tokens::DARK }, Skin::Reaper, is_light()).panel_bg);
+        set_skin(before);
+    }
+
+    #[test]
     fn dark_is_the_default() {
         assert_eq!(ThemeMode::default(), ThemeMode::Dark);
         assert_eq!(UiState::default().theme, ThemeMode::Dark);
@@ -592,7 +777,8 @@ mod tests {
         for initial in [Some(egui::Theme::Light), Some(egui::Theme::Dark), None] {
             let ctx = egui::Context::default();
             let mut app = SoundApp::new(soundcraft_engine::Engine::default(), None, Services::default());
-            app.ui = serde_json::from_value(json!({"theme": "system"})).unwrap();
+            // Classic keeps the base palette; the other modes tint it (see `mode_colours_tint_dark_and_keep_light_greys`).
+            app.ui = serde_json::from_value(json!({"theme": "system", "layout": "classic"})).unwrap();
             frame(&mut app, &ctx, initial, initial == Some(egui::Theme::Light));
         }
 
@@ -602,6 +788,7 @@ mod tests {
         track.color = [19, 83, 147];
         track.playlists.iter_mut().flat_map(|playlist| &mut playlist.clips).next().unwrap().color = Some([211, 57, 99]);
         let mut app = SoundApp::new(engine, None, Services::default());
+        app.ui.layout = crate::new_layout::LayoutPreset::Classic;
         for mode in [ThemeMode::System, ThemeMode::Light, ThemeMode::Dark] {
             app.run("ui.theme", json!({"mode": mode.id()})).unwrap();
             for appearance in appearances {

@@ -51,6 +51,7 @@ pub const REAPER_KEYS: &[(&str, &str)] = &[
     ("Cmd+T", "track.new"),
     ("Cmd+M", "ui.mixer"),
     ("Alt+R", "window.routing_matrix"),
+    ("Cmd+P", "setup.preferences"),
     // `?` is Shift+/ on most keyboards; hosts report it either way.
     ("Questionmark", "window.action_list"),
     ("Shift+Questionmark", "window.action_list"),
@@ -69,6 +70,7 @@ pub const FL_KEYS: &[(&str, &str)] = &[
     ("F7", "ui.piano_roll"),
     ("Alt+F8", "ui.browser"),
     ("F9", "ui.mixer"),
+    ("F10", "setup.preferences"),
     ("R", "transport.record"),
     ("Cmd+B", "edit.duplicate"),
     ("Delete", "edit.clear"),

@@ -19,6 +19,7 @@ mod drag;
 mod header;
 mod input;
 mod layout;
+mod mode_header;
 mod overlay;
 mod rulers;
 mod scroll;
@@ -35,6 +36,7 @@ pub(crate) use drag::drive_drag;
 use drag::fade_drag_range;
 #[cfg(test)]
 use header::{header_column, header_selector};
+pub(crate) use input::clip_in_selection;
 pub use input::{CLIP_FADER_TRAVEL, clip_gain_icon};
 #[cfg(test)]
 use input::{clip_at, fade_midpoint};
@@ -49,7 +51,7 @@ pub use scroll::zoom_toggle;
 #[cfg(test)]
 use scroll::{FollowFrame, follow_update};
 use scroll::{follow_zoom_toggle, hscrollbar, scroll_and_zoom, scroll_into_view};
-pub(crate) use tracks::{click_track, height_targets, track_context_menu};
+pub(crate) use tracks::{click_track, folder_entries, height_targets, tag_entries, track_context_menu};
 use tracks::{in_edit_window, track_row};
 use universe::universe;
 
@@ -123,13 +125,38 @@ fn status_bar(app: &mut SoundApp, ui: &mut Ui) {
     );
 }
 
-pub(crate) fn main_area(app: &mut SoundApp, ui: &mut Ui) {
-    let session = app.engine.session();
-    let mut ruler_height_total = session.edit.rulers.iter().map(|ruler| ruler_height(ruler)).sum::<f32>();
-    if session.edit.flag("view.ruler.tempo_editor") && session.edit.rulers.iter().any(|ruler| ruler == "tempo") {
-        ruler_height_total += ruler_height("tempo_editor");
+/// The rulers the active mode shows: its own set, or the session's View › Rulers choice.
+fn shown_rulers(app: &SoundApp) -> Vec<String> {
+    if let Some(own) = crate::modes::current(app).rulers {
+        return own.iter().map(|r| (*r).to_string()).collect();
     }
-    let minimum = vec2(header_width(&edit_columns(session)) + 64.0, ruler_height_total + 100.0);
+    let edit = &app.engine.session().edit;
+    let mut rulers = edit.rulers.clone();
+    if edit.flag("view.ruler.tempo_editor")
+        && let Some(i) = rulers.iter().position(|r| r == "tempo")
+    {
+        rulers.insert(i + 1, "tempo_editor".into());
+    }
+    rulers
+}
+
+/// The header columns and the header's width in the active mode: Pro Tools-style's optional columns, or
+/// the mode's own header.
+fn header_geometry(app: &SoundApp) -> (Vec<layout::Column>, f32, f32) {
+    let mode = crate::modes::current(app);
+    if mode.header == crate::modes::Header::ProTools {
+        let cols = edit_columns(app.engine.session());
+        let w = header_width(&cols);
+        (cols, HEADER_W, w)
+    } else {
+        (Vec::new(), mode.header_w, mode.header_w)
+    }
+}
+
+pub(crate) fn main_area(app: &mut SoundApp, ui: &mut Ui) {
+    let ruler_height_total = shown_rulers(app).iter().map(|ruler| ruler_height(ruler)).sum::<f32>();
+    let (_, _, hw) = header_geometry(app);
+    let minimum = vec2(hw + 64.0, ruler_height_total + 100.0);
     crate::docking::minimum_body(ui, minimum, |ui| main_area_content(app, ui));
 }
 
@@ -137,27 +164,28 @@ pub(crate) fn main_area(app: &mut SoundApp, ui: &mut Ui) {
 fn main_area_content(app: &mut SoundApp, ui: &mut Ui) {
     let t = Tokens::current();
     let full = ui.max_rect();
-    let rulers: Vec<String> = app.engine.session().edit.rulers.clone();
-    let mut rulers = rulers;
-    if app.engine.session().edit.flag("view.ruler.tempo_editor")
-        && let Some(i) = rulers.iter().position(|r| r == "tempo")
-    {
-        rulers.insert(i + 1, "tempo_editor".into());
-    }
-    let cols = edit_columns(app.engine.session());
+    let rulers = shown_rulers(app);
+    let (cols, head_w, hw) = header_geometry(app);
+    let right = crate::modes::current(app).header_right;
     let titles_h = if cols.is_empty() { 0.0 } else { COLUMN_TITLES_H };
     let rulers_h = rulers.iter().map(|r| ruler_height(r)).sum::<f32>() + 6.0 + titles_h;
     let hscroll_h = 14.0;
-    let hw = header_width(&cols);
-    let header = Rect::from_min_max(full.min, pos2(full.min.x + hw, full.max.y - hscroll_h));
-    let tl = Rect::from_min_max(pos2(full.min.x + hw, full.min.y + rulers_h), pos2(full.max.x - 12.0, full.max.y - hscroll_h));
+    let vscroll_w = 12.0;
+    // The headers sit left of the timeline, or right of it (Ableton-style), beside the scroll bar.
+    let head_x = if right { full.max.x - vscroll_w - hw } else { full.min.x };
+    let (tl_x0, tl_x1) = if right { (full.min.x, head_x) } else { (full.min.x + hw, full.max.x - vscroll_w) };
+    let row_x1 = full.max.x - vscroll_w;
+    let header = Rect::from_min_max(pos2(head_x, full.min.y), pos2(head_x + hw, full.max.y - hscroll_h));
+    let tl = Rect::from_min_max(pos2(tl_x0, full.min.y + rulers_h), pos2(tl_x1, full.max.y - hscroll_h));
     let rulers_rect = Rect::from_min_max(pos2(full.min.x, full.min.y), pos2(full.max.x, full.min.y + rulers_h));
     app.edit_layout.timeline = [tl.min.x, tl.min.y, tl.max.x, tl.max.y];
     follow_zoom_toggle(app);
     ui.painter().rect_filled(full, 0.0, t.window_bg);
     scroll_and_zoom(app, ui, full, tl);
-    draw_rulers(app, ui, rulers_rect, tl, &rulers);
-    views_button(app, ui, rulers_rect);
+    draw_rulers(app, ui, rulers_rect, tl, &rulers, (head_x, head_x + head_w));
+    if crate::modes::current(app).header == crate::modes::Header::ProTools {
+        views_button(app, ui, rulers_rect);
+    }
     column_titles(ui, rulers_rect, &cols);
     if let Some(id) = app.edit_scroll_into_view.take() {
         scroll_into_view(app, id, tl.height());
@@ -168,7 +196,7 @@ fn main_area_content(app: &mut SoundApp, ui: &mut Ui) {
     let mut content_h = 0.0;
     for t in app.engine.session().tracks.iter().filter(|x| in_edit_window(app.engine.session(), x)) {
         let h = track_height(t);
-        app.edit_layout.rows.push((t.id.0, [full.min.x, y, tl.max.x, y + h]));
+        app.edit_layout.rows.push((t.id.0, [full.min.x, y, row_x1, y + h]));
         y += h + 1.0;
         content_h += h + 1.0;
     }
@@ -181,7 +209,7 @@ fn main_area_content(app: &mut SoundApp, ui: &mut Ui) {
         if row.max.y >= clip_rect.min.y && row.min.y <= clip_rect.max.y {
             let mut child = ui.new_child(egui::UiBuilder::new().max_rect(row));
             child.set_clip_rect(clip_rect);
-            track_row(app, &mut child, TrackId(id), row, tl, &cols, &grid);
+            track_row(app, &mut child, TrackId(id), row, tl, &cols, &grid, (head_x, head_w));
         }
     }
     // Keep one consistent grid snapshot during this pass, then refresh after a row edits it.
@@ -189,7 +217,7 @@ fn main_area_content(app: &mut SoundApp, ui: &mut Ui) {
         ui.ctx().request_repaint();
     }
     // Below the tracks a click clears the selection and a double-click opens New Tracks.
-    let empty = Rect::from_min_max(pos2(full.min.x, y.max(tl.min.y)), tl.max);
+    let empty = Rect::from_min_max(pos2(full.min.x, y.max(tl.min.y)), pos2(row_x1, tl.max.y));
     if empty.height() > 4.0 {
         let resp = ui.interact(empty, ui.scope_id().with("empty"), Sense::click());
         if resp.double_clicked() {
@@ -204,7 +232,7 @@ fn main_area_content(app: &mut SoundApp, ui: &mut Ui) {
     let sb = Rect::from_min_max(pos2(tl.min.x, full.max.y - hscroll_h), pos2(tl.max.x, full.max.y));
     hscrollbar(app, ui, sb, tl);
     // Vertical scrollbar gutter.
-    let vs = Rect::from_min_max(pos2(tl.max.x, tl.min.y), pos2(full.max.x, tl.max.y));
+    let vs = Rect::from_min_max(pos2(row_x1, tl.min.y), pos2(full.max.x, tl.max.y));
     ui.painter().rect_filled(vs, 0.0, t.panel_bg);
     if content_h > tl.height() {
         let frac = tl.height() / content_h;

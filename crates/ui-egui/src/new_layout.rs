@@ -16,11 +16,12 @@ use soundcraft_model::{Route, TrackId};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LayoutPreset {
-    #[default]
     New,
     FlStyle,
     Classic,
     Reaper,
+    /// A fresh start opens in Pro Tools-style.
+    #[default]
     ProToolsStyle,
     AbletonStyle,
 }
@@ -34,7 +35,7 @@ impl LayoutPreset {
             Self::New => "NEW",
             Self::FlStyle => "FL-style",
             Self::Classic => "Classic",
-            Self::Reaper => "Reaper",
+            Self::Reaper => "Reaper-style",
             Self::ProToolsStyle => crate::pt_layout::LABEL,
             Self::AbletonStyle => crate::abl_layout::LABEL,
         }
@@ -353,18 +354,12 @@ fn readout(ui: &mut Ui, label: &str, value: impl FnOnce(&mut Ui)) {
     });
 }
 
-/// The layout switcher: NEW, Classic and Reaper switch; the others are named and greyed until built.
+/// The mode toggle in a layout's own top bar, for windows whose menus are the system's (the macOS
+/// menu bar). Otherwise the toggle sits at the top right of Solara's menu bar
+/// ([`crate::modes::toggle`]), the same in every mode.
 pub fn switcher(app: &mut SoundApp, ui: &mut Ui) {
-    let t = Tokens::current();
-    for (index, preset) in LayoutPreset::ALL.into_iter().enumerate() {
-        let on = app.ui.layout == preset;
-        let text = egui::RichText::new(preset.label()).font(bold(11.0)).color(if on { t.mode_on_text } else { t.text });
-        let button = egui::Button::new(text).fill(if on { t.mode_on } else { t.button }).selected(on);
-        let tip = if preset.available() { format!("{} layout ({})", preset.label(), index + 1) } else { format!("{} layout: later", preset.label()) };
-        if ui.add_enabled(preset.available(), button).on_hover_text(tip).on_disabled_hover_text(format!("{} layout: later", preset.label())).clicked()
-        {
-            let _ = app.run("ui.layout", json!({"preset": preset.id()}));
-        }
+    if app.native_menu_bar {
+        crate::modes::toggle(app, ui);
     }
 }
 
@@ -672,12 +667,15 @@ mod tests {
     }
 
     #[test]
-    fn new_is_the_default_layout_and_the_mixer_starts_collapsed() {
+    fn a_fresh_start_opens_pro_tools_style_and_news_mixer_starts_collapsed() {
         let ui = crate::UiState::default();
-        assert_eq!(ui.layout, LayoutPreset::New);
+        assert_eq!(ui.layout, LayoutPreset::ProToolsStyle);
         assert!(!ui.new_mixer_open);
         let old: crate::UiState = serde_json::from_value(json!({})).unwrap();
-        assert_eq!(old.layout, LayoutPreset::New, "settings saved before layouts open in NEW");
+        assert_eq!(old.layout, LayoutPreset::ProToolsStyle, "settings without a mode open in Pro Tools-style");
+        // A chosen mode is kept with the settings.
+        let kept: crate::UiState = serde_json::from_value(json!({"layout": "reaper"})).unwrap();
+        assert_eq!(kept.layout, LayoutPreset::Reaper);
     }
 
     #[test]

@@ -514,7 +514,7 @@ fn header_toggle(ui: &Ui, r: Rect, track: TrackId, track_name: &str, key: Header
 }
 
 /// The header's level meter: black-rimmed bars, dim where unlit, with a clip light on top.
-fn header_meter(ui: &Ui, r: Rect, md: &crate::MeterDisplay, stereo: bool) {
+pub(super) fn header_meter(ui: &Ui, r: Rect, md: &crate::MeterDisplay, stereo: bool) {
     let t = Tokens::current();
     let p = ui.painter();
     p.rect_filled(r, 0.0, Color32::BLACK);

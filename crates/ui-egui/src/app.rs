@@ -183,7 +183,11 @@ impl SoundApp {
             }
         }
         let light = theme::wants_light(ctx, self.ui.theme);
-        if self.theme_applied != Some(light) || theme::is_light() != light {
+        // Each mode brings its colours: a mode change repaints the visuals too.
+        let skin = crate::modes::current(self).skin;
+        let reskinned = theme::skin() != skin;
+        theme::set_skin(skin);
+        if reskinned || self.theme_applied != Some(light) || theme::is_light() != light {
             theme::apply(ctx, light);
             self.theme_applied = Some(light);
         }

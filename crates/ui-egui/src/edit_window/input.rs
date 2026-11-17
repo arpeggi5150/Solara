@@ -97,6 +97,8 @@ struct LaneInput<'a> {
     tl: Rect,
     s: &'a Session,
     tool: Tool,
+    /// What a click does in the active mode (the edit tool only in modes with tools).
+    click: crate::modes::Click,
     origin: Pos2,
     at_origin: Samples,
     auto_view: Option<AutoParam>,
@@ -141,7 +143,24 @@ fn lane_menu_and_drops(app: &mut SoundApp, ui: &mut Ui, track: &Track, lane: Rec
     }
     // The clip may have been removed or moved since the right-click; only use it if it still exists.
     let menu_clip = ui.ctx().data(|d| d.get_temp::<Option<ClipId>>(menu_clip_id)).flatten().filter(|c| track.clips().iter().any(|x| x.id == *c));
-    resp.context_menu(|ui| clip_context_menu(app, ui, menu_clip));
+    // FL-style: a right click on a clip deletes it; its menu is on its title bar.
+    let deletes = resp.secondary_clicked()
+        && crate::modes::current(app).click == crate::modes::Click::Paint
+        && menu_clip.is_some()
+        && resp.interact_pointer_pos().is_some_and(|p| p.y >= lane.min.y + clip_name_height(app.engine.session(), lane).max(12.0));
+    if deletes && let Some(c) = menu_clip {
+        crate::modes::delete_clip(app, c);
+    } else {
+        // Modes without tools select the item a right click lands on, so its menu's Copy and Cut have it.
+        if resp.secondary_clicked()
+            && crate::modes::current(app).click != crate::modes::Click::Tools
+            && let Some(c) = menu_clip
+            && !clip_in_selection(app.engine.session(), c)
+        {
+            let _ = app.run("edit.select", json!({"clips": [c.0]}));
+        }
+        resp.context_menu(|ui| clip_context_menu(app, ui, menu_clip));
+    }
     // Audio files dropped from the Clip List.
     if let Some(src) = resp.dnd_release_payload::<crate::DragSource>()
         && let Some(p) = ui.ctx().pointer_latest_pos()
@@ -208,8 +227,25 @@ fn near_edge(inp: &LaneInput<'_>, c: &Clip) -> Option<bool> {
 /// Effective tool under the Smart tool; on a breakpoint every tool that edits one grabs it.
 fn effective_tool(inp: &LaneInput<'_>, hits: &LaneHits<'_>) -> Tool {
     let upper = inp.origin.y < inp.lane.center().y;
+    use crate::modes::Click;
+    let edge = |c: &Clip| near_edge(inp, c).is_some();
     match inp.tool {
         _ if hits.point_hit.is_some() => Tool::Grabber,
+        // Modes without tools read the click from where it lands.
+        _ if inp.click == Click::Items || inp.click == Click::Paint => match &hits.hit {
+            Some(c) if edge(c) => Tool::Trim,
+            Some(_) => Tool::Grabber,
+            None if inp.auto_view.is_some() => Tool::Pencil,
+            None if inp.click == Click::Paint && inp.track.kind.is_midi() => Tool::Pencil,
+            None => Tool::Selector,
+        },
+        _ if inp.click == Click::TitleBar => match &hits.hit {
+            Some(c) if edge(c) => Tool::Trim,
+            Some(_) if inp.origin.y < inp.lane.min.y + clip_name_height(inp.s, inp.lane).max(12.0) => Tool::Grabber,
+            Some(_) => Tool::Selector,
+            None if inp.auto_view.is_some() => Tool::Pencil,
+            None => Tool::Selector,
+        },
         Tool::Smart => {
             if let Some(c) = &hits.hit {
                 if near_edge(inp, c).is_some() {
@@ -454,14 +490,16 @@ fn lane_click(app: &mut SoundApp, ui: &mut Ui, c: &LaneCtx<'_>, resp: &egui::Res
 pub(super) fn lane_interaction(app: &mut SoundApp, ui: &mut Ui, track: &Track, lane: Rect, tl: Rect) {
     let resp = lane_menu_and_drops(app, ui, track, lane, tl);
     let s = app.engine.session_arc();
-    let tool = s.edit.tool;
+    // Modes without tools act as the Smart tool does, and decide by where the click lands.
+    let click = crate::modes::current(app).click;
+    let tool = if click == crate::modes::Click::Tools { s.edit.tool } else { Tool::Smart };
     let mods = ui.input(|i| i.modifiers);
     let Some(p) = resp.interact_pointer_pos().or_else(|| resp.hover_pos()) else { return };
     let at = sample_at(&s, tl, p.x).max(0);
     let origin = if resp.drag_started() { ui.input(|i| i.pointer.press_origin()).unwrap_or(p) } else { p };
     let at_origin = sample_at(&s, tl, origin.x).max(0);
     let auto_view = AutoParam::parse(&track.view);
-    let inp = LaneInput { track, lane, tl, s: &s, tool, origin, at_origin, auto_view };
+    let inp = LaneInput { track, lane, tl, s: &s, tool, click, origin, at_origin, auto_view };
     let hits = hit_test(&inp);
     let eff = effective_tool(&inp, &hits);
     if resp.hovered() {
@@ -566,54 +604,22 @@ pub(super) fn new_midi_clip(app: &mut SoundApp, s: &Session, track: TrackId, fro
     }
 }
 
+/// A clip's right-click menu (or an empty lane's), in the active mode's words and order. A clip of the edit
+/// selection acts on the whole selection (the commands default to it); any other clip acts alone.
 fn clip_context_menu(app: &mut SoundApp, ui: &mut Ui, clip: Option<ClipId>) {
-    let Some(c) = clip else {
-        if ui.button("Paste").clicked() {
-            let _ = app.run("edit.paste", json!({}));
-        }
-        return;
-    };
-    // A clip of the edit selection acts on the whole selection (the commands default to it); any other clip acts alone.
-    let in_selection = clip_in_selection(app.engine.session(), c);
-    let target = if in_selection { json!({}) } else { json!({"clips": [c.0]}) };
-    for (label, cmd) in [
-        ("Mute/Unmute", "edit.mute_clips"),
-        ("Edit Lock/Unlock", "clip.edit_lock"),
-        ("Time Lock/Unlock", "clip.time_lock"),
-        ("Quantize to Grid", "clip.quantize_to_grid"),
-        ("Render Clip Gain", "clip.gain_render"),
-        ("Bring to Front", "clip.bring_to_front"),
-        ("Send to Back", "clip.send_to_back"),
-    ] {
-        if ui.button(label).clicked() {
-            let _ = app.run(cmd, target.clone());
-        }
-    }
-    ui.separator();
-    if ui.button("Rename...").clicked() {
-        let name = app.engine.session().find_clip(c).map(|(_, x)| x.name.clone()).unwrap_or_default();
-        app.dialogs.open_rename_clip(c, &name);
-    }
-    if ui.button("Delete").clicked() {
-        let s = app.engine.session();
-        let selected: Vec<u64> = s.edit.selected_clips.iter().map(|id| id.0).collect();
-        let track: Vec<u64> = s.find_clip(c).map(|(t, _)| t.0).into_iter().collect();
-        if !in_selection {
-            let _ = app.run("edit.select", json!({"clips": [c.0]}));
-            let _ = app.run("edit.clear", json!({}));
-        } else if selected.is_empty() {
-            let _ = app.run("edit.clear", json!({}));
-        } else {
-            // Selected clips go by id (an empty range), so clips between them that the span covers stay. The clicked
-            // clip's track satisfies Clear's track check even when the track selection was emptied meanwhile.
-            let _ = app.run("edit.clear", json!({"clips": selected, "tracks": track, "start": 0}));
+    let mode = crate::modes::current(app);
+    match clip {
+        None => crate::modes::context_menu(app, ui, mode.lane_menu, &crate::modes::Target::Lane),
+        Some(c) => {
+            let target = if clip_in_selection(app.engine.session(), c) { json!({}) } else { json!({"clips": [c.0]}) };
+            crate::modes::context_menu(app, ui, mode.clip_menu, &crate::modes::Target::Clip(c, target));
         }
     }
 }
 
 /// Whether `c` is part of the edit selection: one of the selected clips or, when no clip is selected, a clip on a
 /// selected track that the selected range overlaps. An insertion point selects nothing.
-fn clip_in_selection(s: &Session, c: ClipId) -> bool {
+pub(crate) fn clip_in_selection(s: &Session, c: ClipId) -> bool {
     let ed = &s.edit;
     if !ed.selected_clips.is_empty() {
         return ed.selected_clips.contains(&c);
