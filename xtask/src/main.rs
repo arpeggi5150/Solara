@@ -29,6 +29,7 @@ const LAYERS: &[(&str, u8)] = &[
     ("video", 0),
     ("asio-host", 0),
     ("delta", 0),
+    ("packages", 0),
     ("dsp", 1),
     ("clap-host", 1),
     ("vst3-host", 1),
