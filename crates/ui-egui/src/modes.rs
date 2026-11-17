@@ -775,6 +775,7 @@ const ABLETON_MENUS: &[Root] = &[
             Item::Cmd("Toggle Arrangement/Session View", "ui.session_view", "{}"),
             Item::Cmd("Browser", "ui.browser", "{}"),
             Item::Cmd("Detail View", "ui.device_view", "{}"),
+            Item::Cmd("Mixer", "ui.mixer", "{}"),
             Item::Path("Groove Pool", "Window > Clip Effects"),
             Item::Sep,
             Item::Cmd("Zoom In", "view.zoom_in", "{}"),

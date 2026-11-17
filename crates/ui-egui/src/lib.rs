@@ -198,6 +198,8 @@ pub struct UiState {
     pub abl_browser_open: bool,
     pub abl_session_open: bool,
     pub abl_device_open: bool,
+    /// The Ableton-style layout's Mixer under the views (`ui.mixer`, Cmd+Alt+M). Hidden by default.
+    pub abl_mixer_open: bool,
 }
 
 impl Default for UiState {
@@ -282,6 +284,7 @@ impl Default for UiState {
             abl_browser_open: true,
             abl_session_open: true,
             abl_device_open: true,
+            abl_mixer_open: false,
         }
     }
 }

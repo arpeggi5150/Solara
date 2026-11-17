@@ -109,6 +109,7 @@ pub fn command(app: &mut SoundApp, id: &str, p: &Value) -> Option<Result<Value, 
                 LayoutPreset::Reaper => &mut app.ui.reaper_mixer_open,
                 LayoutPreset::FlStyle => &mut app.ui.fl_mixer_open,
                 LayoutPreset::ProToolsStyle => &mut app.ui.pt_mix_open,
+                LayoutPreset::AbletonStyle => &mut app.ui.abl_mixer_open,
                 _ => &mut app.ui.new_mixer_open,
             };
             *open = p.get("value").and_then(Value::as_bool).unwrap_or(!*open);
