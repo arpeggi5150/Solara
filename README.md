@@ -46,7 +46,7 @@ where things are.
   </tr>
   <tr>
     <td><b>Automation and markers.</b> Breakpoint automation for volume, pan, mute, sends and every plugin parameter, written live in Write, Touch and Latch, plus memory locations and a big counter.</td>
-    <td><b>Everywhere.</b> Signed builds for macOS (universal), Windows (x64, x86, Arm), Linux (AppImage, deb, rpm, Flatpak), FreeBSD, and a WebAssembly build that runs in the browser.</td>
+    <td><b>Everywhere.</b> Runs on Windows, macOS, Linux and FreeBSD, and as a WebAssembly build in the browser. The first Solara builds are for Windows.</td>
   </tr>
   <tr>
     <td><b>Video.</b> A picture track with thumbnails and a Video window that follows the playhead, decoding H.264, ProRes and Motion JPEG in pure Rust, with timecode burn-in and sync offset.</td>
@@ -95,14 +95,14 @@ where things are.
 
 ## Getting started
 
-Download a build from the [releases page](https://github.com/arpeggi5150/Solara/releases), or build
-from source with Rust 1.95 or later for the desktop/web UI (the core workspace's declared
-minimum remains Rust 1.90):
+Solara has no public release yet (see [Downloads](#downloads)). Build it from source with Rust
+1.95 or later for the desktop/web UI (the core workspace's declared minimum remains Rust 1.90):
 
 ```sh
 git clone https://github.com/arpeggi5150/Solara
 cd Solara
-cargo run --release -p soundcraft -- --demo     # opens the demo song
+cargo solara --demo            # builds and opens the demo song
+cargo solara-cli --help        # the command-line tool
 ```
 
 Linux needs the ALSA headers (`libasound2-dev` on Debian/Ubuntu, `alsa-lib-devel` on Fedora).
@@ -136,19 +136,18 @@ or `$XDG_CONFIG_HOME/soundcraft/logs/`; macOS `~/Library/Application Support/Sol
 Windows `%APPDATA%\Solara\logs\`). A start from a desktop menu or the Dock has no terminal, so
 this file is what to attach to a bug report: the engine's panic report, audio devices that failed to
 open or broke, plugins that refused their stored state, CLAP plugins' own messages and files that
-failed to open land there. Each launch moves the previous log to `soundcraft.1.log` (and that one to
-`soundcraft.2.log`), so the log of a run that crashed survives the next start. The file stops
+failed to open land there. Each launch moves the previous log to `solara.1.log` (and that one to
+`solara.2.log`), so the log of a run that crashed survives the next start. The file stops
 growing at 16 MiB. `--version` writes no file, and runs with `SOUNDCRAFT_NO_PREFS` log to standard
 error only.
 
 | Variable | Effect |
 |---|---|
-| `RUST_LOG` | Log levels for standard error and the log file. Default: `info` for Solara's own crates, `warn` for everything else. env_logger-style directives replace that, e.g. `RUST_LOG=debug`, `RUST_LOG=warn,soundcraft_mix=trace` or `RUST_LOG=info,wgpu_core=warn`; a directive ending in `*` covers every target starting with it (`soundcraft*=debug`). |
+| `RUST_LOG` | Log levels for standard error and the log file. Default: `info` for Solara's own crates, `warn` for everything else. env_logger-style directives replace that, e.g. `RUST_LOG=debug` or `RUST_LOG=info,wgpu_core=warn`; a directive ending in `*` covers every target starting with it. |
 | `SOUNDCRAFT_NO_PREFS` | `1`: no preferences read or written and no log file (agents' test runs). |
 
 The realtime audio thread never writes a record itself: the logger keeps the first one it logs
-(without waiting or allocating), counts the rest, and the UI thread writes them. The logger is
-`apps/soundcraft/src/logging.rs`. The web app logs to the browser console instead.
+(without waiting or allocating), counts the rest, and the UI thread writes them. The web app logs to the browser console instead.
 
 ## For agents and scripts
 
@@ -159,32 +158,35 @@ are reachable from the menus, the keyboard, the command line, a JSON control cha
 
 ```sh
 # Headless: load the demo, turn the kick down, add an EQ, bounce.
-soundcraft-cli run --demo \
+solara-cli run --demo \
   --cmd 'mix.volume={"track":"Kick","db":-6}' \
   --cmd 'mix.insert={"track":"Bass","plugin":"eq_7band"}' \
   --bounce mix.wav
 
 # Drive the running app.
-soundcraft --demo --control 7801 &
-soundcraft-cli app --port 7801 transport.play
-soundcraft-cli app --port 7801 ui.screenshot '{"path":"shot.png"}'
+solara --demo --control 7801 &
+solara-cli app --port 7801 transport.play
+solara-cli app --port 7801 ui.screenshot '{"path":"shot.png"}'
 
 # Give Claude a DAW.
-claude mcp add soundcraft -- soundcraft-cli mcp --demo
+claude mcp add solara -- solara-cli mcp --demo
 
 # Or keep the agent to some folders (reads and writes are separate roots).
-soundcraft-cli mcp --automation-read-root DIR --automation-write-root DIR
+solara-cli mcp --automation-read-root DIR --automation-write-root DIR
 ```
+
+The Windows packages install the programs as `solara.exe` and `solara-cli.exe`. A source build
+runs them as `cargo solara` and `cargo solara-cli`.
 
 See [`docs/cli.md`](docs/cli.md) for the command-line tool (subcommands, exit codes, environment
 variables, man pages and completions), [`docs/control-protocol.md`](docs/control-protocol.md) and
-[`docs/mcp.md`](docs/mcp.md). `soundcraft-cli commands` lists every command (`--json` for each
+[`docs/mcp.md`](docs/mcp.md). `solara-cli commands` lists every command (`--json` for each
 one's parameters and details, as JSON).
 
 Open **Solara › Session Audio Health** to check loaded audio availability, sample-rate
 mismatches and clip source bounds across all playlists, including alternate takes. The report
 offers a refresh button and suggests how to resolve each issue. Scripts can obtain the same JSON
-report with `soundcraft-cli run --demo --cmd 'session.audio_health={}'`. This checks loaded media,
+report with `solara-cli run --demo --cmd 'session.audio_health={}'`. This checks loaded media,
 not files on disk, signal levels, plugins or routing.
 
 ## How it's built
@@ -192,18 +194,21 @@ not files on disk, signal levels, plugins or routing.
 Solara is a Cargo workspace of small crates with strict layering: nothing below the UI knows
 about egui, so the interface could be swapped for another one.
 
-| Crate | What it does |
+| Folder | What it does |
 |---|---|
-| `soundcraft-time` | Timebases, tempo and meter maps, timecode, grid |
-| `soundcraft-audio-io` | Audio file formats and waveform overviews |
-| `soundcraft-midi` | Standard MIDI Files and MIDI operations |
-| `soundcraft-dsp` | Plugins, offline processing, meters, loudness, FFT |
-| `soundcraft-model` | The session document |
-| `soundcraft-mix` | The mix engine (realtime and offline share it) |
-| `soundcraft-engine` | Commands, undo, editing, import/export, bounce |
-| `soundcraft-playback` | Audio devices (CoreAudio, WASAPI, ALSA, WebAudio) and recording |
-| `soundcraft-automation` | MCP server and control-channel client |
-| `soundcraft-ui-egui` | The user interface |
+| `crates/time` | Timebases, tempo and meter maps, timecode, grid |
+| `crates/audio-io` | Audio file formats and waveform overviews |
+| `crates/midi` | Standard MIDI Files and MIDI operations |
+| `crates/dsp` | Plugins, offline processing, meters, loudness, FFT |
+| `crates/model` | The session document |
+| `crates/mix` | The mix engine (realtime and offline share it) |
+| `crates/engine` | Commands, undo, editing, import/export, bounce |
+| `crates/playback` | Audio devices (CoreAudio, WASAPI, ALSA, WebAudio) and recording |
+| `crates/automation` | MCP server and control-channel client |
+| `crates/ui-egui` | The user interface |
+
+The crates and the app folders keep the names they had upstream, so saved sessions, settings and
+upgrades keep working.
 
 The code never panics on bad input: errors are values, and a malformed file or a bad agent call
 produces a message, never a crash. `cargo xtask ci` runs formatting, clippy, the tests, the asset
@@ -224,7 +229,9 @@ very welcome, in the issues.
 
 ## Downloads
 
-**Download Solara** from GitHub: the [latest release](https://github.com/arpeggi5150/Solara/releases/latest) has every build listed below, and [all releases](https://github.com/arpeggi5150/Solara/releases) have earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
+Solara has no public release yet. Version 0.1.0 is built and tested for Windows; when it is
+released, the builds will be on the [releases page](https://github.com/arpeggi5150/Solara/releases)
+with a `SHA256SUMS.txt` checksum list. `<ver>` in the file names is the version number.
 
 ### Windows
 
@@ -234,7 +241,8 @@ very welcome, in the issues.
 | arm64 (Snapdragon and other ARM PCs) | `solara-<ver>-windows-arm64.msi` | `solara-<ver>-windows-arm64-portable.zip` |
 | x86 (32-bit) | `solara-<ver>-windows-x86.msi` | `solara-<ver>-windows-x86-portable.zip` |
 
-Installers and executables are code-signed.
+To build the x64 installer and portable zip yourself, run `packaging\windows\package.ps1` on
+Windows. The builds are not code-signed yet, so Windows SmartScreen may ask before the first start.
 
 **If the app doesn't open on Windows:** the desktop app initializes only DirectX 12 by default.
 Letting wgpu also create an OpenGL instance can crash some graphics drivers (AMD's
@@ -255,36 +263,10 @@ DirectX 12 shaders are compiled with FXC, which is part of Windows, so no `dxcom
 `dxil.dll` is needed ("Parent device is lost" at start, #185). `$env:WGPU_DX12_COMPILER = "dxc"`
 (or `"auto"`) selects wgpu's DXC handling again for troubleshooting.
 
-### macOS
+### macOS, Linux, FreeBSD and the web
 
-| Build | File | Notes |
-|---|---|---|
-| App, universal (Apple silicon + Intel) | `soundcraft-<ver>-macos-universal.dmg` | Signed and notarized |
-| Command-line tool, universal | `soundcraft-cli-<ver>-macos-universal.zip` | Signed and notarized |
-
-### Linux
-
-| Format | x86_64 | aarch64 (ARM64) | Notes |
-|---|---|---|---|
-| AppImage | `soundcraft-<ver>-linux-x86_64.AppImage` | `soundcraft-<ver>-linux-aarch64.AppImage` | Runs anywhere; updates itself with [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) (`.zsync` files) |
-| Flatpak | `soundcraft-<ver>-linux-x86_64.flatpak` | `soundcraft-<ver>-linux-aarch64.flatpak` | Sandboxed; `flatpak install --user <file>` |
-| Debian/Ubuntu | `soundcraft-<ver>-linux-x86_64.deb` | `soundcraft-<ver>-linux-aarch64.deb` | |
-| Fedora/RHEL/openSUSE | `soundcraft-<ver>-linux-x86_64.rpm` | `soundcraft-<ver>-linux-aarch64.rpm` | |
-| Tarball | `soundcraft-<ver>-linux-x86_64.tar.gz` | `soundcraft-<ver>-linux-aarch64.tar.gz` | Unpack anywhere |
-
-RISC-V (riscv64): `soundcraft-<ver>-linux-riscv64.tar.gz`, a tarball only (glibc 2.39+, e.g. Ubuntu 24.04).
-
-### FreeBSD
-
-| Build | File |
-|---|---|
-| x86_64 | `soundcraft-<ver>-freebsd-x86_64.tar.gz` |
-
-### Web (WebAssembly)
-
-| Build | File | Notes |
-|---|---|---|
-| Static site | `soundcraft-web-<ver>.zip` | Runs in a modern browser; host it on any static server |
+Solara runs on these too, and the repository has their packaging scripts, but no Solara build has
+been made or tested for them yet. They will be listed here when they are.
 
 ## License and credits
 

@@ -41,7 +41,7 @@ impl Autosaver {
         let (tx, rx) = channel();
         let failure = Arc::new(Mutex::new(None));
         let writer = Writer { root, failure: Arc::clone(&failure), folder: None, pending: None, last: None, written: Ok(()) };
-        let thread = std::thread::Builder::new().name("soundcraft-autosave".into()).spawn(move || writer.run(&rx));
+        let thread = std::thread::Builder::new().name("solara-autosave".into()).spawn(move || writer.run(&rx));
         if let Err(e) = &thread {
             report(&failure, format!("{STOPPED}: {e}"));
         }

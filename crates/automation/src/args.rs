@@ -1,5 +1,5 @@
 //! The control and automation launch options, as clap types, so each flag and its environment
-//! variable are declared once for `soundcraft-cli` and the desktop app. A flag wins over its
+//! variable are declared once for `solara-cli` and the desktop app. A flag wins over its
 //! variable.
 //!
 //! Parse with [`blank_env_is_unset`] applied to the arguments, so an empty variable counts as unset,
@@ -17,7 +17,7 @@ use clap::{Arg, ArgAction, ArgMatches, Args, Command};
 
 use crate::ControlTarget;
 
-/// The running app a client calls (`soundcraft-cli app`).
+/// The running app a client calls (`solara-cli app`).
 #[derive(Args)]
 pub struct ControlClientArgs {
     /// The app's control port or host:port
@@ -49,8 +49,8 @@ pub struct AutomationArgs {
     pub automation_write_root: Vec<PathBuf>,
 }
 
-/// A [`ControlTarget`], for clap's `value_parser`: `soundcraft-cli app --port`, `mcp --connect`,
-/// `soundcraft --control`, and SOLARA_CONTROL_PORT, which may carry spaces.
+/// A [`ControlTarget`], for clap's `value_parser`: `solara-cli app --port`, `mcp --connect`,
+/// `solara --control`, and SOLARA_CONTROL_PORT, which may carry spaces.
 pub fn control_target(s: &str) -> Result<ControlTarget, NotATarget> {
     let (host, port) = host_and_port(s.trim())?;
     Ok(ControlTarget { host: host.map(str::to_owned), port })

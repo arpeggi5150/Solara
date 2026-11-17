@@ -1,6 +1,6 @@
 # Hardware parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-14 · **Change:** minor (MIDI keyboard input and recording; previously minor: ASIO output via azo at 128 samples; trivial: bounces of a bus fed by an aux compensate its latency (#246); previously minor: audio device, rate and buffer choice; ASIO feature) · **Target:** Avid Pro Tools Ultimate 2026.4.1
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-14 · **Change:** trivial (rebrand sweep wording; previously minor: MIDI keyboard input and recording; previously minor: ASIO output via azo at 128 samples; trivial: bounces of a bus fed by an aux compensate its latency (#246); previously minor: audio device, rate and buffer choice; ASIO feature) · **Target:** Avid Pro Tools Ultimate 2026.4.1
 
 A DAW is judged by how it drives audio interfaces, MIDI gear, control surfaces and sync. This is
 Solara's weakest dimension. Ours is measured from `crates/playback` (cpal) and the absence of
@@ -15,6 +15,7 @@ Legend: ✅ works · 🟡 partial · ❌ missing.
 
 | Feature | Pro Tools (macOS / Windows) | Solara macOS | Windows | Linux | FreeBSD | Web |
 |---|---|---|---|---|---|---|
+| 2026-11-14 | trivial | Wording: the mix engine is named by its folder (rebrand sweep) |
 | Driver API | Core Audio / ASIO | 🟡 Core Audio via cpal | 🟡 WASAPI shared via cpal; ASIO drivers for output on x64 through the MIT `azo` crate, no Steinberg SDK (verified at 128 samples on an Apogee Duet and a Focusrite USB interface) | 🟡 ALSA/Pulse via cpal; no JACK | 🟡 cpal (ALSA layer) | 🟡 Web Audio |
 | Choose playback device | ✅ Playback Engine | 🟡 Setup › Playback Engine (not yet verified on macOS) | ✅ Setup › Playback Engine (WASAPI; ASIO drivers as “Low-latency driver”) | 🟡 (not yet verified) | 🟡 (not yet verified) | ❌ |
 | Choose input device | ✅ | 🟡 Setup › Playback Engine (not yet verified on macOS) | 🟡 WASAPI (input does not use the ASIO driver yet) | 🟡 (not yet verified) | ❌ no recording | ❌ |
@@ -60,7 +61,7 @@ Legend: ✅ works · 🟡 partial · ❌ missing.
 
 | Feature | Pro Tools | Solara | Evidence |
 |---|---|---|---|
-| Parallel mixing across cores | ✅ | ✅ | `soundcraft-mix` renders independent strips in parallel (rayon) |
+| Parallel mixing across cores | ✅ | ✅ | The mix engine (`crates/mix`) renders independent strips in parallel (rayon) |
 | Plugin delay compensation | ✅ | ✅ | Bounces of a bus that an aux returns onto are compensated like the main mix (#246). |
 | Disk streaming of long sources | ✅ | ❌ | Whole files decoded into the `SourcePool` |
 | Track count (Ultimate: 2,048 voices) | ✅ | unmeasured | No benchmark exists; add `cargo xtask bench` |

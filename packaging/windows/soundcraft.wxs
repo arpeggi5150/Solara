@@ -8,8 +8,8 @@
     <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Solara is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
-    <Icon Id="SoundcraftIcon.ico" SourceFile="$(var.IconPath)" />
-    <Property Id="ARPPRODUCTICON" Value="SoundcraftIcon.ico" />
+    <Icon Id="SolaraIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="SolaraIcon.ico" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/arpeggi5150/Solara" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/arpeggi5150/Solara/releases" />
 
@@ -37,7 +37,7 @@
       </Component>
       <Component Id="SoundcraftApp" Guid="8AFE8671-9BE6-40F4-9E8A-C8E10A74E61D">
         <File Id="SoundcraftExe" Source="$(var.BinDir)\solara.exe" KeyPath="yes">
-          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Solara" Description="Solara digital audio workstation" WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SoundcraftIcon.ico" IconIndex="0" />
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Solara" Description="Solara digital audio workstation" WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SolaraIcon.ico" IconIndex="0" />
         </File>
 
         <!-- .scraft: Solara's own session format; Solara is its default app. -->

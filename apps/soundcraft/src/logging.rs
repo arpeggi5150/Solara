@@ -166,7 +166,19 @@ pub fn rotate(dir: &Path) -> std::io::Result<(PathBuf, File)> {
 /// One formatted log line: `<timestamp> <LEVEL> [<thread>] <target>: <message>\n`.
 pub fn format_line(ts: &str, level: log::Level, thread: &str, target: &str, message: &str) -> String {
     let message = message.strip_suffix('\n').unwrap_or(message);
-    format!("{ts} {level:<5} [{thread}] {target}: {message}\n")
+    let (product, rest) = shown_target(target);
+    format!("{ts} {level:<5} [{thread}] {product}{rest}: {message}\n")
+}
+
+/// The target as a log line shows it: Solara's own crates keep their upstream name `soundcraft`
+/// inside (filters such as `RUST_LOG=soundcraft*=debug` still match it), but the line says
+/// `solara` (`soundcraft::control_server` shows as `solara::control_server`, `soundcraft_mix` as
+/// `solara_mix`).
+fn shown_target(target: &str) -> (&str, &str) {
+    match target.strip_prefix("soundcraft") {
+        Some(rest) if rest.is_empty() || rest.starts_with(':') || rest.starts_with('_') => ("solara", rest),
+        _ => ("", target),
+    }
 }
 
 /// Where formatted lines go besides standard error: kept in memory until a file is attached,

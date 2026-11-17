@@ -41,7 +41,7 @@ pub fn start(port: u16, ctx: egui::Context) -> Receiver<ControlRequest> {
     let actual = listener.local_addr().map(|a| a.port()).unwrap_or(port);
     log::info!("control server listening on 127.0.0.1:{actual}");
     println!("SOLARA_CONTROL_PORT={actual}");
-    let spawned = std::thread::Builder::new().name("soundcraft-control".into()).spawn(move || accept_loop(listener, tx, ctx));
+    let spawned = std::thread::Builder::new().name("solara-control".into()).spawn(move || accept_loop(listener, tx, ctx));
     if let Err(e) = spawned {
         log::error!("control thread failed: {e}");
     }
@@ -71,7 +71,7 @@ fn accept_loop(listener: TcpListener, tx: SyncSender<ControlRequest>, ctx: egui:
         let slot = Slot(Arc::clone(&open));
         let tx = tx.clone();
         let ctx = ctx.clone();
-        let _ = std::thread::Builder::new().name("soundcraft-control-conn".into()).spawn(move || {
+        let _ = std::thread::Builder::new().name("solara-control-conn".into()).spawn(move || {
             let _slot = slot;
             serve(stream, tx, ctx);
         });

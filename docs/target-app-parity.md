@@ -1,6 +1,6 @@
 # Target-app parity: Solara vs Avid Pro Tools
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-24 · **Change:** trivial (built-in plugin counts; the sampler shipped; previously minor: hours to ~95 % for each audience; full number confirmed as an additive weighted sum) · **Target:** Avid Pro Tools Ultimate 2026.4.1 (bundle 26.4.1.179, macOS)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-14 · **Change:** trivial (rebrand sweep wording; previously trivial: built-in plugin counts; the sampler shipped; previously minor: hours to ~95 % for each audience; full number confirmed as an additive weighted sum) · **Target:** Avid Pro Tools Ultimate 2026.4.1 (bundle 26.4.1.179, macOS)
 
 The authoritative assessment of how close Solara is to Pro Tools. [`ROADMAP.md`](../ROADMAP.md)
 summarizes it, [`gaps.md`](gaps.md) itemizes every shortfall, and the per-dimension docs go deeper:
@@ -13,6 +13,7 @@ summarizes it, [`gaps.md`](gaps.md) itemizes every shortfall, and the per-dimens
 
 | Number | Value | Kind |
 |---|---|---|
+| 2026-11-14 | trivial | Wording: issue numbers refer to the upstream project (rebrand sweep). Percentages unchanged |
 | Menu breadth (engine + UI layer) | **482 / 512 menu leaves (94.1 %)** | **measured**: the 512-leaf catalog `crates/engine/catalog/menus.txt` against the command registry; engine alone 397 / 512 (77.5 %) from `cargo xtask parity` ([`parity-checklist.md`](parity-checklist.md)); the 85 UI-layer matches re-counted on 2026-10-10 from `crates/ui-egui/src/menus.rs` (`UI_COMMANDS`, `AUDIOSUITE`, `MENU_WINDOWS`, Mix Window Views) by script |
 | Feature breadth (menus plus everything not in a menu: plugins, hardware, formats, immersive, cloud) | **~70 %** | estimated (area table below, presence only) |
 | **Ready for real work** (whole of Pro Tools) | **~40 %** | estimated: written dimension weights × values = 40.6 % ([By dimension](#by-dimension)) |
@@ -98,7 +99,7 @@ every command is reachable from the CLI, the JSON control channel and MCP.
 
 Both use one method. Each multiplies a weighted depth
 average by written-down discounts. Depths come from the [Feature areas](#feature-areas) table and
-the evidence there; issue numbers are `storytold/soundcraft` GitHub issues.
+the evidence there; issue numbers refer to the upstream project's GitHub issues (see NOTICE).
 
 ### Mainstream practitioner: ~36 %
 

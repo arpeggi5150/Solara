@@ -385,7 +385,7 @@ impl Player {
         let mut state = AudioState::new(rx, Arc::clone(&shared), session, f64::from(rate), gtx);
         let fault = Arc::new(Fault::default());
         let failed = Arc::clone(&fault);
-        let spawn = std::thread::Builder::new().name("soundcraft-clock".into()).spawn(move || {
+        let spawn = std::thread::Builder::new().name("solara-clock".into()).spawn(move || {
             let mut buf = vec![0.0f32; 4096];
             let mut last = std::time::Instant::now();
             loop {

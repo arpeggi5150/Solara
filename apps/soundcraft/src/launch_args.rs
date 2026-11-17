@@ -1,10 +1,10 @@
-//! The desktop app's command line, as clap types: `soundcraft --help` comes from these doc
+//! The desktop app's command line, as clap types: `solara --help` comes from these doc
 //! comments, so the help and the parser can't disagree. Anything they don't declare is a usage
 //! error naming it (exit status 2), as is a bad `--control` or `SOLARA_CONTROL_PORT`. A file
 //! whose name starts with `-` goes after `--`. Another host's `host:port` is a usage error from
 //! `--control` and ignored from the variable ([`control_port`]).
 //!
-//! The control flag is `soundcraft-automation`'s, shared with `soundcraft-cli`.
+//! The control flag is `soundcraft-automation`'s, shared with `solara-cli`.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -18,7 +18,7 @@ use soundcraft_automation::args::{ControlServerArgs, blank_env_is_unset, name_en
 
 /// Opens Solara with the given files
 #[derive(Parser)]
-#[command(name = "soundcraft", version = soundcraft_automation::args::long_version(), after_help = crate::env::help())]
+#[command(name = "solara", version = soundcraft_automation::args::long_version(), after_help = crate::env::help())]
 pub(crate) struct LaunchArgs {
     /// Sessions, audio and MIDI files to open. Put `--` before a name that starts with `-`
     pub(crate) files: Vec<PathBuf>,
@@ -53,7 +53,7 @@ pub(crate) fn parse(mut cmd: Command, args: impl IntoIterator<Item = OsString>) 
             !(options && a.to_str().is_some_and(|s| s.starts_with("-psn_")))
         })
         .collect();
-    let argv = std::iter::once(OsString::from("soundcraft")).chain(args.iter().cloned());
+    let argv = std::iter::once(OsString::from("solara")).chain(args.iter().cloned());
     let matches = cmd.try_get_matches_from_mut(argv).map_err(|e| name_env_vars(e, &cmd, &args))?;
     let mut launch = LaunchArgs::from_arg_matches(&matches)?;
     launch.control_port = control_port(launch.control.control.take(), matches.value_source("control")).map_err(|e| e.into_clap(&mut cmd))?;
@@ -62,7 +62,7 @@ pub(crate) fn parse(mut cmd: Command, args: impl IntoIterator<Item = OsString>) 
 
 /// The port the control server starts on, from `--control` or `SOLARA_CONTROL_PORT`
 /// (`source`). The server listens on 127.0.0.1 only, so it can't serve another host's
-/// `host:port`. From the flag that is a usage error. The variable is `soundcraft-cli app`'s too and
+/// `host:port`. From the flag that is a usage error. The variable is `solara-cli app`'s too and
 /// may point it at another machine, so from there it is ignored with a warning and the app opens
 /// without a control server.
 fn control_port(value: Option<ControlTarget>, source: Option<ValueSource>) -> Result<Option<u16>, RemoteHost> {
@@ -134,7 +134,7 @@ mod tests {
         for flag in ["--version", "-V"] {
             let e = parse_args(&[flag, "--control"]).err().unwrap();
             assert_eq!((e.kind(), e.exit_code()), (ErrorKind::DisplayVersion, 0));
-            assert_eq!(e.to_string(), format!("soundcraft {}\n", soundcraft_automation::args::long_version()));
+            assert_eq!(e.to_string(), format!("solara {}\n", soundcraft_automation::args::long_version()));
         }
         let e = parse_args(&["-h", "--bogus"]).err().unwrap();
         assert_eq!((e.kind(), e.exit_code()), (ErrorKind::DisplayHelp, 0));
@@ -161,11 +161,11 @@ mod tests {
             remote.starts_with("error: invalid value '10.0.0.5:7979' for '--control <PORT>'\n\n  tip: the control server listens on 127.0.0.1 only"),
             "{remote}"
         );
-        assert!(remote.contains("\nUsage: soundcraft "), "{remote}");
+        assert!(remote.contains("\nUsage: solara "), "{remote}");
         assert!(usage_error(&["--control", "::1:7979"]).contains("invalid value '::1:7979' for '--control <PORT>'"));
     }
 
-    /// The variable may point `soundcraft-cli app` at another machine: the app then opens without
+    /// The variable may point `solara-cli app` at another machine: the app then opens without
     /// a control server.
     #[test]
     fn another_host_is_ignored_only_from_the_variable() {
@@ -177,7 +177,7 @@ mod tests {
         assert_eq!(control_port(None, None), Ok(None));
     }
 
-    /// The variable `soundcraft-cli app` reads may hold `host:port`: a loopback one gives its port.
+    /// The variable `solara-cli app` reads may hold `host:port`: a loopback one gives its port.
     #[test]
     fn a_loopback_host_and_port_gives_its_port() {
         for value in ["127.0.0.1:50494", "localhost:50494"] {

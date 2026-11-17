@@ -25,6 +25,6 @@ fn main() {
             eprintln!("embedding Windows resources failed: {e}");
             std::process::exit(1);
         }
-        println!("cargo:warning=soundcraft.exe built without icon/version resources: {e}");
+        println!("cargo:warning=solara.exe built without icon/version resources: {e}");
     }
 }

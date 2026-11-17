@@ -1,11 +1,15 @@
 # Command-line tool
 
-`soundcraft-cli` runs Solara without a window: it converts and inspects audio, runs engine
+`solara-cli` runs Solara without a window: it converts and inspects audio, runs engine
 commands on a session, serves MCP, and calls a running app. Follows
 [RFC-0012](https://github.com/storytold/craft-contrib/pull/18) (command-line conventions for the
 Craft apps).
 
-`soundcraft-cli --help` and `soundcraft-cli <subcommand> --help` are the source of truth for
+The Windows packages install it as `solara-cli.exe` and the desktop app as `solara.exe`. From a
+source build, `cargo solara-cli …` and `cargo solara …` run them. The macOS, Linux and FreeBSD
+packages still install them under the upstream internal names `soundcraft-cli` and `soundcraft`.
+
+`solara-cli --help` and `solara-cli <subcommand> --help` are the source of truth for
 flags, values and defaults. This page does not repeat them.
 
 | Subcommand | What it does |
@@ -22,15 +26,15 @@ flags, values and defaults. This page does not repeat them.
 | `plugins` | Lists the built-in plugins |
 
 ```sh
-soundcraft-cli --version                 # also -V; there is no `version` subcommand
-soundcraft-cli help convert              # the same as `convert --help`
-soundcraft-cli info session.scraft
-soundcraft-cli convert in.wav out.flac --bit-depth 16 --rate 44100
-soundcraft-cli run --demo --cmd 'mix.volume={"track":"Kick","db":-6}' --bounce mix.wav
-soundcraft-cli script steps.txt --demo --keep-going --save out.scraft
-soundcraft-cli commands bounce
-soundcraft-cli commands --json --compact
-soundcraft-cli describe file.bounce_mix
+solara-cli --version                 # also -V; there is no `version` subcommand
+solara-cli help convert              # the same as `convert --help`
+solara-cli info session.scraft
+solara-cli convert in.wav out.flac --bit-depth 16 --rate 44100
+solara-cli run --demo --cmd 'mix.volume={"track":"Kick","db":-6}' --bounce mix.wav
+solara-cli script steps.txt --demo --keep-going --save out.scraft
+solara-cli commands bounce
+solara-cli commands --json --compact
+solara-cli describe file.bounce_mix
 ```
 
 ## Output and exit codes
@@ -89,7 +93,7 @@ link stays. An existing file that is not an input is replaced without asking.
 
 `SOUNDCRAFT_CONFIG_DIR`, `SOUNDCRAFT_NO_PREFS`, `SOUNDCRAFT_NO_SYSTEM_FONTS`, `SOUNDCRAFT_WAYLAND`
 (Linux) and `RUST_LOG` configure the desktop app (see the [README](../README.md#logs) and
-[the control protocol](control-protocol.md)), not the CLI. `soundcraft --help` lists them.
+[the control protocol](control-protocol.md)), not the CLI. `solara --help` lists them.
 An empty variable counts as unset (RFC-0012 rule 1.7), except `SOUNDCRAFT_CONFIG_DIR`: empty means
 no settings folder.
 
@@ -100,8 +104,8 @@ names the variable.
 
 ## Desktop app launch flags
 
-`soundcraft [OPTIONS] [FILES]...` takes the same strict parsing and exit codes.
-`soundcraft --help` lists the flags:
+`solara [OPTIONS] [FILES]...` takes the same strict parsing and exit codes.
+`solara --help` lists the flags:
 
 | Flag | Meaning |
 |---|---|
@@ -133,7 +137,7 @@ zsh's `$fpath`, and read a page with `man -l out/soundcraft-cli.1`.
 
 ## RFC-0012
 
-soundcraft-cli follows [RFC-0012](https://github.com/storytold/craft-contrib/pull/18): clap derive
+solara-cli follows [RFC-0012](https://github.com/storytold/craft-contrib/pull/18): clap derive
 types, thiserror errors, `run(args, out, err)` behind `main`, environment variables declared on
 their flags, generated completions and man pages, tests that pin help and every usage error, no
 output replacing an input without `--in-place`, and the ast-grep rules in `lint/ast-grep`. The shared automation flags are declared once in

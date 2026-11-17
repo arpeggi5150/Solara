@@ -24,7 +24,7 @@ pub(crate) const VARS: &[(&str, &str)] = &[
     (NO_PREFS, "1 doesn't read or write preferences and logs to stderr only; 0 or unset is off"),
     (NO_SYSTEM_FONTS, "1 uses the built-in fonts only; 0 or unset is off"),
     (WAYLAND, "Linux: 1 keeps the native Wayland backend instead of XWayland; 0 or unset is off"),
-    (RUST_LOG, "Log filter, env_logger style: debug, warn,soundcraft_mix=trace"),
+    (RUST_LOG, "Log filter, env_logger style: debug, info,wgpu_core=warn"),
 ];
 
 /// The `--help` Environment section, generated from [`VARS`].
