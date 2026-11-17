@@ -4621,6 +4621,7 @@ dependencies = [
  "soundcraft-midi",
  "soundcraft-mix",
  "soundcraft-model",
+ "soundcraft-packages",
  "soundcraft-playback",
  "soundcraft-time",
  "soundcraft-video",
@@ -4628,6 +4629,7 @@ dependencies = [
  "toml",
  "web-time",
  "zbus",
+ "zip",
 ]
 
 [[package]]

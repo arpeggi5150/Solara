@@ -568,6 +568,12 @@ fn handle(app: &mut SoundApp, ctx: &egui::Context, req: &ControlRequest) -> Opti
             Err(e) => err(e),
         },
         "app.delta_update.status" => ok(crate::delta_update::status(app)),
+        "app.packages" | "app.packages.refresh" | "app.packages.install" | "app.packages.update" | "app.packages.remove" => {
+            match crate::packages_ui::command(app, req.method.as_str(), p) {
+                Ok(v) => ok(v),
+                Err(e) => err(e),
+            }
+        }
         "app.quit" => {
             app.quit_requested = true;
             ok(json!({}))

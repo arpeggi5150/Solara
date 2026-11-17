@@ -32,6 +32,12 @@ pub(crate) fn tick(_app: &mut SoundApp, _ctx: &egui::Context) {}
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn show(_app: &mut SoundApp, _ctx: &egui::Context) {}
 
+#[cfg(target_arch = "wasm32")]
+#[allow(dead_code)]
+pub(crate) fn updater_path() -> Option<std::path::PathBuf> {
+    None
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
     use std::path::{Path, PathBuf};
@@ -49,6 +55,12 @@ mod native {
     /// The updater's name next to the app: shipped as `solara-updater.exe`; a cargo build names it
     /// `soundcraft-updater`.
     const UPDATER_NAMES: &[&str] = &["solara-updater.exe", "soundcraft-updater.exe", "solara-updater", "soundcraft-updater"];
+
+    /// The standalone updater next to this program, when it is there.
+    pub(crate) fn updater_path() -> Option<PathBuf> {
+        let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+        UPDATER_NAMES.iter().map(|n| dir.join(n)).find(|p| p.is_file())
+    }
 
     #[derive(Default)]
     pub(crate) struct Runtime {

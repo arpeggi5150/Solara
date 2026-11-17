@@ -1055,6 +1055,10 @@ fn menu_item(app: &mut SoundApp, ui: &mut Ui, item: &Item) {
                 let _ = app.run("app.checkForUpdates", json!({}));
                 ui.close();
             }
+            if ui.button("SolPlugs Packages…").clicked() {
+                let _ = crate::menus::run_ui_command(app, "window.packages", &json!({"value": true}));
+                ui.close();
+            }
         }
         Item::Quit => {
             if ui.button(if cfg!(target_os = "macos") { "Quit" } else { "Exit" }).clicked() {
