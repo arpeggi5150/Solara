@@ -68,6 +68,7 @@ impl SoundApp {
             audio_health_report: None,
             services,
             native_menu_bar: false,
+            ask_mode: false,
             autosave_dir: None,
             autosaver: None,
             autosaved_rev: 0,
@@ -398,6 +399,7 @@ impl SoundApp {
         crate::action_list::show(self, &ctx);
         crate::routing_matrix::show(self, &ctx);
         crate::tagging::show(self, &ctx);
+        crate::modes::first_run(self, &ctx);
         dialogs::show(self, &ctx);
         updates_ui::show(self, &ctx);
         splash::show(&mut self.splash, self.uptime, &ctx);

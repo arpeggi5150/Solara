@@ -1377,8 +1377,39 @@ pub fn picker(app: &mut SoundApp, ui: &mut Ui) {
             if let Err(e) = app.run("ui.layout", json!({"preset": preset.id()})) {
                 app.ui.status = e;
             }
-            ui.close();
+            if !app.ask_mode {
+                ui.close();
+            }
         }
+    }
+}
+
+/// On a fresh install, ask which mode to work in. Pro Tools-style is picked until another tile is; Start
+/// (or Escape) keeps the pick, which is saved with the settings, so the question comes only once.
+pub fn first_run(app: &mut SoundApp, ctx: &egui::Context) {
+    if !app.ask_mode {
+        return;
+    }
+    let t = Tokens::current();
+    let resp = egui::Modal::new(egui::Id::unique("solara_first_mode")).show(ctx, |ui| {
+        ui.label(egui::RichText::new("Welcome to Solara").font(bold(18.0)).color(t.text));
+        ui.label(
+            egui::RichText::new("How do you like to work? Pick the DAW you know best. You can change it any time with the logo at the top right.")
+                .font(regular(12.0))
+                .color(t.text_dim),
+        );
+        ui.add_space(6.0);
+        picker(app, ui);
+        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(format!("{} mode", app.ui.layout.label())).font(regular(12.0)).color(t.text));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.button(egui::RichText::new("Start").font(bold(13.0))).clicked())
+                .inner
+        })
+        .inner
+    });
+    if resp.inner || resp.should_close() {
+        app.ask_mode = false;
     }
 }
 
@@ -1654,5 +1685,34 @@ mod tests {
             }
             assert_eq!(*h.state().engine.session(), before, "{preset:?} left the session as it was");
         }
+    }
+
+    #[test]
+    fn a_fresh_install_asks_for_a_mode_once_with_pro_tools_style_picked() {
+        use egui_kittest::kittest::Queryable;
+        let _palette = crate::theme::lock_test_palette();
+        let mut h = harness();
+        assert!(h.query_by_label("Welcome to Solara").is_none(), "only a fresh install asks");
+        h.state_mut().ask_mode = true;
+        h.run_steps(3);
+        assert!(h.query_by_label("Welcome to Solara").is_some());
+        assert_eq!(h.state().ui.layout, LayoutPreset::ProToolsStyle);
+        let press = |h: &mut egui_kittest::Harness<'static, SoundApp>, label: &str| {
+            let at = h.query_by_label(label).unwrap_or_else(|| panic!("{label}")).rect().center();
+            h.hover_at(at);
+            h.step();
+            h.drag_at(at);
+            h.step();
+            h.drop_at(at);
+            h.run_steps(3);
+        };
+        // A pick changes the mode at once and the question stays open until Start.
+        press(&mut h, "Reaper-style");
+        assert_eq!(h.state().ui.layout, LayoutPreset::Reaper);
+        assert!(h.state().ask_mode);
+        press(&mut h, "Start");
+        assert!(!h.state().ask_mode);
+        assert!(h.query_by_label("Welcome to Solara").is_none());
+        assert_eq!(h.state().ui.layout, LayoutPreset::Reaper);
     }
 }

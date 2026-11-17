@@ -221,7 +221,10 @@ fn main() -> eframe::Result {
     }
 
     let engine = if demo { soundcraft_engine::demo::demo_engine() } else { new_project() };
-    let prefs = load_prefs(&env).unwrap_or_default();
+    let loaded = load_prefs(&env);
+    // No saved settings: a fresh install asks which mode to work in.
+    let fresh = env.prefs_enabled() && loaded.is_none();
+    let prefs = loaded.unwrap_or_default();
     let mut options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(concat!("Solara ", env!("CARGO_PKG_VERSION")))
@@ -264,6 +267,7 @@ fn main() -> eframe::Result {
             app.preset_dir = env.config_dir.as_ref().map(|d| d.join("Presets"));
             app.extra.ui_scale = prefs.ui_scale;
             app.ui = prefs;
+            app.ask_mode = fresh;
             if let Some(port) = control_port {
                 let rx = control_server::start(port, cc.egui_ctx.clone());
                 app = app.with_control(rx);

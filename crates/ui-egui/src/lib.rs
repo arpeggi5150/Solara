@@ -427,6 +427,9 @@ pub struct SoundApp {
     pub services: Services,
     /// Set only by a desktop host after installing an OS menu bar.
     pub native_menu_bar: bool,
+    /// A fresh install (no saved settings): ask which mode to work in, Pro Tools-style picked
+    /// until another is chosen. Set by the desktop host.
+    pub ask_mode: bool,
     /// Folder for crash-recovery autosaves (native apps set it).
     pub autosave_dir: Option<std::path::PathBuf>,
     /// Writes the open session's autosaves in the background, once there is something to write.
