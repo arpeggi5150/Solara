@@ -257,6 +257,9 @@ mod native {
         match method {
             "app.packages" => Ok(status(app)),
             "app.packages.refresh" => {
+                if app.packages_rt.fetch.is_some() {
+                    return Err("the package index is being read already; try again when `checking` is false".into());
+                }
                 if let Some(src) = p.get("index").and_then(Value::as_str) {
                     app.packages_rt.source = src.trim().to_string();
                 }
@@ -514,12 +517,13 @@ mod native {
             }
             Err(TryRecvError::Disconnected) => Err("the change stopped unexpectedly".into()),
         };
-        let (id, action) = (job.id.clone(), job.action);
+        let (id, action, fetched) = (job.id.clone(), job.action, job.bytes.load(Ordering::Relaxed));
         app.packages_rt.job = None;
-        finish(app, &id, action, done);
+        finish(app, &id, action, done, fetched);
     }
 
-    fn finish(app: &mut SoundApp, id: &str, action: Action, done: Result<Done, String>) {
+    /// `fetched`: what the job had downloaded when it ended (reported for a failed change too).
+    fn finish(app: &mut SoundApp, id: &str, action: Action, done: Result<Done, String>, fetched: u64) {
         let pkg = app.packages_rt.index.as_ref().and_then(|i| i.package(id)).cloned();
         let name = pkg.as_ref().map_or(id.to_string(), |p| p.name.clone());
         let before = app.packages_rt.found.get(id).cloned().flatten().and_then(|f| f.version);
@@ -557,7 +561,7 @@ mod native {
                 };
                 let text = format!("{name} wasn't {}: {e}.{kept}", past(action));
                 log::warn!("packages: {text}");
-                Note { ok: false, text, downloaded: 0 }
+                Note { ok: false, text, downloaded: fetched }
             }
         };
         app.packages_rt.notes.insert(id.to_string(), note);

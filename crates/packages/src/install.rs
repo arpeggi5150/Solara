@@ -205,6 +205,15 @@ pub fn sweep(root: &Path, bundles: &[String]) {
     for b in bundles {
         let Ok(rel) = safe_relative(b) else { continue };
         let base = root.join(rel);
+        // A one-file bundle (a CLAP) leaves its copies beside it: `X.clap.solara-old`.
+        if let (Some(dir), Some(name)) = (base.parent(), base.file_name().map(|n| n.to_string_lossy().into_owned())) {
+            for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                let n = e.file_name().to_string_lossy().into_owned();
+                if n.len() > name.len() && n.starts_with(&name) && is_leftover(&n) && e.file_type().is_ok_and(|t| t.is_file()) {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+        }
         let mut stack = vec![base];
         let mut budget = MAX_WALK;
         while let Some(d) = stack.pop() {
@@ -323,8 +332,9 @@ pub fn detect(pkg: &Package, platform: &str, os: Os, roots: &[PathBuf], record: 
     None
 }
 
+/// The bundle is there with at least one real file (not only a removed copy still held open).
 fn exists(root: &Path, rel: &str) -> bool {
-    safe_relative(rel).is_ok_and(|r| root.join(r).exists())
+    safe_relative(rel).is_ok_and(|r| root.join(r).exists()) && walk(root, rel).is_ok_and(|files| !files.is_empty())
 }
 
 #[cfg(test)]
@@ -497,6 +507,9 @@ mod tests {
         assert_eq!((f.root, f.version.as_deref(), f.recorded), (system.clone(), Some("1.0.1"), false));
         std::fs::write(&bin, b"an older build").unwrap();
         assert_eq!(detect(&pkg, "windows-x64", Os::Windows, &roots, &Record::default()).unwrap().version, None);
+        // Removed, with only a copy still held open left in the bundle: not installed.
+        std::fs::rename(&bin, bin.with_extension("vst3.solara-old")).unwrap();
+        assert_eq!(detect(&pkg, "windows-x64", Os::Windows, &roots, &Record::default()), None);
     }
 
     #[test]
@@ -513,6 +526,15 @@ mod tests {
         assert!(!b.join("A.vst3.solara-old").exists());
         assert!(!b.join("A.vst3.solara-old.2").exists());
         assert!(b.join("A.vst3.solara-oldie").exists());
+        // A one-file CLAP's leftovers sit beside it.
+        let c = t.0.join("CLAP");
+        std::fs::create_dir_all(&c).unwrap();
+        std::fs::write(c.join("A.clap"), b"keep").unwrap();
+        std::fs::write(c.join("A.clap.solara-old.1"), b"old").unwrap();
+        std::fs::write(c.join("B.clap.solara-old"), b"someone else's").unwrap();
+        sweep(&t.0, &["CLAP/A.clap".into()]);
+        assert!(c.join("A.clap").exists() && !c.join("A.clap.solara-old.1").exists());
+        assert!(c.join("B.clap.solara-old").exists());
         assert_eq!(bundle_of("VST3/A.vst3/Contents/x"), Some("VST3/A.vst3"));
         assert_eq!(bundle_of("CLAP/A.clap"), Some("CLAP/A.clap"));
     }
