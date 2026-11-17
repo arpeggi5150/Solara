@@ -78,6 +78,11 @@
       <Component Id="SoundcraftCli" Guid="55B03A61-2019-4A1B-B0BD-2C5D1D44EA78">
         <File Id="SoundcraftCliExe" Source="$(var.BinDir)\solara-cli.exe" KeyPath="yes" />
       </Component>
+
+      <!-- The standalone updater: swaps in a delta update after Solara has quit. -->
+      <Component Id="SolaraUpdater">
+        <File Id="SolaraUpdaterExe" Source="$(var.BinDir)\solara-updater.exe" KeyPath="yes" />
+      </Component>
     </ComponentGroup>
   </Fragment>
 </Wix>

@@ -1,5 +1,6 @@
-//! `cargo xtask <ci|test|layers|assets|parity|wasm>` — repository gates.
+//! `cargo xtask <ci|test|layers|assets|parity|wasm|version|delta>` — repository gates and release tools.
 
+mod delta;
 mod ico;
 mod version;
 
@@ -27,6 +28,7 @@ const LAYERS: &[(&str, u8)] = &[
     ("midi", 0),
     ("video", 0),
     ("asio-host", 0),
+    ("delta", 0),
     ("dsp", 1),
     ("clap-host", 1),
     ("vst3-host", 1),
@@ -39,9 +41,9 @@ const LAYERS: &[(&str, u8)] = &[
     ("ui-egui", 6),
 ];
 /// Standalone format crates: no workspace dependencies at all (publishable on their own).
-const STANDALONE: &[&str] = &["time", "audio-io", "midi", "video", "dsp"];
+const STANDALONE: &[&str] = &["time", "audio-io", "midi", "video", "dsp", "delta"];
 const UI_CRATES: &[&str] = &["craft-ui", "egui", "eframe", "winit", "egui_kittest", "rfd", "egui-wgpu", "egui_glow"];
-const EXEMPT: &[&str] = &["soundcraft", "soundcraft-cli", "soundcraft-web", "xtask"];
+const EXEMPT: &[&str] = &["soundcraft", "soundcraft-cli", "soundcraft-updater", "soundcraft-web", "xtask"];
 
 fn layers() -> Result<(), String> {
     let out =
@@ -256,7 +258,8 @@ fn main() -> ExitCode {
         Some("wasm") => wasm(),
         Some("version") => version::run(args.get(1..).unwrap_or(&[])),
         Some("ico") => ico::run(args.get(1..).unwrap_or(&[])),
-        _ => Err("usage: cargo xtask <ci|test|layers|assets|parity|wasm|version>".into()),
+        Some("delta") => delta::run(args.get(1..).unwrap_or(&[])),
+        _ => Err("usage: cargo xtask <ci|test|layers|assets|parity|wasm|version|delta>".into()),
     };
     match r {
         Ok(()) => ExitCode::SUCCESS,

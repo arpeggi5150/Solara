@@ -5,7 +5,9 @@
 .DESCRIPTION
   Produces, in $env:DIST (default: dist/release):
     solara-<version>-windows-<arch>.msi                per-machine installer (WiX v5)
-    solara-<version>-windows-<arch>-portable.zip       solara.exe + solara-cli.exe
+    solara-<version>-windows-<arch>-portable.zip       solara.exe + solara-cli.exe + solara-updater.exe
+    solara-<version>-windows-<arch>-delta-from-<old>\  with -DeltaFrom: the delta update from an older
+                                                       install (delta.json, its .sha256, payloads)
 
   The binaries link the C runtime statically (+crt-static), so neither the MSI nor the portable
   zip needs the Visual C++ redistributable. Signing is delegated to sign.ps1 (skipped with a
@@ -18,10 +20,18 @@
   pwsh packaging/windows/package.ps1 -Arch x64
   pwsh packaging/windows/package.ps1 -Arch x86 -SkipBuild
   pwsh packaging/windows/package.ps1 -Arch arm64     # cross-compiled; needs the MSVC ARM64 build tools
+  pwsh packaging/windows/package.ps1 -Arch x64 -DeltaFrom 'C:\Program Files\Zee Creations\Solara' -DeltaFromVersion 0.1.0
+
+  Incremental: nothing here cleans target\. cargo rebuilds only the crates whose sources (or
+  inputs) changed and relinks; only the small staging folders below are recreated each run.
 #>
 param(
   [ValidateSet('x64', 'x86', 'arm64')] [string] $Arch = 'x64',
-  [switch] $SkipBuild
+  [switch] $SkipBuild,
+  # An older install folder (or a copy of an older target\windows-package\<arch> folder): also
+  # write the delta update from it to this build. Needs -DeltaFromVersion.
+  [string] $DeltaFrom,
+  [string] $DeltaFromVersion
 )
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -69,22 +79,22 @@ if (-not $SkipBuild) {
     try { $null = & rustfmt --version 2>$null; $fmtOk = ($LASTEXITCODE -eq 0) } catch { $fmtOk = $false }
     if (-not $fmtOk) { throw 'rustfmt is needed to build for x64 (azo generates its bindings with it): run `rustup component add rustfmt`' }
   }
-  Invoke-Native "cargo build ($Target)" { cargo build --release --locked -p soundcraft -p soundcraft-cli --target $Target }
+  Invoke-Native "cargo build ($Target)" { cargo build --release --locked -p soundcraft -p soundcraft-cli -p soundcraft-updater --target $Target }
 }
 
 $Bin = Join-Path $TargetDir "$Target\release"
 
 # Check both binaries' PE headers before packaging. Machine (COFF header) must match -Arch, so an
 # x64 build can never ship labelled arm64. Subsystem (optional header): 2 = Windows GUI, 3 = console.
-# The app must be GUI (no console window opens with it); the CLI must stay console so its output
-# reaches the terminal.
+# The app and the updater must be GUI (no console window opens with them); the CLI must stay
+# console so its output reaches the terminal.
 function Get-PeHeader([string] $Path) {
   $bytes = [System.IO.File]::ReadAllBytes($Path)
   $pe = [BitConverter]::ToInt32($bytes, 0x3C)
   return @{ Machine = [BitConverter]::ToUInt16($bytes, $pe + 4); Subsystem = [BitConverter]::ToUInt16($bytes, $pe + 0x5C) }
 }
 $Machine = switch ($Arch) { 'x64' { 0x8664 } 'x86' { 0x14C } 'arm64' { 0xAA64 } }
-foreach ($check in @(@('soundcraft.exe', 2), @('soundcraft-cli.exe', 3))) {
+foreach ($check in @(@('soundcraft.exe', 2), @('soundcraft-cli.exe', 3), @('soundcraft-updater.exe', 2))) {
   $h = Get-PeHeader (Join-Path $Bin $check[0])
   if ($h.Machine -ne $Machine) { throw "$($check[0]) is for machine 0x$('{0:X}' -f $h.Machine), expected 0x$('{0:X}' -f $Machine) ($Arch)" }
   if ($h.Subsystem -ne $check[1]) { throw "$($check[0]) has PE subsystem $($h.Subsystem), expected $($check[1])" }
@@ -93,11 +103,13 @@ foreach ($check in @(@('soundcraft.exe', 2), @('soundcraft-cli.exe', 3))) {
 $Stage = Join-Path $TargetDir "windows-package\$Arch"
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
-# Cargo builds soundcraft.exe and soundcraft-cli.exe; Solara ships them as solara.exe and solara-cli.exe.
+# Cargo builds soundcraft.exe, soundcraft-cli.exe and soundcraft-updater.exe; Solara ships them as
+# solara.exe, solara-cli.exe and solara-updater.exe (the standalone updater for delta updates).
 Copy-Item (Join-Path $Bin 'soundcraft.exe') (Join-Path $Stage 'solara.exe')
 Copy-Item (Join-Path $Bin 'soundcraft-cli.exe') (Join-Path $Stage 'solara-cli.exe')
+Copy-Item (Join-Path $Bin 'soundcraft-updater.exe') (Join-Path $Stage 'solara-updater.exe')
 
-& (Join-Path $PSScriptRoot 'sign.ps1') (Join-Path $Stage 'solara.exe') (Join-Path $Stage 'solara-cli.exe')
+& (Join-Path $PSScriptRoot 'sign.ps1') (Join-Path $Stage 'solara.exe') (Join-Path $Stage 'solara-cli.exe') (Join-Path $Stage 'solara-updater.exe')
 
 # Required embedded-font notices ship independently of optional font inputs.
 Copy-Item -LiteralPath (Join-Path $Root 'NOTICE') -Destination $Stage
@@ -137,4 +149,18 @@ if ($Arch -ne 'arm64' -or $HostArch -eq 'arm64') {
 } else {
   Write-Output "skipping solara-cli --version: an $Arch build doesn't run on this $HostArch machine"
 }
+# ---- delta update ------------------------------------------------------------------------------
+# Made from the install folder's files (the MSI's staging folder), which both the MSI and the
+# portable zip install: only the files that changed, each a binary patch or the whole file.
+if ($DeltaFrom) {
+  if (-not $DeltaFromVersion) { throw '-DeltaFrom needs -DeltaFromVersion (the older version)' }
+  $Delta = Join-Path $Dist "solara-$Version-windows-$Arch-delta-from-$DeltaFromVersion"
+  Remove-Item -Recurse -Force $Delta -ErrorAction SilentlyContinue
+  $DeltaPlatform = "windows-$Arch"
+  Invoke-Native 'delta update' {
+    cargo run --release --locked -q -p xtask -- delta --old $DeltaFrom --new $Stage --out $Delta `
+      --from-version $DeltaFromVersion --to-version $Version --platform $DeltaPlatform
+  }
+}
+
 Get-Item $Msi, $Zip | Format-Table Name, Length

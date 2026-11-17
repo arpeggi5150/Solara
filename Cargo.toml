@@ -21,6 +21,7 @@ soundcraft-clap-host = { path = "crates/clap-host" }
 soundcraft-vst3-host = { path = "crates/vst3-host" }
 soundcraft-au-host = { path = "crates/au-host" }
 soundcraft-asio-host = { path = "crates/asio-host" }
+soundcraft-delta = { path = "crates/delta" }
 soundcraft-model = { path = "crates/model" }
 soundcraft-mix = { path = "crates/mix" }
 soundcraft-engine = { path = "crates/engine" }
@@ -51,6 +52,12 @@ zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 cpal = "0.18"
 midir = "0.11"
+
+# Delta updates (crates/delta): file hashes, and binary patches of the files that changed.
+sha2 = "0.10"
+bsdiff = "0.2"
+# The standalone updater: which processes still run from the install folder.
+sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 
 # Which file paths stored in a session may be opened.
 craft-docpath = { version = "0.1.0", git = "https://github.com/storytold/craft-libs", rev = "1b34eba41e62138fc2438d2734523b302840b45d" }

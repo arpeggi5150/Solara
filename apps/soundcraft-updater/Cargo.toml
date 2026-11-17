@@ -1,0 +1,20 @@
+[package]
+name = "soundcraft-updater"
+description = "Solara's standalone updater: waits for Solara to exit, swaps in a checked delta update, starts Solara again"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+# sysinfo 0.40 needs 1.95, as the UI crate does.
+rust-version = "1.95"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+soundcraft-delta.workspace = true
+clap.workspace = true
+sysinfo.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rfd.workspace = true
