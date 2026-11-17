@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <!-- SolPlugs=1 when package.ps1 staged the SolPlugs (SolPlugsDir holds VST3\ and CLAP\). -->
+  <?ifndef SolPlugs?>
+  <?define SolPlugs = 0?>
+  <?endif?>
   <Package Name="Solara" Manufacturer="Zee Creations LLC" Version="$(var.Version)" UpgradeCode="9A433B22-0986-44D8-AB8A-3AD549F94686" Scope="perUserOrMachine" Compressed="yes" Language="1033">
     <SummaryInformation Description="Solara digital audio workstation" Manufacturer="Zee Creations LLC" />
     <?include $(sys.SOURCEFILEDIR)install-policy.wxi?>
@@ -23,6 +27,43 @@
     <Feature Id="Main" Title="Solara" Level="1">
       <ComponentGroupRef Id="SoundcraftFiles" />
     </Feature>
+<?if $(var.SolPlugs) = 1 ?>
+    <!-- "Install SolPlugs?": every SolPlug as a native VST3 and CLAP plugin, in the folders every DAW
+         scans (Common Files for everyone; %LOCALAPPDATA%\Programs\Common for Only for me), so they
+         work in Reaper and other DAWs too. Solara's package browser updates them one by one later.
+         Silent installs take them unless INSTALL_SOLPLUGS=0. -->
+    <Property Id="INSTALL_SOLPLUGS" Value="1" Secure="yes" />
+    <Feature Id="SolPlugs" Title="SolPlugs" Description="VST3 and CLAP plugins for Solara, Reaper and other DAWs" Level="1" AllowAbsent="yes">
+      <Level Value="0" Condition="INSTALL_SOLPLUGS = &quot;0&quot;" />
+      <ComponentGroupRef Id="SolPlugsFiles" />
+    </Feature>
+    <StandardDirectory Id="CommonFiles64Folder">
+      <Directory Id="SOLPLUGSROOT" Name=".">
+        <Directory Id="SOLPLUGSVST3" Name="VST3" />
+        <Directory Id="SOLPLUGSCLAP" Name="CLAP" />
+      </Directory>
+    </StandardDirectory>
+    <!-- Only for me: this account's plugin folder, which needs no administrator. -->
+    <SetProperty Id="SOLPLUGSROOT" Action="SolPlugsUserRoot" Value="[LocalAppDataFolder]Programs\Common\" Before="CostFinalize" Sequence="both" Condition="ALLUSERS &lt;&gt; 1" />
+    <UI>
+      <Dialog Id="SolPlugsDlg" Width="370" Height="220" Title="[ProductName] Setup" NoMinimize="yes">
+        <Control Id="Title" Type="Text" X="20" Y="15" Width="330" Height="30" Text="{\CraftScopeTitle}Install SolPlugs?" />
+        <Control Id="Info" Type="Text" X="20" Y="50" Width="330" Height="90" Text="{\CraftScopeText}SolPlugs are the plugins that come with Solara: $(var.SolPlugsNames).&#xD;&#xA;&#xD;&#xA;They install as VST3 and CLAP plugins, so they work in Reaper and other DAWs too, not just in Solara. You can add, update or remove them later in Solara: Window &gt; SolPlugs Packages." />
+        <Control Id="Yes" Type="PushButton" X="144" Y="182" Width="66" Height="20" Default="yes" Text="Yes">
+          <Publish Property="INSTALL_SOLPLUGS" Value="1" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+        <Control Id="No" Type="PushButton" X="214" Y="182" Width="66" Height="20" Text="No">
+          <Publish Property="INSTALL_SOLPLUGS" Value="0" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="290" Y="182" Width="60" Height="20" Cancel="yes" Text="Cancel"><Publish Event="EndDialog" Value="Exit" /></Control>
+      </Dialog>
+    </UI>
+    <InstallUISequence>
+      <Show Dialog="SolPlugsDlg" After="CraftScopeDlg" Condition="NOT Installed AND NOT REMOVE AND UILevel = 5" />
+    </InstallUISequence>
+<?endif?>
   <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     <UI>
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed" />
@@ -85,4 +126,12 @@
       </Component>
     </ComponentGroup>
   </Fragment>
+<?if $(var.SolPlugs) = 1 ?>
+  <Fragment>
+    <ComponentGroup Id="SolPlugsFiles">
+      <Files Directory="SOLPLUGSVST3" Include="$(var.SolPlugsDir)\VST3\**" />
+      <Files Directory="SOLPLUGSCLAP" Include="$(var.SolPlugsDir)\CLAP\**" />
+    </ComponentGroup>
+  </Fragment>
+<?endif?>
 </Wix>

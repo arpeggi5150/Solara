@@ -6526,6 +6526,8 @@ version = "0.1.1"
 dependencies = [
  "serde_json",
  "soundcraft-delta",
+ "soundcraft-packages",
+ "zip",
 ]
 
 [[package]]

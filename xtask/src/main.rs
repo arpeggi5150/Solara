@@ -1,7 +1,8 @@
-//! `cargo xtask <ci|test|layers|assets|parity|wasm|version|delta>` — repository gates and release tools.
+//! `cargo xtask <ci|test|layers|assets|parity|wasm|version|delta|package-entry>` — repository gates and release tools.
 
 mod delta;
 mod ico;
+mod package_entry;
 mod version;
 
 use std::collections::BTreeSet;
@@ -260,7 +261,8 @@ fn main() -> ExitCode {
         Some("version") => version::run(args.get(1..).unwrap_or(&[])),
         Some("ico") => ico::run(args.get(1..).unwrap_or(&[])),
         Some("delta") => delta::run(args.get(1..).unwrap_or(&[])),
-        _ => Err("usage: cargo xtask <ci|test|layers|assets|parity|wasm|version|delta>".into()),
+        Some("package-entry") => package_entry::run(args.get(1..).unwrap_or(&[])),
+        _ => Err("usage: cargo xtask <ci|test|layers|assets|parity|wasm|version|delta|package-entry>".into()),
     };
     match r {
         Ok(()) => ExitCode::SUCCESS,
