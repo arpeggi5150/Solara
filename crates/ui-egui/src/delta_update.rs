@@ -56,6 +56,8 @@ mod native {
         phase: Phase,
         /// How the last update went, read once at start from the updater's report.
         notice: Option<UpdateResult>,
+        /// The report's file, deleted once the notice is closed (so it shows until someone sees it).
+        notice_file: Option<PathBuf>,
         notice_read: bool,
     }
 
@@ -225,10 +227,13 @@ mod native {
                     Ok(r) => {
                         log::info!("last update: {}", r.message);
                         app.delta_rt.notice = Some(r);
+                        app.delta_rt.notice_file = Some(path.clone());
                     }
-                    Err(e) => log::warn!("{e}"),
+                    Err(e) => {
+                        log::warn!("{e}");
+                        let _ = std::fs::remove_file(&path);
+                    }
                 }
-                let _ = std::fs::remove_file(&path);
                 // The staging folders of finished updates: the updater can't delete its own copy.
                 for dir in std::fs::read_dir(path.parent().unwrap_or(Path::new(""))).into_iter().flatten().flatten() {
                     if dir.file_type().is_ok_and(|t| t.is_dir()) {
@@ -300,7 +305,11 @@ mod native {
             if matches!(rt.phase, Phase::Failed(_)) {
                 rt.phase = Phase::Idle;
             }
-            rt.notice = None;
+            if rt.notice.take().is_some()
+                && let Some(f) = rt.notice_file.take()
+            {
+                let _ = std::fs::remove_file(f);
+            }
         }
     }
 

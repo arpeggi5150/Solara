@@ -50,7 +50,8 @@ The release publishes `delta.json` with its SHA-256 (`delta.json.sha256`), and t
      Files) is swapped by an administrator copy of the updater (Windows asks for permission);
    - writes how it went to `Updates\last-result.json` and starts Solara again with the session
      that was open: the new version, or the old one when the update was cancelled or refused.
-     Solara shows the result once at its next start and deletes the finished staging folders.
+     Solara shows the result at its next start until it is closed, and deletes the finished
+     staging folders.
 
 Any failed check refuses the update and leaves the installed version as it was, still working.
 
